@@ -26,6 +26,7 @@
     },
 
     "StarterPack": {
+      "$ignoreUnknownInstances": true,
       "$path": "src/starterpack"
     }
   }

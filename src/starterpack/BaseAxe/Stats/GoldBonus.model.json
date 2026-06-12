@@ -1,3 +1,6 @@
 {
-  "ClassName": "NumberValue"
+  "ClassName": "NumberValue",
+  "Properties": {
+    "Value": 1
+  }
 }
