@@ -1,1 +1,3 @@
-print("Hello world, from client!")
+local autoSwingUI = require(script:WaitForChild("AutoSwingUI"))
+
+autoSwingUI.start()
