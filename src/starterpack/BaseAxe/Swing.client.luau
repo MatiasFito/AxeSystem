@@ -1,5 +1,9 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local tool = script.Parent
 local animationsFolder = tool:WaitForChild("Animations")
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 
 local randomGenerator = Random.new()
 
@@ -13,9 +17,6 @@ local animationNames = {
 local soundName = "SwingSound"
 local soundId = "rbxassetid://541909763"
 local soundVolume = 2
-local minPlaybackSpeed = 0.8
-local maxPlaybackSpeed = 1.2
-local minSwingDuration = 0.35
 
 local animator = nil
 local swingSound = nil
@@ -210,17 +211,26 @@ tool.Activated:Connect(function()
 
 	stoppedConnection = nextTrack.Stopped:Connect(finishSwing)
 
-	nextTrack:Play(0.05, 1, 1)
+	local baseDuration = nextTrack.Length
+
+	if baseDuration <= 0 then
+		baseDuration = swingSpeed.DEFAULT_BASE_SWING_DURATION
+	end
+
+	local desiredSwingSpeed = swingSpeed.getToolSwingSpeed(tool)
+	local playbackSpeed = swingSpeed.getPlaybackSpeed(baseDuration, desiredSwingSpeed)
+
+	nextTrack:Play(0.05, 1, playbackSpeed)
 
 	local sound = swingSound or ensureSwingSound()
 
 	if sound then
 		sound:Stop()
 		sound.TimePosition = 0
-		sound.PlaybackSpeed = randomGenerator:NextNumber(minPlaybackSpeed, maxPlaybackSpeed)
+		sound.PlaybackSpeed = playbackSpeed
 		sound:Play()
 	end
 
-	local fallbackDuration = math.max(nextTrack.Length, minSwingDuration) + 0.05
+	local fallbackDuration = swingSpeed.getSwingFinishDelay(baseDuration, desiredSwingSpeed)
 	task.delay(fallbackDuration, finishSwing)
 end)

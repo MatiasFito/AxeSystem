@@ -1,11 +1,13 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 
 local GUI_NAME = "AutoSwingGui"
 local BUTTON_NAME = "ToggleButton"
 local TOOL_NAME = "BaseAxe"
-local AUTO_SWING_INTERVAL = 0.4
 
 local AUTO_ON_COLOR = Color3.fromRGB(78, 168, 106)
 local AUTO_OFF_COLOR = Color3.fromRGB(180, 95, 95)
@@ -63,9 +65,10 @@ local function runAutoSwing(currentRunnerId)
 
 		if tool then
 			tool:Activate()
+			task.wait(swingSpeed.getAutoSwingInterval(tool))
+		else
+			task.wait(swingSpeed.MIN_EFFECTIVE_SWING_DURATION)
 		end
-
-		task.wait(AUTO_SWING_INTERVAL)
 	end
 end
 

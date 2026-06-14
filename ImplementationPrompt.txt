@@ -1,0 +1,59 @@
+I’m building a Roblox upgrade system for axe swing speed and I want you to implement it using an additive approach, not compounding percentages.
+
+Current design context:
+- Base swing animation duration is 0.5 seconds
+- Minimum effective swing duration is 0.1 seconds
+- Therefore the max useful total swing-speed multiplier is 5.0x, because 0.5 / 5.0 = 0.1
+- My swing system already uses a SwingSpeed multiplier and derives effective duration from it
+- Effective swing duration should always be: baseDuration / totalMultiplier
+- Then clamp so it never goes below 0.1 seconds
+
+What I want:
+- Implement swing-speed upgrades as additive contributions to the total multiplier
+- Do not use compounding percent growth
+- Keep one source of truth for the final total swing-speed multiplier
+- The total multiplier should be built from multiple additive sources, because later I will have:
+  - axe upgrades
+  - meta progression upgrades
+  - gamepasses
+  - possibly other systems
+
+Axe upgrade track requirements:
+- Axe swing-speed upgrade track has 15 levels
+- Level 0 should mean no bonus
+- Level 15 should reach the full cap for this track
+- Use this formula for the axe upgrade contribution:
+  - totalMultiplier = 1.0 + (4.0 * level / 15)
+- That means:
+  - level 0 = 1.0x
+  - level 15 = 5.0x
+- This is an additive progression model designed to feel strong early and slower later in actual swing duration, because duration shrinks by division
+
+Important implementation rules:
+- Keep the upgrade math separate from UI and purchase flow
+- Put the swing-speed calculation in a shared/module layer
+- Make it easy to plug multiple sources into the final multiplier later
+- Prefer something like:
+  - baseMultiplier = 1.0
+  - axeBonus = 4.0 * level / 15
+  - metaBonus = ...
+  - gamepassBonus = ...
+  - totalMultiplier = baseMultiplier + axeBonus + metaBonus + gamepassBonus + otherBonuses
+- Then clamp final effective duration to the 0.1 second minimum
+- If needed, also clamp multiplier indirectly by respecting the minimum duration floor
+
+What I want from you:
+1. Review the existing swing-speed code structure
+2. Implement the additive upgrade architecture cleanly
+3. Make the axe upgrade track use the 15-level formula above
+4. Keep the code future-proof for meta progression and gamepass additive bonuses
+5. Update any auto-swing timing so it uses the same final multiplier
+6. Explain the final architecture briefly and clearly
+
+What I do NOT want in this task:
+- Do not design the full meta progression system yet
+- Do not design monetization logic yet
+- Do not invent compounding formulas
+- Do not scatter swing-speed math across multiple unrelated scripts
+
+If any part of the current code conflicts with this additive model, refactor toward a single shared swing-speed calculation.
