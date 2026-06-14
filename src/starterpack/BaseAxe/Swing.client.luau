@@ -14,9 +14,11 @@ local animationNames = {
 	"AxeSlash4",
 }
 
+local autoSwingAttributeName = "AutoSwingHeld"
 local soundName = "SwingSound"
 local soundId = "rbxassetid://541909763"
 local soundVolume = 2
+local swingReleasePollInterval = 0.01
 
 local animator = nil
 local swingSound = nil
@@ -24,6 +26,11 @@ local animationTracks = {}
 local activeTrack = nil
 local lastPlayedIndex = nil
 local isSwinging = false
+local manualHoldActive = false
+local autoHoldActive = tool:GetAttribute(autoSwingAttributeName) == true
+local repeatLoopId = 0
+local repeatLoopRunning = false
+local lastRepeatDelay = swingSpeed.DEFAULT_BASE_SWING_DURATION
 
 local function getCharacter()
 	local parent = tool.Parent
@@ -133,6 +140,15 @@ local function releaseSwing(track)
 	end
 end
 
+local function shouldKeepSwinging()
+	return manualHoldActive or autoHoldActive
+end
+
+local function stopRepeatLoop()
+	repeatLoopId += 1
+	repeatLoopRunning = false
+end
+
 local function refreshRuntimeState()
 	if not ensureAnimator() then
 		return false
@@ -145,46 +161,28 @@ local function refreshRuntimeState()
 	return loadAnimationTracks()
 end
 
-tool.Equipped:Connect(function()
-	stopActiveTrack()
-	isSwinging = false
-	refreshRuntimeState()
-end)
-
-tool.Unequipped:Connect(function()
-	if swingSound then
-		swingSound:Stop()
-	end
-
-	stopActiveTrack()
-	isSwinging = false
-	animator = nil
-	lastPlayedIndex = nil
-	table.clear(animationTracks)
-end)
-
-tool.Activated:Connect(function()
+local function attemptSwing()
 	if isSwinging then
-		return
+		return false, lastRepeatDelay
 	end
 
 	if #animationTracks == 0 and not refreshRuntimeState() then
 		warn("BaseAxe could not load swing animations")
-		return
+		return false, lastRepeatDelay
 	end
 
 	local nextIndex = chooseNextTrackIndex()
 
 	if not nextIndex then
 		warn("BaseAxe has no swing animations available")
-		return
+		return false, lastRepeatDelay
 	end
 
 	local nextTrack = animationTracks[nextIndex]
 
 	if not nextTrack then
 		warn("BaseAxe selected an invalid swing animation track")
-		return
+		return false, lastRepeatDelay
 	end
 
 	isSwinging = true
@@ -219,7 +217,9 @@ tool.Activated:Connect(function()
 
 	local desiredSwingSpeed = swingSpeed.getToolSwingSpeed(tool)
 	local playbackSpeed = swingSpeed.getPlaybackSpeed(baseDuration, desiredSwingSpeed)
+	local effectiveDuration = swingSpeed.getEffectiveSwingDuration(baseDuration, desiredSwingSpeed)
 
+	lastRepeatDelay = effectiveDuration
 	nextTrack:Play(0.05, 1, playbackSpeed)
 
 	local sound = swingSound or ensureSwingSound()
@@ -233,4 +233,89 @@ tool.Activated:Connect(function()
 
 	local fallbackDuration = swingSpeed.getSwingFinishDelay(baseDuration, desiredSwingSpeed)
 	task.delay(fallbackDuration, finishSwing)
+
+	return true, effectiveDuration
+end
+
+local function runRepeatLoop(currentLoopId)
+	while repeatLoopId == currentLoopId and shouldKeepSwinging() and getCharacter() do
+		task.wait(lastRepeatDelay)
+
+		while repeatLoopId == currentLoopId and shouldKeepSwinging() and getCharacter() and isSwinging do
+			task.wait(swingReleasePollInterval)
+		end
+
+		if repeatLoopId ~= currentLoopId or not shouldKeepSwinging() or not getCharacter() then
+			break
+		end
+
+		attemptSwing()
+	end
+
+	if repeatLoopId == currentLoopId then
+		repeatLoopRunning = false
+	end
+end
+
+local function startRepeatLoop()
+	if repeatLoopRunning or not shouldKeepSwinging() or not getCharacter() then
+		return
+	end
+
+	repeatLoopId += 1
+	repeatLoopRunning = true
+	local currentLoopId = repeatLoopId
+
+	task.spawn(runRepeatLoop, currentLoopId)
+end
+
+local function syncAutoHoldState()
+	autoHoldActive = tool:GetAttribute(autoSwingAttributeName) == true
+
+	if autoHoldActive then
+		attemptSwing()
+		startRepeatLoop()
+	elseif not manualHoldActive then
+		stopRepeatLoop()
+	end
+end
+
+tool.Equipped:Connect(function()
+	stopActiveTrack()
+	isSwinging = false
+	lastRepeatDelay = swingSpeed.DEFAULT_BASE_SWING_DURATION
+	refreshRuntimeState()
+	syncAutoHoldState()
 end)
+
+tool.Unequipped:Connect(function()
+	if swingSound then
+		swingSound:Stop()
+	end
+
+	manualHoldActive = false
+	autoHoldActive = false
+	stopRepeatLoop()
+	stopActiveTrack()
+	isSwinging = false
+	animator = nil
+	lastPlayedIndex = nil
+	lastRepeatDelay = swingSpeed.DEFAULT_BASE_SWING_DURATION
+	table.clear(animationTracks)
+end)
+
+tool.Activated:Connect(function()
+	manualHoldActive = true
+	attemptSwing()
+	startRepeatLoop()
+end)
+
+tool.Deactivated:Connect(function()
+	manualHoldActive = false
+
+	if not autoHoldActive then
+		stopRepeatLoop()
+	end
+end)
+
+tool:GetAttributeChangedSignal(autoSwingAttributeName):Connect(syncAutoHoldState)

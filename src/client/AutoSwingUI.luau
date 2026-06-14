@@ -1,13 +1,11 @@
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
-local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
-local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 
 local GUI_NAME = "AutoSwingGui"
 local BUTTON_NAME = "ToggleButton"
 local TOOL_NAME = "BaseAxe"
+local AUTO_SWING_ATTRIBUTE_NAME = "AutoSwingHeld"
 
 local AUTO_ON_COLOR = Color3.fromRGB(78, 168, 106)
 local AUTO_OFF_COLOR = Color3.fromRGB(180, 95, 95)
@@ -19,11 +17,13 @@ local AutoSwingUI = {}
 
 local started = false
 local autoSwingEnabled = false
-local runnerId = 0
 
 local screenGui = nil
 local toggleButton = nil
 local stateLabel = nil
+local trackedTool = nil
+local childAddedConnection = nil
+local childRemovedConnection = nil
 
 local function getCharacter()
 	return player.Character
@@ -59,40 +59,36 @@ local function updateButtonVisuals()
 	end
 end
 
-local function runAutoSwing(currentRunnerId)
-	while autoSwingEnabled and runnerId == currentRunnerId do
-		local tool = getEquippedBaseAxe()
-
-		if tool then
-			tool:Activate()
-			task.wait(swingSpeed.getAutoSwingInterval(tool))
-		else
-			task.wait(swingSpeed.MIN_EFFECTIVE_SWING_DURATION)
-		end
+local function setToolAutoSwing(tool, enabled)
+	if tool and tool:IsA("Tool") then
+		tool:SetAttribute(AUTO_SWING_ATTRIBUTE_NAME, enabled)
 	end
 end
 
-local function startAutoSwingLoop()
-	runnerId += 1
-	local currentRunnerId = runnerId
+local function syncAutoSwingOnEquippedTool()
+	local equippedTool = getEquippedBaseAxe()
 
-	task.spawn(runAutoSwing, currentRunnerId)
+	if trackedTool and trackedTool ~= equippedTool then
+		setToolAutoSwing(trackedTool, false)
+	end
+
+	trackedTool = equippedTool
+
+	if trackedTool then
+		setToolAutoSwing(trackedTool, autoSwingEnabled)
+	end
 end
 
 local function setAutoSwingEnabled(enabled)
 	if autoSwingEnabled == enabled then
 		updateButtonVisuals()
+		syncAutoSwingOnEquippedTool()
 		return
 	end
 
 	autoSwingEnabled = enabled
 	updateButtonVisuals()
-
-	if autoSwingEnabled then
-		startAutoSwingLoop()
-	else
-		runnerId += 1
-	end
+	syncAutoSwingOnEquippedTool()
 end
 
 local function toggleAutoSwing()
@@ -168,6 +164,38 @@ local function buildGui()
 	updateButtonVisuals()
 end
 
+local function connectCharacter(character)
+	if childAddedConnection then
+		childAddedConnection:Disconnect()
+		childAddedConnection = nil
+	end
+
+	if childRemovedConnection then
+		childRemovedConnection:Disconnect()
+		childRemovedConnection = nil
+	end
+
+	trackedTool = nil
+
+	if not character then
+		return
+	end
+
+	childAddedConnection = character.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") then
+			syncAutoSwingOnEquippedTool()
+		end
+	end)
+
+	childRemovedConnection = character.ChildRemoved:Connect(function(child)
+		if child:IsA("Tool") then
+			syncAutoSwingOnEquippedTool()
+		end
+	end)
+
+	syncAutoSwingOnEquippedTool()
+end
+
 function AutoSwingUI.start()
 	if started then
 		return
@@ -175,9 +203,11 @@ function AutoSwingUI.start()
 
 	started = true
 	buildGui()
+	connectCharacter(player.Character)
 
-	player.CharacterAdded:Connect(function()
+	player.CharacterAdded:Connect(function(character)
 		updateButtonVisuals()
+		connectCharacter(character)
 	end)
 end
 
