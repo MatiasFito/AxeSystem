@@ -25,6 +25,11 @@
       }
     },
 
+    "Workspace": {
+      "$ignoreUnknownInstances": true,
+      "$path": "src/workspace"
+    },
+
     "StarterPack": {
       "$ignoreUnknownInstances": true,
       "$path": "src/starterpack"
