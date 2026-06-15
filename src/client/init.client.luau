@@ -1,5 +1,11 @@
 local autoSwingUI = require(script:WaitForChild("AutoSwingUI"))
+local blacksmithZoneController = require(script:WaitForChild("BlacksmithZoneController"))
+local goldTester = require(script:WaitForChild("GoldTester"))
 local swingSpeedPad = require(script:WaitForChild("SwingSpeedPad"))
 
 autoSwingUI.start()
+blacksmithZoneController.start()
+goldTester.start(function()
+	blacksmithZoneController.refreshState()
+end)
 swingSpeedPad.start()

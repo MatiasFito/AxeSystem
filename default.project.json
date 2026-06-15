@@ -17,6 +17,10 @@
       }
     },
 
+    "ServerStorage": {
+      "$path": "src/serverstorage"
+    },
+
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "Client": {
@@ -28,11 +32,6 @@
     "Workspace": {
       "$ignoreUnknownInstances": true,
       "$path": "src/workspace"
-    },
-
-    "StarterPack": {
-      "$ignoreUnknownInstances": true,
-      "$path": "src/starterpack"
     }
   }
 }

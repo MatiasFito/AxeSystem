@@ -1,10 +1,12 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 
 local GUI_NAME = "AutoSwingGui"
 local BUTTON_NAME = "ToggleButton"
-local TOOL_NAME = "BaseAxe"
 local AUTO_SWING_ATTRIBUTE_NAME = "AutoSwingHeld"
 
 local AUTO_ON_COLOR = Color3.fromRGB(78, 168, 106)
@@ -29,17 +31,17 @@ local function getCharacter()
 	return player.Character
 end
 
-local function getEquippedBaseAxe()
+local function getEquippedAxe()
 	local character = getCharacter()
 
 	if not character then
 		return nil
 	end
 
-	local tool = character:FindFirstChild(TOOL_NAME)
-
-	if tool and tool:IsA("Tool") then
-		return tool
+	for _, child in character:GetChildren() do
+		if axeConfig.isAxeTool(child) then
+			return child
+		end
 	end
 
 	return nil
@@ -66,7 +68,7 @@ local function setToolAutoSwing(tool, enabled)
 end
 
 local function syncAutoSwingOnEquippedTool()
-	local equippedTool = getEquippedBaseAxe()
+	local equippedTool = getEquippedAxe()
 
 	if trackedTool and trackedTool ~= equippedTool then
 		setToolAutoSwing(trackedTool, false)
@@ -182,13 +184,13 @@ local function connectCharacter(character)
 	end
 
 	childAddedConnection = character.ChildAdded:Connect(function(child)
-		if child:IsA("Tool") then
+		if axeConfig.isAxeTool(child) then
 			syncAutoSwingOnEquippedTool()
 		end
 	end)
 
 	childRemovedConnection = character.ChildRemoved:Connect(function(child)
-		if child:IsA("Tool") then
+		if axeConfig.isAxeTool(child) then
 			syncAutoSwingOnEquippedTool()
 		end
 	end)

@@ -1,11 +1,13 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 
 local GUI_NAME = "SwingSpeedPadGui"
 local PART_NAME = "SwingSpeedPad"
-local TOOL_NAME = "BaseAxe"
 local BUTTON_VALUES = { 1, 2, 3, 4, 5 }
 local PART_WAIT_TIMEOUT = 10
 
@@ -34,7 +36,7 @@ local function getBackpack()
 end
 
 local function isBaseAxe(tool)
-	return tool:IsA("Tool") and tool.Name == TOOL_NAME
+	return axeConfig.isAxeTool(tool)
 end
 
 local function setToolSwingSpeed(tool)

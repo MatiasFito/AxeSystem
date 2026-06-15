@@ -1,0 +1,14 @@
+{
+  "ClassName": "Part",
+  "Properties": {
+    "Anchored": true,
+    "CanCollide": false,
+    "CanQuery": true,
+    "CanTouch": false,
+    "Color": [0.5647058824, 0.3921568627, 0.2549019608],
+    "Material": "WoodPlanks",
+    "Position": [16, 3, -35],
+    "Size": [14, 6, 14],
+    "Transparency": 1
+  }
+}
