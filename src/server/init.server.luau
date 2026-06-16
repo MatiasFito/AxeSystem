@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 
 local axeService = require(script:WaitForChild("AxeService"))
 local blacksmithService = require(script:WaitForChild("BlacksmithService"))
+local orbOfRegretService = require(script:WaitForChild("OrbOfRegretService"))
 local playerData = require(script:WaitForChild("PlayerData"))
 
 local function syncPlayerAxe(player)
@@ -33,6 +34,7 @@ end
 
 playerData.start()
 blacksmithService.start(playerData, axeService)
+orbOfRegretService.start(playerData, axeService)
 
 for _, player in Players:GetPlayers() do
 	task.spawn(onPlayerAdded, player)

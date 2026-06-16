@@ -1,15 +1,16 @@
-local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
+local dataStoreRegistry = require(script.Parent:WaitForChild("DataStoreRegistry"))
 
 local PlayerData = {}
 
 local playerStates = {}
 local dataStore = nil
 local started = false
+local DATASTORE_DEFINITION_NAME = "PlayerProgression"
 
 local function isFiniteNumber(value)
 	return typeof(value) == "number" and value == value and value > -math.huge and value < math.huge
@@ -130,7 +131,7 @@ local function serializeState(state)
 end
 
 local function getDataStoreKey(player)
-	return string.format("%s%s", blacksmithConstants.DATASTORE_KEY_PREFIX, player.UserId)
+	return dataStoreRegistry.getPlayerKey(DATASTORE_DEFINITION_NAME, player)
 end
 
 local function ensureLeaderstats(player)
@@ -174,7 +175,7 @@ function PlayerData.start()
 	end
 
 	started = true
-	dataStore = DataStoreService:GetDataStore(blacksmithConstants.DATASTORE_NAME)
+	dataStore = dataStoreRegistry.getStore(DATASTORE_DEFINITION_NAME)
 end
 
 function PlayerData.isLoaded(player)
@@ -229,6 +230,21 @@ function PlayerData.setAxeTierId(player, tierId)
 	state.AxeTierId = ensureValidTierId(tierId)
 	state.IsDirty = true
 	return true
+end
+
+function PlayerData.resetPlayerData(player)
+	local success, failures = dataStoreRegistry.clearPlayerData(player)
+
+	if not success then
+		return false, failures
+	end
+
+	local state = buildDefaultState()
+	state.IsDirty = false
+	playerStates[player] = state
+	syncLeaderstats(player, state)
+
+	return true, state
 end
 
 function PlayerData.loadPlayer(player)
