@@ -106,6 +106,10 @@ local function closeShop()
 	blacksmithUI.close()
 end
 
+local function dismissShopWhileInside()
+	blacksmithUI.close()
+end
+
 local function updateZoneState()
 	local part = blacksmithZoneUtils.getBlacksmithPart()
 	local isInZone = part ~= nil and blacksmithZoneUtils.isCharacterInZone(player.Character, part)
@@ -145,6 +149,7 @@ function BlacksmithZoneController.start()
 	end
 
 	blacksmithUI.setUpgradeHandler(requestUpgrade)
+	blacksmithUI.setCloseHandler(dismissShopWhileInside)
 
 	player.CharacterAdded:Connect(function()
 		closeShop()

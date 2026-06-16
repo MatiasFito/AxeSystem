@@ -14,7 +14,8 @@ local BORDER_COLOR = Color3.fromRGB(228, 211, 187)
 local LABEL_COLOR = Color3.fromRGB(248, 242, 230)
 local SUBTLE_COLOR = Color3.fromRGB(216, 201, 183)
 local BUTTON_COLOR = Color3.fromRGB(167, 96, 49)
-local BUTTON_DISABLED_COLOR = Color3.fromRGB(105, 86, 72)
+local BUTTON_DISABLED_COLOR = Color3.fromRGB(157, 62, 62)
+local CLOSE_BUTTON_COLOR = Color3.fromRGB(198, 58, 58)
 local ERROR_COLOR = Color3.fromRGB(255, 196, 196)
 
 local BlacksmithUI = {}
@@ -31,9 +32,13 @@ local currentGoldBonusLabel = nil
 local nextGoldBonusLabel = nil
 local statusLabel = nil
 local upgradeButton = nil
+local closeButton = nil
+local currentTitleLabel = nil
+local nextTitleLabel = nil
 local currentNextTierId = nil
 local buttonBaseText = "Upgrade"
 local upgradeHandler = nil
+local closeHandler = nil
 local isBusy = false
 local canAttemptUpgrade = false
 
@@ -78,11 +83,34 @@ local function handleUpgradeActivated()
 	upgradeHandler(currentNextTierId)
 end
 
+local function handleCloseActivated()
+	if closeHandler then
+		closeHandler()
+		return
+	end
+
+	BlacksmithUI.close()
+end
+
+local function createSectionTitle(parent, text)
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Position = UDim2.fromScale(0, 0)
+	label.Size = UDim2.fromScale(1, 0.26)
+	label.Font = Enum.Font.GothamBlack
+	label.Text = text
+	label.TextColor3 = LABEL_COLOR
+	label.TextScaled = true
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = parent
+	return label
+end
+
 local function createStatLabel(parent, position)
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
 	label.Position = position
-	label.Size = UDim2.fromScale(1, 0.42)
+	label.Size = UDim2.fromScale(1, 0.24)
 	label.Font = Enum.Font.GothamBold
 	label.TextColor3 = LABEL_COLOR
 	label.TextScaled = true
@@ -142,12 +170,34 @@ local function ensureGui()
 	axeNameLabel = Instance.new("TextLabel")
 	axeNameLabel.Name = "AxeName"
 	axeNameLabel.BackgroundTransparency = 1
-	axeNameLabel.Position = UDim2.fromOffset(24, 24)
-	axeNameLabel.Size = UDim2.new(1, -48, 0, 44)
+	axeNameLabel.Position = UDim2.fromOffset(0, 24)
+	axeNameLabel.Size = UDim2.new(1, 0, 0, 44)
 	axeNameLabel.Font = Enum.Font.GothamBlack
 	axeNameLabel.TextColor3 = LABEL_COLOR
 	axeNameLabel.TextScaled = true
 	axeNameLabel.Parent = rootFrame
+
+	closeButton = Instance.new("TextButton")
+	closeButton.Name = "CloseButton"
+	closeButton.AnchorPoint = Vector2.new(0.5, 0.5)
+	closeButton.Position = UDim2.fromScale(1, 0)
+	closeButton.Size = UDim2.fromOffset(42, 42)
+	closeButton.BackgroundColor3 = CLOSE_BUTTON_COLOR
+	closeButton.BorderSizePixel = 0
+	closeButton.Font = Enum.Font.GothamBlack
+	closeButton.Text = "X"
+	closeButton.TextColor3 = LABEL_COLOR
+	closeButton.TextScaled = true
+	closeButton.Parent = rootFrame
+
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = UDim.new(0, 12)
+	closeCorner.Parent = closeButton
+
+	local closeStroke = Instance.new("UIStroke")
+	closeStroke.Color = BORDER_COLOR
+	closeStroke.Thickness = 1.5
+	closeStroke.Parent = closeButton
 
 	descriptionLabel = Instance.new("TextLabel")
 	descriptionLabel.Name = "Description"
@@ -164,8 +214,8 @@ local function ensureGui()
 	axeImageLabel.Name = "AxeImage"
 	axeImageLabel.BackgroundTransparency = 1
 	axeImageLabel.AnchorPoint = Vector2.new(0.5, 0)
-	axeImageLabel.Position = UDim2.new(0.5, 0, 0, 120)
-	axeImageLabel.Size = UDim2.fromOffset(220, 150)
+	axeImageLabel.Position = UDim2.new(0.5, 0, 0, 112)
+	axeImageLabel.Size = UDim2.fromOffset(180, 118)
 	axeImageLabel.ScaleType = Enum.ScaleType.Fit
 	axeImageLabel.Image = ""
 	axeImageLabel.Parent = rootFrame
@@ -173,26 +223,28 @@ local function ensureGui()
 	local currentStatsFrame = Instance.new("Frame")
 	currentStatsFrame.Name = "CurrentStats"
 	currentStatsFrame.BackgroundTransparency = 1
-	currentStatsFrame.Position = UDim2.fromOffset(34, 295)
-	currentStatsFrame.Size = UDim2.new(0.44, 0, 0, 92)
+	currentStatsFrame.Position = UDim2.fromOffset(34, 248)
+	currentStatsFrame.Size = UDim2.new(0.42, 0, 0, 120)
 	currentStatsFrame.Parent = rootFrame
 
 	local nextStatsFrame = Instance.new("Frame")
 	nextStatsFrame.Name = "NextStats"
 	nextStatsFrame.BackgroundTransparency = 1
-	nextStatsFrame.Position = UDim2.new(0.56, 0, 0, 295)
-	nextStatsFrame.Size = UDim2.new(0.38, 0, 0, 92)
+	nextStatsFrame.Position = UDim2.new(0.56, 0, 0, 248)
+	nextStatsFrame.Size = UDim2.new(0.34, 0, 0, 120)
 	nextStatsFrame.Parent = rootFrame
 
-	currentPowerLabel = createStatLabel(currentStatsFrame, UDim2.fromScale(0, 0))
-	nextPowerLabel = createStatLabel(nextStatsFrame, UDim2.fromScale(0, 0))
-	currentGoldBonusLabel = createStatLabel(currentStatsFrame, UDim2.fromScale(0, 0.52))
-	nextGoldBonusLabel = createStatLabel(nextStatsFrame, UDim2.fromScale(0, 0.52))
+	currentTitleLabel = createSectionTitle(currentStatsFrame, "Current")
+	nextTitleLabel = createSectionTitle(nextStatsFrame, "Next")
+	currentPowerLabel = createStatLabel(currentStatsFrame, UDim2.fromScale(0, 0.34))
+	nextPowerLabel = createStatLabel(nextStatsFrame, UDim2.fromScale(0, 0.34))
+	currentGoldBonusLabel = createStatLabel(currentStatsFrame, UDim2.fromScale(0, 0.66))
+	nextGoldBonusLabel = createStatLabel(nextStatsFrame, UDim2.fromScale(0, 0.66))
 
 	statusLabel = Instance.new("TextLabel")
 	statusLabel.Name = "Status"
 	statusLabel.BackgroundTransparency = 1
-	statusLabel.Position = UDim2.fromOffset(36, 394)
+	statusLabel.Position = UDim2.fromOffset(36, 376)
 	statusLabel.Size = UDim2.new(1, -72, 0, 44)
 	statusLabel.Font = Enum.Font.GothamBold
 	statusLabel.TextScaled = true
@@ -203,7 +255,7 @@ local function ensureGui()
 	upgradeButton.Name = "UpgradeButton"
 	upgradeButton.AnchorPoint = Vector2.new(0.5, 1)
 	upgradeButton.Position = UDim2.new(0.5, 0, 1, -26)
-	upgradeButton.Size = UDim2.fromOffset(430, 68)
+	upgradeButton.Size = UDim2.fromOffset(344, 54)
 	upgradeButton.BackgroundColor3 = BUTTON_COLOR
 	upgradeButton.BorderSizePixel = 0
 	upgradeButton.Font = Enum.Font.GothamBlack
@@ -221,12 +273,18 @@ local function ensureGui()
 	buttonStroke.Parent = upgradeButton
 
 	upgradeButton.Activated:Connect(handleUpgradeActivated)
+	closeButton.Activated:Connect(handleCloseActivated)
 	updateButtonVisualState(false)
 end
 
 function BlacksmithUI.setUpgradeHandler(callback)
 	ensureGui()
 	upgradeHandler = callback
+end
+
+function BlacksmithUI.setCloseHandler(callback)
+	ensureGui()
+	closeHandler = callback
 end
 
 function BlacksmithUI.setBusy(nextBusy)
@@ -257,13 +315,14 @@ function BlacksmithUI.renderState(state)
 	axeNameLabel.Text = currentAxe.name
 	descriptionLabel.Text = currentAxe.description
 	axeImageLabel.Image = currentAxe.imageId or ""
-	currentPowerLabel.Text = string.format("Power (%s)", formatPower(currentAxe.power))
-	currentGoldBonusLabel.Text = string.format("Gold Bonus (%s%%)", formatGoldBonus(currentAxe.goldMultiplier))
+	currentTitleLabel.Text = "Current"
+	nextTitleLabel.Text = "Next"
+	currentPowerLabel.Text = string.format("Power: %s", formatPower(currentAxe.power))
+	currentGoldBonusLabel.Text = string.format("Gold Bonus: %s%%", formatGoldBonus(currentAxe.goldMultiplier))
 
 	if nextAxe then
-		nextPowerLabel.Text = string.format("Next Level: Power (%s)", formatPower(nextAxe.power))
-		nextGoldBonusLabel.Text =
-			string.format("Next Level: Gold Bonus (%s%%)", formatGoldBonus(nextAxe.goldMultiplier))
+		nextPowerLabel.Text = string.format("Power: %s", formatPower(nextAxe.power))
+		nextGoldBonusLabel.Text = string.format("Gold Bonus: %s%%", formatGoldBonus(nextAxe.goldMultiplier))
 		buttonBaseText = string.format("Upgrade - %s Gold", tostring(nextAxe.cost))
 		currentNextTierId = state.nextTierId
 		canAttemptUpgrade = state.canUpgrade == true
@@ -274,8 +333,8 @@ function BlacksmithUI.renderState(state)
 			setStatus(blacksmithConstants.getFailureMessage(blacksmithConstants.FailureReason.InsufficientGold), false)
 		end
 	else
-		nextPowerLabel.Text = "Next Level: Maxed Out"
-		nextGoldBonusLabel.Text = "Next Level: Maxed Out"
+		nextPowerLabel.Text = "Power: Maxed"
+		nextGoldBonusLabel.Text = "Gold Bonus: Maxed"
 		buttonBaseText = "Maxed"
 		currentNextTierId = nil
 		canAttemptUpgrade = false
