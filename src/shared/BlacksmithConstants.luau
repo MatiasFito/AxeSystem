@@ -14,8 +14,6 @@ BlacksmithConstants.REMOTE_FOLDER_NAME = "Remotes"
 BlacksmithConstants.BLACKSMITH_REMOTE_FOLDER_NAME = "Blacksmith"
 BlacksmithConstants.GET_STATE_REMOTE_NAME = "GetBlacksmithState"
 BlacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME = "RequestAxeUpgrade"
-BlacksmithConstants.ADD_TEST_GOLD_REMOTE_NAME = "AddTestGold"
-BlacksmithConstants.TEST_GOLD_AMOUNT = 500
 
 BlacksmithConstants.FailureReason = {
 	NotInRange = "notInRange",

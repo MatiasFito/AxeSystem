@@ -1,5 +1,4 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
@@ -177,31 +176,6 @@ local function handleUpgrade(player, requestedTierId)
 		},
 	}
 end
-
-local function handleAddTestGold(player)
-	if not RunService:IsStudio() then
-		return {
-			success = false,
-			message = "Test gold is only available in Studio.",
-		}
-	end
-
-	if not playerData.isLoaded(player) then
-		return buildFailure(blacksmithConstants.FailureReason.DataNotLoaded)
-	end
-
-	local success, goldAfter = playerData.addGold(player, blacksmithConstants.TEST_GOLD_AMOUNT)
-
-	if not success then
-		return buildFailure(blacksmithConstants.FailureReason.DataNotLoaded)
-	end
-
-	return {
-		success = true,
-		gold = goldAfter,
-	}
-end
-
 function BlacksmithService.start(playerDataModule, axeServiceModule)
 	if started then
 		return
@@ -218,12 +192,9 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 		getOrCreateChild(blacksmithFolder, blacksmithConstants.GET_STATE_REMOTE_NAME, "RemoteFunction")
 	local requestUpgradeRemote =
 		getOrCreateChild(blacksmithFolder, blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME, "RemoteFunction")
-	local addTestGoldRemote =
-		getOrCreateChild(blacksmithFolder, blacksmithConstants.ADD_TEST_GOLD_REMOTE_NAME, "RemoteFunction")
 
 	getStateRemote.OnServerInvoke = handleGetState
 	requestUpgradeRemote.OnServerInvoke = handleUpgrade
-	addTestGoldRemote.OnServerInvoke = handleAddTestGold
 end
 
 return BlacksmithService

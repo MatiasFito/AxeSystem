@@ -219,19 +219,6 @@ function PlayerData.setGold(player, gold)
 	return true
 end
 
-function PlayerData.addGold(player, amount)
-	local state = playerStates[player]
-
-	if not state or not state.IsLoaded then
-		return false, nil
-	end
-
-	state.Gold = normalizeGold(state.Gold + amount)
-	state.IsDirty = true
-	syncLeaderstats(player, state)
-	return true, state.Gold
-end
-
 function PlayerData.setAxeTierId(player, tierId)
 	local state = playerStates[player]
 
