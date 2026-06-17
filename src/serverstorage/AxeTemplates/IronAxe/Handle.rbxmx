@@ -100,31 +100,6 @@
 			<int64 name="SourceAssetId">-1</int64>
 			<BinaryString name="Tags"></BinaryString>
 		</Properties>
-		<Item class="Sound" referent="RBX6E51E29594EF4EC0932F7EDB42FCB9D7">
-			<Properties>
-				<bool name="AcousticSimulationEnabled">true</bool>
-				<NumberRange name="LoopRegion">0 60000 </NumberRange>
-				<bool name="Looped">false</bool>
-				<bool name="PlayOnRemove">false</bool>
-				<NumberRange name="PlaybackRegion">0 60000 </NumberRange>
-				<bool name="PlaybackRegionsEnabled">false</bool>
-				<float name="PlaybackSpeed">1</float>
-				<bool name="Playing">false</bool>
-				<float name="RollOffMaxDistance">25</float>
-				<float name="RollOffMinDistance">10</float>
-				<token name="RollOffMode">0</token>
-				<Ref name="SoundGroup">null</Ref>
-				<Content name="SoundId"><url>rbxassetid://541909763</url></Content>
-				<double name="TimePosition">0</double>
-				<float name="Volume">2</float>
-				<BinaryString name="AttributesSerialize"></BinaryString>
-				<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
-				<bool name="DefinesCapabilities">false</bool>
-				<string name="Name">SwingSound</string>
-				<int64 name="SourceAssetId">-1</int64>
-				<BinaryString name="Tags"></BinaryString>
-			</Properties>
-		</Item>
 		<Item class="Attachment" referent="RBX77C8B55B4B324287AF85A7B33778DD5F">
 			<Properties>
 				<CoordinateFrame name="CFrame">

@@ -7,8 +7,21 @@ local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstan
 
 local AxeService = {}
 
+local DEFAULTS_FOLDER_NAME = "AxeDefaults"
+local OVERRIDES_FOLDER_NAME = "AxeOverrides"
+local DEFAULT_TOOL_CHILDREN_FOLDER_NAME = "ToolChildren"
+local DEFAULT_HANDLE_CHILDREN_FOLDER_NAME = "HandleChildren"
+
 local function getTemplatesFolder()
 	return ServerStorage:WaitForChild(blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME)
+end
+
+local function getDefaultsFolder()
+	return ServerStorage:WaitForChild(DEFAULTS_FOLDER_NAME)
+end
+
+local function getOverridesFolder()
+	return ServerStorage:FindFirstChild(OVERRIDES_FOLDER_NAME)
 end
 
 local function getTierAndTemplate(tierId)
@@ -65,6 +78,61 @@ local function ensureNumberValue(parent, name, value)
 	return numberValue
 end
 
+local function applyManagedChildren(sourceParent, targetParent, replaceExisting)
+	if not sourceParent or not targetParent then
+		return
+	end
+
+	for _, child in sourceParent:GetChildren() do
+		local existingChild = targetParent:FindFirstChild(child.Name)
+
+		if existingChild then
+			if not replaceExisting then
+				continue
+			end
+
+			existingChild:Destroy()
+		end
+
+		child:Clone().Parent = targetParent
+	end
+end
+
+local function applyBehaviorAssets(tool, tier)
+	local defaultsFolder = getDefaultsFolder()
+	local defaultToolChildren = defaultsFolder:FindFirstChild(DEFAULT_TOOL_CHILDREN_FOLDER_NAME)
+
+	if defaultToolChildren and defaultToolChildren:IsA("Folder") then
+		applyManagedChildren(defaultToolChildren, tool, true)
+	end
+
+	local handle = tool:FindFirstChild("Handle")
+	local defaultHandleChildren = defaultsFolder:FindFirstChild(DEFAULT_HANDLE_CHILDREN_FOLDER_NAME)
+
+	if handle and handle:IsA("BasePart") and defaultHandleChildren and defaultHandleChildren:IsA("Folder") then
+		applyManagedChildren(defaultHandleChildren, handle, true)
+	end
+
+	local overridesFolder = getOverridesFolder()
+	local axeOverrideFolder = overridesFolder and overridesFolder:FindFirstChild(tier.Id)
+
+	if not axeOverrideFolder or not axeOverrideFolder:IsA("Folder") then
+		return
+	end
+
+	local overrideToolChildren = axeOverrideFolder:FindFirstChild(DEFAULT_TOOL_CHILDREN_FOLDER_NAME)
+
+	if overrideToolChildren and overrideToolChildren:IsA("Folder") then
+		applyManagedChildren(overrideToolChildren, tool, true)
+	end
+
+	local overrideHandleChildren = axeOverrideFolder:FindFirstChild(DEFAULT_HANDLE_CHILDREN_FOLDER_NAME)
+
+	if handle and handle:IsA("BasePart") and overrideHandleChildren and overrideHandleChildren:IsA("Folder") then
+		applyManagedChildren(overrideHandleChildren, handle, true)
+	end
+end
+
 local function configureTool(tool, tier)
 	tool.Name = tier.Id
 	tool:SetAttribute(blacksmithConstants.IS_AXE_TOOL_ATTRIBUTE, true)
@@ -117,6 +185,7 @@ function AxeService.grantAxe(player, tierId, equipTool)
 	AxeService.removePlayerAxes(player)
 
 	local tool = template:Clone()
+	applyBehaviorAssets(tool, tier)
 	configureTool(tool, tier)
 	tool.Parent = backpack
 

@@ -1,0 +1,12 @@
+{
+  "ClassName": "Sound",
+  "Properties": {
+    "Name": "SwingSound",
+    "Looped": false,
+    "PlaybackSpeed": 1,
+    "RollOffMaxDistance": 25,
+    "RollOffMinDistance": 10,
+    "SoundId": "rbxassetid://541909763",
+    "Volume": 2
+  }
+}
