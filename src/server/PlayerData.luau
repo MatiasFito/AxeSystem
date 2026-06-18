@@ -31,7 +31,7 @@ local function normalizeTimestamp(value)
 		return nil
 	end
 
-	return math.max(0, math.floor(value))
+	return math.max(0, value)
 end
 
 local function cloneTreePlotState(plotState)

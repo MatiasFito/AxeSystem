@@ -24,6 +24,7 @@ TreeConstants.TREE_REMOTE_FOLDER_NAME = "Trees"
 TreeConstants.GET_STATE_REMOTE_NAME = "GetTreeState"
 TreeConstants.REQUEST_HIT_REMOTE_NAME = "RequestTreeHit"
 TreeConstants.STATE_UPDATED_REMOTE_NAME = "TreeStateUpdated"
+TreeConstants.HIT_FEEDBACK_REMOTE_NAME = "TreeHitFeedback"
 
 TreeConstants.PlotState = {
 	Locked = "Locked",

@@ -22,9 +22,14 @@ local runtimeFolder = nil
 local getTreeStateRemote = nil
 local requestTreeHitRemote = nil
 local treeStateUpdatedRemote = nil
+local treeHitFeedbackRemote = nil
 
 local runtimeByPlayer = {}
 local promptConnectionsByPlot = {}
+
+local function getServerNow()
+	return Workspace:GetServerTimeNow()
+end
 
 local function getOrCreateChild(parent, name, className)
 	local child = parent:FindFirstChild(name)
@@ -297,7 +302,7 @@ local function buildStatePayload(player, changedPlotIds)
 	return {
 		success = true,
 		state = {
-			serverTime = os.time(),
+			serverTime = getServerNow(),
 			plotSetId = plotSetId,
 			plots = plotSnapshots,
 		},
@@ -314,6 +319,14 @@ local function pushStateUpdate(player, changedPlotIds)
 	if payload.success then
 		treeStateUpdatedRemote:FireClient(player, payload.state)
 	end
+end
+
+local function pushHitFeedback(player, payload)
+	if not treeHitFeedbackRemote then
+		return
+	end
+
+	treeHitFeedbackRemote:FireClient(player, payload)
 end
 
 local function ensurePlotPrompt(plotRecord)
@@ -472,9 +485,9 @@ local function materializePlot(player, plotId)
 
 	destroySpawnedTree(runtimePlotState)
 
-	local growingUntil = plotState.GrowingUntil or os.time()
+	local growingUntil = plotState.GrowingUntil or getServerNow()
 
-	if growingUntil <= os.time() then
+	if growingUntil <= getServerNow() then
 		local updatedPlotState = {
 			PlotId = plotState.PlotId,
 			TreeId = plotState.TreeId,
@@ -495,7 +508,7 @@ local function materializePlot(player, plotId)
 	runtimePlotState.ReadyTaskToken = token
 	updatePromptForPlot(player, plotId)
 
-	task.delay(growingUntil - os.time(), function()
+	task.delay(math.max(0, growingUntil - getServerNow()), function()
 		local activeRuntimeState = runtimeByPlayer[player]
 		local activePlotState = activeRuntimeState and activeRuntimeState.Plots[plotId]
 
@@ -609,7 +622,7 @@ local function attemptUnlock(player, plotId)
 		Unlocked = true,
 		Level = 1,
 		State = treeConstants.PlotState.Growing,
-		GrowingUntil = os.time() + levelData.GrowTime,
+		GrowingUntil = getServerNow() + levelData.GrowTime,
 	})
 
 	materializePlot(player, plotId)
@@ -680,7 +693,7 @@ local function attemptUpgrade(player, plotId)
 	}
 
 	if plotState.State == treeConstants.PlotState.Growing then
-		updatedPlotState.GrowingUntil = os.time() + nextLevelData.GrowTime
+		updatedPlotState.GrowingUntil = getServerNow() + nextLevelData.GrowTime
 	end
 
 	playerData.setTreePlot(player, plotId, updatedPlotState)
@@ -764,9 +777,19 @@ local function handleTreeHit(player, plotId)
 	end
 
 	local power = math.max(1, math.floor(getToolStatValue(tool, "Power", 1)))
-	runtimePlotState.CurrentHealth -= power
+	local actualDamage = math.min(runtimePlotState.CurrentHealth, power)
+	runtimePlotState.CurrentHealth -= actualDamage
 
 	if runtimePlotState.CurrentHealth > 0 then
+		pushHitFeedback(player, {
+			plotId = plotId,
+			treeId = tree.Id,
+			treeName = tree.Name,
+			kind = "hit",
+			damage = actualDamage,
+			currentHealth = runtimePlotState.CurrentHealth,
+			maxHealth = levelData.Health,
+		})
 		return
 	end
 
@@ -781,7 +804,20 @@ local function handleTreeHit(player, plotId)
 		Unlocked = true,
 		Level = plotState.Level,
 		State = treeConstants.PlotState.Growing,
-		GrowingUntil = os.time() + levelData.GrowTime,
+		GrowingUntil = getServerNow() + levelData.GrowTime,
+	})
+
+	pushHitFeedback(player, {
+		plotId = plotId,
+		treeId = tree.Id,
+		treeName = tree.Name,
+		kind = "felled",
+		damage = actualDamage,
+		currentHealth = 0,
+		maxHealth = levelData.Health,
+		reward = reward,
+		goldAfter = currentGold + reward,
+		regrowDuration = levelData.GrowTime,
 	})
 
 	materializePlot(player, plotId)
@@ -805,6 +841,7 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	getTreeStateRemote = getOrCreateChild(treesFolder, treeConstants.GET_STATE_REMOTE_NAME, "RemoteFunction")
 	requestTreeHitRemote = getOrCreateChild(treesFolder, treeConstants.REQUEST_HIT_REMOTE_NAME, "RemoteEvent")
 	treeStateUpdatedRemote = getOrCreateChild(treesFolder, treeConstants.STATE_UPDATED_REMOTE_NAME, "RemoteEvent")
+	treeHitFeedbackRemote = getOrCreateChild(treesFolder, treeConstants.HIT_FEEDBACK_REMOTE_NAME, "RemoteEvent")
 
 	getTreeStateRemote.OnServerInvoke = handleGetState
 	requestTreeHitRemote.OnServerEvent:Connect(handleTreeHit)
