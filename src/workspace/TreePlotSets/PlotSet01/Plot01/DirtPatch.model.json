@@ -1,0 +1,22 @@
+{
+  "ClassName": "Part",
+  "Properties": {
+    "Anchored": true,
+    "BackSurface": "Studs",
+    "CanCollide": true,
+    "CanQuery": true,
+    "CanTouch": true,
+    "Color": [0.4274509804, 0.2784313725, 0.1764705882],
+    "BottomSurface": "Studs",
+    "FrontSurface": "Studs",
+    "LeftSurface": "Studs",
+    "Material": "Plastic",
+    "Position": [0, 1, 0],
+    "RightSurface": "Studs",
+    "Size": [14, 2, 14],
+    "TopSurface": "Studs"
+  },
+  "Attributes": {
+    "PlotId": "Plot01"
+  }
+}

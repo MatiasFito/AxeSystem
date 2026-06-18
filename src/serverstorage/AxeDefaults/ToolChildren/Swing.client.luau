@@ -1,9 +1,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local tool = script.Parent
 local animationsFolder = tool:WaitForChild("Animations")
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
+local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 
 local randomGenerator = Random.new()
 
@@ -19,6 +21,8 @@ local soundName = "SwingSound"
 local soundId = "rbxassetid://541909763"
 local soundVolume = 2
 local swingReleasePollInterval = 0.01
+local treeHitRange = 18
+local treeHitRemote = nil
 
 local animator = nil
 local swingSound = nil
@@ -40,6 +44,81 @@ local function getCharacter()
 	end
 
 	return nil
+end
+
+local function getRootPart()
+	local character = getCharacter()
+
+	if not character then
+		return nil
+	end
+
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+
+	if rootPart and rootPart:IsA("BasePart") then
+		return rootPart
+	end
+
+	return nil
+end
+
+local function resolveTreeHitRemote()
+	if treeHitRemote and treeHitRemote.Parent then
+		return treeHitRemote
+	end
+
+	local remotesFolder = ReplicatedStorage:FindFirstChild(treeConstants.REMOTE_FOLDER_NAME)
+	local treesFolder = remotesFolder and remotesFolder:FindFirstChild(treeConstants.TREE_REMOTE_FOLDER_NAME)
+	local remote = treesFolder and treesFolder:FindFirstChild(treeConstants.REQUEST_HIT_REMOTE_NAME)
+
+	if remote and remote:IsA("RemoteEvent") then
+		treeHitRemote = remote
+		return treeHitRemote
+	end
+
+	return nil
+end
+
+local function findTreePlotIdCandidate()
+	local rootPart = getRootPart()
+
+	if not rootPart then
+		return nil
+	end
+
+	local nearestPlotId = nil
+	local nearestDistance = treeHitRange
+
+	for _, descendant in Workspace:GetDescendants() do
+		if descendant:IsA("BasePart") and descendant:GetAttribute(treeConstants.IS_MANAGED_TREE_ATTRIBUTE) == true then
+			local plotId = descendant:GetAttribute(treeConstants.TREE_PLOT_ID_ATTRIBUTE)
+
+			if typeof(plotId) == "string" then
+				local distance = (descendant.Position - rootPart.Position).Magnitude
+
+				if distance <= nearestDistance then
+					nearestDistance = distance
+					nearestPlotId = plotId
+				end
+			end
+		end
+	end
+
+	return nearestPlotId
+end
+
+local function reportTreeHit()
+	local remote = resolveTreeHitRemote()
+
+	if not remote then
+		return
+	end
+
+	local plotId = findTreePlotIdCandidate()
+
+	if plotId then
+		remote:FireServer(plotId)
+	end
 end
 
 local function ensureAnimator()
@@ -221,6 +300,7 @@ local function attemptSwing()
 
 	lastRepeatDelay = effectiveDuration
 	nextTrack:Play(0.05, 1, playbackSpeed)
+	task.delay(math.max(0.03, math.min(0.12, effectiveDuration * 0.35)), reportTreeHit)
 
 	local sound = swingSound or ensureSwingSound()
 

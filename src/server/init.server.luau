@@ -4,6 +4,8 @@ local axeService = require(script:WaitForChild("AxeService"))
 local blacksmithService = require(script:WaitForChild("BlacksmithService"))
 local orbOfRegretService = require(script:WaitForChild("OrbOfRegretService"))
 local playerData = require(script:WaitForChild("PlayerData"))
+local treePlotService = require(script:WaitForChild("TreePlotService"))
+local treeService = require(script:WaitForChild("TreeService"))
 
 local function syncPlayerAxe(player)
 	local state = playerData.getState(player)
@@ -26,15 +28,19 @@ local function onPlayerAdded(player)
 
 	playerData.loadPlayer(player)
 	syncPlayerAxe(player)
+	treeService.onPlayerAdded(player)
 end
 
 local function onPlayerRemoving(player)
+	treeService.onPlayerRemoving(player)
 	playerData.removePlayer(player)
 end
 
 playerData.start()
+treePlotService.start()
 blacksmithService.start(playerData, axeService)
-orbOfRegretService.start(playerData, axeService)
+treeService.start(playerData, treePlotService, axeService)
+orbOfRegretService.start(playerData, axeService, treeService)
 
 for _, player in Players:GetPlayers() do
 	task.spawn(onPlayerAdded, player)

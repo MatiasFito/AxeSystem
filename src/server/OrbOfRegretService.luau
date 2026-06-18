@@ -10,21 +10,12 @@ local OrbOfRegretService = {}
 local started = false
 local playerData = nil
 local axeService = nil
+local treeService = nil
 
 local ORB_NAME = "OrbOfRegret"
-local ORB_OFFSET = Vector3.new(10, 3, 0)
+local ORB_POSITION = Vector3.new(-30, 3.5, 0)
 local ORB_SIZE = Vector3.new(4, 4, 4)
 local ORB_COLOR = Color3.fromRGB(255, 94, 214)
-
-local function getSpawnAnchorPosition()
-	local spawnLocation = Workspace:FindFirstChildOfClass("SpawnLocation")
-
-	if spawnLocation then
-		return spawnLocation.Position
-	end
-
-	return Vector3.new(0, 0, 0)
-end
 
 local function ensureOrb()
 	local existingOrb = Workspace:FindFirstChild(ORB_NAME)
@@ -49,7 +40,7 @@ local function ensureOrb()
 	orb.CanTouch = false
 	orb.CanQuery = true
 	orb.Size = ORB_SIZE
-	orb.Position = getSpawnAnchorPosition() + ORB_OFFSET
+	orb.Position = ORB_POSITION
 
 	local prompt = orb:FindFirstChildOfClass("ProximityPrompt")
 
@@ -91,9 +82,13 @@ local function handleTriggered(player)
 	if not axeSuccess then
 		warn(string.format("OrbOfRegret failed to regrant default axe to %s: %s", player.Name, tostring(axeResult)))
 	end
+
+	if treeService and not treeService.onPlayerDataReset(player) then
+		warn(string.format("OrbOfRegret failed to refresh tree state for %s", player.Name))
+	end
 end
 
-function OrbOfRegretService.start(playerDataModule, axeServiceModule)
+function OrbOfRegretService.start(playerDataModule, axeServiceModule, treeServiceModule)
 	if started then
 		return
 	end
@@ -101,6 +96,7 @@ function OrbOfRegretService.start(playerDataModule, axeServiceModule)
 	started = true
 	playerData = playerDataModule
 	axeService = axeServiceModule
+	treeService = treeServiceModule
 
 	local _, prompt = ensureOrb()
 	prompt.Triggered:Connect(handleTriggered)
