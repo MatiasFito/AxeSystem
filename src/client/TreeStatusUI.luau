@@ -416,6 +416,7 @@ local function renderPlotCard(plot)
 	local card = ensurePlotCard(plot.plotId)
 	local accentColor, baseProgress = getCardColors(plot)
 	local titleSuffix = plot.unlocked and string.format("Lv.%d", plot.level) or "Locked"
+	local levelStats = plot.stats or {}
 	card.Root.LayoutOrder = plot.plotOrder
 	card.TitleLabel.Text = string.format("%s  %s", plot.treeName, titleSuffix)
 	card.MeterFill.BackgroundColor3 = accentColor
@@ -427,25 +428,19 @@ local function renderPlotCard(plot)
 		return
 	end
 
+	card.FooterLabel.Text =
+		string.format("HP %s  Reward %s", formatGold(levelStats.health), formatGold(levelStats.reward))
+
 	if plot.state == treeConstants.PlotState.Growing then
-		local levelStats = plot.stats or {}
 		local maxGrowTime = math.max(0.01, levelStats.growTime or 0.01)
 		local remaining = math.max(0, (plot.growingUntil or 0) - getEstimatedServerTime())
 		local progress = math.clamp(1 - (remaining / maxGrowTime), 0, 1)
 		card.DetailLabel.Text = string.format("Growing  %s", formatSeconds(remaining))
-		card.FooterLabel.Text =
-			string.format("HP %s  Reward %s", formatGold(levelStats.health), formatGold(levelStats.reward))
 		card.MeterFill.Size = UDim2.fromScale(progress, 1)
 		return
 	end
 
 	card.DetailLabel.Text = "Ready to chop"
-
-	if plot.isMaxLevel then
-		card.FooterLabel.Text = string.format("Reward %s  Max level", formatGold(plot.stats and plot.stats.reward))
-	else
-		card.FooterLabel.Text = string.format("Upgrade %s Gold", formatGold(plot.upgradeCost))
-	end
 
 	card.MeterFill.Size = UDim2.fromScale(1, 1)
 end

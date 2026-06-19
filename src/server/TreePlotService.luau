@@ -57,7 +57,6 @@ local function buildPlotRecord(plotSetId, plotModel)
 
 	local dirtPatch = resolvePlotChild(plotModel, treeConstants.DIRT_PATCH_NAME)
 	local treeSpawn = resolvePlotChild(plotModel, treeConstants.TREE_SPAWN_NAME)
-	local promptHost = resolvePlotChild(plotModel, treeConstants.PROMPT_HOST_NAME) or dirtPatch
 
 	if not dirtPatch or not dirtPatch:IsA("BasePart") then
 		return nil, string.format("Plot '%s' is missing a BasePart named '%s'", plotId, treeConstants.DIRT_PATCH_NAME)
@@ -67,10 +66,6 @@ local function buildPlotRecord(plotSetId, plotModel)
 		return nil, string.format("Plot '%s' is missing '%s'", plotId, treeConstants.TREE_SPAWN_NAME)
 	end
 
-	if not promptHost or not (promptHost:IsA("BasePart") or promptHost:IsA("Attachment")) then
-		return nil, string.format("Plot '%s' is missing a valid prompt host", plotId)
-	end
-
 	return {
 		PlotSetId = plotSetId,
 		PlotId = tree.PlotId,
@@ -78,7 +73,6 @@ local function buildPlotRecord(plotSetId, plotModel)
 		Model = plotModel,
 		DirtPatch = dirtPatch,
 		TreeSpawn = treeSpawn,
-		PromptHost = promptHost,
 	},
 		nil
 end

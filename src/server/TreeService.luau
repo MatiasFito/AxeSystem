@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
@@ -12,6 +13,21 @@ local TreeService = {}
 local PLOT_INTERACTION_DISTANCE = 14
 local TREE_HIT_DISTANCE = 16
 local HIT_COOLDOWN_SECONDS = 0.18
+local TREE_MIN_SCALE = 0.05
+local TREE_DEAD_SCALE = 0.5
+local TREE_GROWTH_STEP_SECONDS = 0.05
+local TREE_READY_BOUNCE_STEP_SECONDS = 0.04
+local TREE_HARVEST_RESPAWN_DELAY = 0.18
+local TREE_HIT_SOUND_ID = "rbxassetid://136507037003210"
+local TREE_DEATH_SOUND_ID = "rbxassetid://7214256592"
+local TREE_READY_BOUNCE_SCALES = { 1.08, 0.96, 1 }
+local UNLOCK_BUTTON_COLOR_READY = Color3.fromRGB(255, 255, 255)
+local UNLOCK_BUTTON_COLOR_LOCKED = Color3.fromRGB(126, 126, 126)
+local UNLOCK_BUTTON_BASE_COLOR_READY = Color3.fromRGB(70, 145, 65)
+local UNLOCK_BUTTON_BASE_COLOR_LOCKED = Color3.fromRGB(92, 92, 92)
+local UNLOCK_BUTTON_TOUCH_COOLDOWN = 0.3
+local UNLOCK_BUTTON_EDGE_OFFSET = 3.5
+local UNLOCK_BUTTON_SCALE = 1.25
 
 local started = false
 local playerData = nil
@@ -21,11 +37,13 @@ local axeService = nil
 local runtimeFolder = nil
 local getTreeStateRemote = nil
 local requestTreeHitRemote = nil
+local requestTreeUpgradeRemote = nil
 local treeStateUpdatedRemote = nil
 local treeHitFeedbackRemote = nil
 
 local runtimeByPlayer = {}
-local promptConnectionsByPlot = {}
+local updatePromptForPlot = nil
+local attemptUnlock = nil
 
 local function getServerNow()
 	return Workspace:GetServerTimeNow()
@@ -172,9 +190,16 @@ local function getRuntimePlotState(player, plotId)
 
 	runtimePlotState = {
 		CurrentHealth = nil,
+		FullHealth = nil,
 		SpawnedTreeModel = nil,
+		UnlockButtonModel = nil,
+		UnlockTouchConnection = nil,
+		LastUnlockTouchAt = 0,
 		ReadyTaskToken = 0,
 		LastAcceptedHitAt = 0,
+		AnimationToken = 0,
+		VisualState = nil,
+		VisualScale = 1,
 	}
 	runtimeState.Plots[plotId] = runtimePlotState
 	return runtimePlotState
@@ -184,13 +209,39 @@ local function clearScheduledReady(runtimePlotState)
 	runtimePlotState.ReadyTaskToken += 1
 end
 
+local function beginVisualAnimation(runtimePlotState)
+	runtimePlotState.AnimationToken += 1
+	return runtimePlotState.AnimationToken
+end
+
 local function destroySpawnedTree(runtimePlotState)
+	beginVisualAnimation(runtimePlotState)
+	runtimePlotState.VisualState = nil
+	runtimePlotState.VisualScale = 1
+	runtimePlotState.FullHealth = nil
+	runtimePlotState.CurrentHealth = nil
+
 	if runtimePlotState.SpawnedTreeModel and runtimePlotState.SpawnedTreeModel.Parent then
 		runtimePlotState.SpawnedTreeModel:Destroy()
 	end
 
 	runtimePlotState.SpawnedTreeModel = nil
-	runtimePlotState.CurrentHealth = nil
+end
+
+local function destroyUnlockButton(runtimePlotState)
+	if runtimePlotState.UnlockTouchConnection then
+		runtimePlotState.UnlockTouchConnection:Disconnect()
+		runtimePlotState.UnlockTouchConnection = nil
+	end
+
+	if runtimePlotState.UnlockButtonModel and runtimePlotState.UnlockButtonModel.Parent then
+		runtimePlotState.UnlockButtonModel:Destroy()
+	end
+
+	runtimePlotState.UnlockButtonModel = nil
+	if runtimePlotState.LastUnlockTouchAt == nil then
+		runtimePlotState.LastUnlockTouchAt = 0
+	end
 end
 
 local function buildFailure(reason, state)
@@ -329,82 +380,394 @@ local function pushHitFeedback(player, payload)
 	treeHitFeedbackRemote:FireClient(player, payload)
 end
 
-local function ensurePlotPrompt(plotRecord)
-	local promptParent = plotRecord.PromptHost
-	local prompt = promptParent:FindFirstChild(treeConstants.PLOT_PROMPT_NAME)
-
-	if prompt and prompt:IsA("ProximityPrompt") then
-		return prompt
-	end
-
-	if prompt then
-		prompt:Destroy()
-	end
-
-	prompt = Instance.new("ProximityPrompt")
-	prompt.Name = treeConstants.PLOT_PROMPT_NAME
-	prompt.Parent = promptParent
-	prompt.RequiresLineOfSight = false
-	prompt.MaxActivationDistance = PLOT_INTERACTION_DISTANCE
-	prompt.HoldDuration = 0.35
-	return prompt
+local function setAllSurfacesStuds(part)
+	part.TopSurface = Enum.SurfaceType.Studs
+	part.BottomSurface = Enum.SurfaceType.Studs
+	part.LeftSurface = Enum.SurfaceType.Studs
+	part.RightSurface = Enum.SurfaceType.Studs
+	part.FrontSurface = Enum.SurfaceType.Studs
+	part.BackSurface = Enum.SurfaceType.Studs
 end
 
-local function ensurePromptConnection(plotRecord)
-	if promptConnectionsByPlot[plotRecord] then
+local function getTouchingPlayer(hit)
+	if not hit then
+		return nil
+	end
+
+	local character = hit.Parent
+
+	if not character then
+		return nil
+	end
+
+	return Players:GetPlayerFromCharacter(character)
+end
+
+local function getHorizontalDirection(vector)
+	local flattened = Vector3.new(vector.X, 0, vector.Z)
+
+	if flattened.Magnitude <= 0.001 then
+		return Vector3.new(0, 0, -1)
+	end
+
+	return flattened.Unit
+end
+
+local function getPartExtentAlongDirection(part, direction)
+	local unitDirection = direction.Unit
+	local rightVector = part.CFrame.RightVector
+	local upVector = part.CFrame.UpVector
+	local lookVector = part.CFrame.LookVector
+	local halfSize = part.Size * 0.5
+
+	return math.abs(unitDirection:Dot(rightVector)) * halfSize.X
+		+ math.abs(unitDirection:Dot(upVector)) * halfSize.Y
+		+ math.abs(unitDirection:Dot(lookVector)) * halfSize.Z
+end
+
+local function createUnlockButtonModel(plotRecord)
+	local model = Instance.new("Model")
+	model.Name = string.format("%sUnlockButton", plotRecord.PlotId)
+
+	local base = Instance.new("Part")
+	base.Name = "Base"
+	base.Shape = Enum.PartType.Cylinder
+	base.Material = Enum.Material.Plastic
+	base.Anchored = true
+	base.CanCollide = true
+	base.CanQuery = true
+	base.CanTouch = true
+	base.Size = Vector3.new(0.9, 3.8, 3.8) * UNLOCK_BUTTON_SCALE
+	setAllSurfacesStuds(base)
+	base.Parent = model
+
+	local button = Instance.new("Part")
+	button.Name = "Button"
+	button.Shape = Enum.PartType.Cylinder
+	button.Material = Enum.Material.Plastic
+	button.Anchored = true
+	button.CanCollide = true
+	button.CanQuery = true
+	button.CanTouch = true
+	button.Size = Vector3.new(0.75, 2.9, 2.9) * UNLOCK_BUTTON_SCALE
+	setAllSurfacesStuds(button)
+	button.Parent = model
+
+	local forwardDirection = getHorizontalDirection(plotRecord.DirtPatch.CFrame.LookVector)
+	local dirtPatchExtent = getPartExtentAlongDirection(plotRecord.DirtPatch, forwardDirection)
+	local targetPosition = plotRecord.DirtPatch.Position
+		+ forwardDirection * (dirtPatchExtent + UNLOCK_BUTTON_EDGE_OFFSET)
+	local pivotCFrame = CFrame.lookAt(targetPosition, targetPosition + forwardDirection, Vector3.yAxis)
+		* CFrame.Angles(0, 0, math.rad(90))
+	base.CFrame = pivotCFrame
+	button.CFrame = pivotCFrame * CFrame.new(0.2, 0, 0)
+
+	local baseVerticalHalfExtent = base.Size.X * 0.5
+	local dirtPatchTopY = plotRecord.DirtPatch.Position.Y + (plotRecord.DirtPatch.Size.Y * 0.5)
+	local yOffset = (dirtPatchTopY - baseVerticalHalfExtent) - base.Position.Y
+	base.CFrame += Vector3.new(0, yOffset, 0)
+	button.CFrame += Vector3.new(0, yOffset, 0)
+
+	return model, button, base
+end
+
+local function refreshUnlockButtons(player)
+	local plotSet = treePlotService.getAssignedPlotSet(player)
+
+	if not plotSet then
 		return
 	end
 
-	local prompt = ensurePlotPrompt(plotRecord)
-	promptConnectionsByPlot[plotRecord] = prompt.Triggered:Connect(function(player)
-		TreeService.handlePlotPromptTriggered(player, plotRecord.PlotId)
-	end)
+	for _, ownedPlotId in plotSet.OrderedPlotIds do
+		updatePromptForPlot(player, ownedPlotId)
+	end
 end
 
-local function updatePromptForPlot(player, plotId)
+updatePromptForPlot = function(player, plotId)
 	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
 
 	if not plotRecord then
 		return
 	end
 
-	ensurePromptConnection(plotRecord)
-
-	local prompt = ensurePlotPrompt(plotRecord)
 	local plotState = playerData.getTreePlot(player, plotId)
 	local tree = treeConfig.getTreeByPlotId(plotId)
+	local runtimePlotState = getRuntimePlotState(player, plotId)
 
 	if not plotState or not tree then
-		prompt.Enabled = false
+		destroyUnlockButton(runtimePlotState)
 		return
 	end
-
-	prompt.ObjectText = tree.Name
 
 	if not plotState.Unlocked then
-		if isPlotUnlockable(playerData.getTreePlots(player) or {}, plotId) then
-			prompt.Enabled = true
-			prompt.ActionText = string.format("Unlock (%d Gold)", tree.UnlockCost)
-		else
-			prompt.Enabled = false
-			prompt.ActionText = "Locked"
+		if not isPlotUnlockable(playerData.getTreePlots(player) or {}, plotId) then
+			destroyUnlockButton(runtimePlotState)
+			return
 		end
+
+		local buttonModel = runtimePlotState.UnlockButtonModel
+		local buttonPart = buttonModel and buttonModel:FindFirstChild("Button")
+		local basePart = buttonModel and buttonModel:FindFirstChild("Base")
+
+		if not buttonModel or not buttonPart or not basePart then
+			destroyUnlockButton(runtimePlotState)
+			buttonModel, buttonPart, basePart = createUnlockButtonModel(plotRecord)
+			buttonModel.Parent = plotRecord.Model
+			runtimePlotState.UnlockButtonModel = buttonModel
+			runtimePlotState.UnlockTouchConnection = buttonPart.Touched:Connect(function(hit)
+				local touchingPlayer = getTouchingPlayer(hit)
+
+				if touchingPlayer ~= player then
+					return
+				end
+
+				local now = os.clock()
+
+				if now - runtimePlotState.LastUnlockTouchAt < UNLOCK_BUTTON_TOUCH_COOLDOWN then
+					return
+				end
+
+				runtimePlotState.LastUnlockTouchAt = now
+				attemptUnlock(player, plotId)
+			end)
+		end
+
+		local canAfford = (playerData.getGold(player) or 0) >= tree.UnlockCost
+		buttonPart.Color = canAfford and UNLOCK_BUTTON_COLOR_READY or UNLOCK_BUTTON_COLOR_LOCKED
+		basePart.Color = canAfford and UNLOCK_BUTTON_BASE_COLOR_READY or UNLOCK_BUTTON_BASE_COLOR_LOCKED
 		return
 	end
 
-	local upgradeCost = treeConfig.getUpgradeCost(tree.Id, plotState.Level)
-
-	if upgradeCost then
-		prompt.Enabled = true
-		prompt.ActionText = string.format("Upgrade (%d Gold)", upgradeCost)
-		return
-	end
-
-	prompt.Enabled = false
-	prompt.ActionText = "Max Level"
+	destroyUnlockButton(runtimePlotState)
 end
 
-local function spawnTreeForPlot(player, plotId)
+local function getTreeEffectPart(treeInstance)
+	if not treeInstance then
+		return nil
+	end
+
+	if treeInstance:IsA("BasePart") then
+		return treeInstance
+	end
+
+	local trunk = treeInstance:FindFirstChild("Trunk", true)
+
+	if trunk and trunk:IsA("BasePart") then
+		return trunk
+	end
+
+	for _, descendant in treeInstance:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			return descendant
+		end
+	end
+
+	return nil
+end
+
+local function emitTreeParticles(treeInstance, particleCount)
+	local effectPart = getTreeEffectPart(treeInstance)
+
+	if not effectPart then
+		return
+	end
+
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "TreeImpactAttachment"
+	attachment.Parent = effectPart
+
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "TreeImpactParticles"
+	emitter.Color = ColorSequence.new(Color3.fromRGB(196, 164, 116), Color3.fromRGB(104, 73, 46))
+	emitter.Lifetime = NumberRange.new(0.18, 0.35)
+	emitter.Speed = NumberRange.new(3, 7)
+	emitter.Rate = 0
+	emitter.Rotation = NumberRange.new(0, 360)
+	emitter.RotSpeed = NumberRange.new(-180, 180)
+	emitter.SpreadAngle = Vector2.new(35, 35)
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.35),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	emitter.LightEmission = 0
+	emitter.LockedToPart = true
+	emitter.Acceleration = Vector3.new(0, -16, 0)
+	emitter.Parent = attachment
+	emitter:Emit(particleCount)
+
+	task.delay(1, function()
+		if attachment.Parent then
+			attachment:Destroy()
+		end
+	end)
+end
+
+local function playTreeSound(treeInstance, soundId, volume)
+	local effectPart = getTreeEffectPart(treeInstance)
+
+	if not effectPart then
+		return
+	end
+
+	local sound = Instance.new("Sound")
+	sound.Name = "TreeEffectSound"
+	sound.SoundId = soundId
+	sound.Volume = volume
+	sound.RollOffMaxDistance = 70
+	sound.Parent = effectPart
+	sound:Play()
+
+	task.delay(4, function()
+		if sound.Parent then
+			sound:Destroy()
+		end
+	end)
+end
+
+local function captureTreeVisualState(runtimePlotState, treeInstance)
+	local pivot = if treeInstance:IsA("Model") then treeInstance:GetPivot() else treeInstance.CFrame
+	local partStates = {}
+
+	if treeInstance:IsA("Model") then
+		for _, descendant in treeInstance:GetDescendants() do
+			if descendant:IsA("BasePart") then
+				local relativeCFrame = pivot:ToObjectSpace(descendant.CFrame)
+				table.insert(partStates, {
+					Part = descendant,
+					Size = descendant.Size,
+					RelativePosition = relativeCFrame.Position,
+					RelativeXVector = relativeCFrame.XVector,
+					RelativeYVector = relativeCFrame.YVector,
+					RelativeZVector = relativeCFrame.ZVector,
+				})
+			end
+		end
+	else
+		local relativeCFrame = CFrame.new()
+		table.insert(partStates, {
+			Part = treeInstance,
+			Size = treeInstance.Size,
+			RelativePosition = relativeCFrame.Position,
+			RelativeXVector = relativeCFrame.XVector,
+			RelativeYVector = relativeCFrame.YVector,
+			RelativeZVector = relativeCFrame.ZVector,
+		})
+	end
+
+	runtimePlotState.VisualState = {
+		Pivot = pivot,
+		PartStates = partStates,
+	}
+end
+
+local function applyTreeScale(runtimePlotState, plotRecord, scale)
+	local visualState = runtimePlotState.VisualState
+	local treeInstance = runtimePlotState.SpawnedTreeModel
+
+	if not visualState or not treeInstance or not treeInstance.Parent then
+		return false
+	end
+
+	local clampedScale = math.max(TREE_MIN_SCALE, scale)
+	local pivot = visualState.Pivot
+
+	for _, partState in visualState.PartStates do
+		local part = partState.Part
+
+		if part and part.Parent then
+			part.Size = partState.Size * clampedScale
+			part.CFrame = pivot
+				* CFrame.fromMatrix(
+					partState.RelativePosition * clampedScale,
+					partState.RelativeXVector,
+					partState.RelativeYVector,
+					partState.RelativeZVector
+				)
+		end
+	end
+
+	alignCloneBottomToPlot(treeInstance, plotRecord)
+	runtimePlotState.VisualScale = clampedScale
+	return true
+end
+
+local function getGrowthScale(progress)
+	return TREE_MIN_SCALE + ((1 - TREE_MIN_SCALE) * math.clamp(progress, 0, 1))
+end
+
+local function getHarvestScale(currentHealth, maxHealth)
+	if not maxHealth or maxHealth <= 0 then
+		return 1
+	end
+
+	local healthRatio = math.clamp(currentHealth / maxHealth, 0, 1)
+	return TREE_DEAD_SCALE + ((1 - TREE_DEAD_SCALE) * healthRatio)
+end
+
+local function startGrowthAnimation(player, plotId, growingUntil, growTime)
+	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
+	local runtimePlotState = getRuntimePlotState(player, plotId)
+
+	if not plotRecord or not runtimePlotState.SpawnedTreeModel then
+		return
+	end
+
+	local duration = math.max(0.01, growTime)
+	local startTime = growingUntil - duration
+	local token = beginVisualAnimation(runtimePlotState)
+
+	task.spawn(function()
+		while true do
+			local activeRuntimeState = runtimeByPlayer[player]
+			local activePlotState = activeRuntimeState and activeRuntimeState.Plots[plotId]
+			local latestPlotState = playerData.getTreePlot(player, plotId)
+
+			if not activePlotState or activePlotState.AnimationToken ~= token then
+				return
+			end
+
+			if not latestPlotState or latestPlotState.State ~= treeConstants.PlotState.Growing then
+				return
+			end
+
+			local progress = math.clamp((getServerNow() - startTime) / duration, 0, 1)
+			applyTreeScale(runtimePlotState, plotRecord, getGrowthScale(progress))
+
+			if progress >= 1 then
+				return
+			end
+
+			task.wait(TREE_GROWTH_STEP_SECONDS)
+		end
+	end)
+end
+
+local function playReadyBounce(player, plotId)
+	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
+	local runtimePlotState = getRuntimePlotState(player, plotId)
+
+	if not plotRecord or not runtimePlotState.SpawnedTreeModel then
+		return
+	end
+
+	local token = beginVisualAnimation(runtimePlotState)
+
+	task.spawn(function()
+		for _, bounceScale in TREE_READY_BOUNCE_SCALES do
+			local activeRuntimeState = runtimeByPlayer[player]
+			local activePlotState = activeRuntimeState and activeRuntimeState.Plots[plotId]
+
+			if not activePlotState or activePlotState.AnimationToken ~= token then
+				return
+			end
+
+			applyTreeScale(runtimePlotState, plotRecord, bounceScale)
+			task.wait(TREE_READY_BOUNCE_STEP_SECONDS)
+		end
+	end)
+end
+
+local function spawnTreeForPlot(player, plotId, initialScale)
 	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
 	local plotState = playerData.getTreePlot(player, plotId)
 	local runtimePlotState = getRuntimePlotState(player, plotId)
@@ -456,8 +819,11 @@ local function spawnTreeForPlot(player, plotId)
 		alignCloneBottomToPlot(clone, plotRecord)
 	end
 
+	captureTreeVisualState(runtimePlotState, clone)
 	runtimePlotState.SpawnedTreeModel = clone
 	runtimePlotState.CurrentHealth = levelData.Health
+	runtimePlotState.FullHealth = levelData.Health
+	applyTreeScale(runtimePlotState, plotRecord, initialScale or 1)
 	return true
 end
 
@@ -478,12 +844,19 @@ local function materializePlot(player, plotId)
 	end
 
 	if plotState.State == treeConstants.PlotState.Grown then
-		spawnTreeForPlot(player, plotId)
+		spawnTreeForPlot(player, plotId, 1)
 		updatePromptForPlot(player, plotId)
 		return
 	end
 
 	destroySpawnedTree(runtimePlotState)
+
+	local tree = treeConfig.getTree(plotState.TreeId)
+	local levelData = tree and treeConfig.getLevelData(tree.Id, plotState.Level) or nil
+
+	if not tree or not levelData then
+		return
+	end
 
 	local growingUntil = plotState.GrowingUntil or getServerNow()
 
@@ -498,11 +871,18 @@ local function materializePlot(player, plotId)
 		}
 
 		playerData.setTreePlot(player, plotId, updatedPlotState)
-		spawnTreeForPlot(player, plotId)
+		spawnTreeForPlot(player, plotId, 1)
+		playReadyBounce(player, plotId)
 		updatePromptForPlot(player, plotId)
 		pushStateUpdate(player, { plotId })
 		return
 	end
+
+	local remaining = math.max(0, growingUntil - getServerNow())
+	local initialProgress = math.clamp(1 - (remaining / math.max(0.01, levelData.GrowTime)), 0, 1)
+	spawnTreeForPlot(player, plotId, getGrowthScale(initialProgress))
+	startGrowthAnimation(player, plotId, growingUntil, levelData.GrowTime)
+	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
 
 	local token = runtimePlotState.ReadyTaskToken + 1
 	runtimePlotState.ReadyTaskToken = token
@@ -531,7 +911,8 @@ local function materializePlot(player, plotId)
 			GrowingUntil = nil,
 		})
 
-		spawnTreeForPlot(player, plotId)
+		applyTreeScale(runtimePlotState, plotRecord, 1)
+		playReadyBounce(player, plotId)
 		updatePromptForPlot(player, plotId)
 		pushStateUpdate(player, { plotId })
 	end)
@@ -577,7 +958,7 @@ local function cleanupPlayerRuntime(player)
 	runtimeByPlayer[player] = nil
 end
 
-local function attemptUnlock(player, plotId)
+attemptUnlock = function(player, plotId)
 	if not playerData.isLoaded(player) then
 		return buildFailure(treeConstants.FailureReason.DataNotLoaded)
 	end
@@ -634,6 +1015,8 @@ local function attemptUnlock(player, plotId)
 		updatePromptForPlot(player, nextTree.PlotId)
 		table.insert(changedPlots, nextTree.PlotId)
 	end
+
+	refreshUnlockButtons(player)
 
 	pushStateUpdate(player, changedPlots)
 	return {
@@ -698,6 +1081,7 @@ local function attemptUpgrade(player, plotId)
 
 	playerData.setTreePlot(player, plotId, updatedPlotState)
 	materializePlot(player, plotId)
+	refreshUnlockButtons(player)
 	pushStateUpdate(player, { plotId })
 
 	return {
@@ -720,6 +1104,24 @@ end
 local function resolveReward(levelData, tool)
 	local goldMultiplier = getToolStatValue(tool, "GoldBonus", 1)
 	return math.max(0, math.floor(levelData.Reward * goldMultiplier))
+end
+
+local function handleTreeUpgradeRequest(player, plotId)
+	if typeof(plotId) ~= "string" then
+		return
+	end
+
+	if not isPlayerNearPlot(player, plotId, PLOT_INTERACTION_DISTANCE) then
+		return
+	end
+
+	local plotState = playerData.getTreePlot(player, plotId)
+
+	if not plotState or not plotState.Unlocked then
+		return
+	end
+
+	attemptUpgrade(player, plotId)
 end
 
 local function handleGetState(player)
@@ -779,8 +1181,11 @@ local function handleTreeHit(player, plotId)
 	local power = math.max(1, math.floor(getToolStatValue(tool, "Power", 1)))
 	local actualDamage = math.min(runtimePlotState.CurrentHealth, power)
 	runtimePlotState.CurrentHealth -= actualDamage
+	emitTreeParticles(runtimePlotState.SpawnedTreeModel, runtimePlotState.CurrentHealth > 0 and 10 or 16)
+	playTreeSound(runtimePlotState.SpawnedTreeModel, TREE_HIT_SOUND_ID, 1.15)
 
 	if runtimePlotState.CurrentHealth > 0 then
+		applyTreeScale(runtimePlotState, plotRecord, getHarvestScale(runtimePlotState.CurrentHealth, levelData.Health))
 		pushHitFeedback(player, {
 			plotId = plotId,
 			treeId = tree.Id,
@@ -795,17 +1200,21 @@ local function handleTreeHit(player, plotId)
 
 	local reward = resolveReward(levelData, tool)
 	local currentGold = playerData.getGold(player) or 0
+	local growingUntil = getServerNow() + levelData.GrowTime
 	playerData.setGold(player, currentGold + reward)
-
-	destroySpawnedTree(runtimePlotState)
+	refreshUnlockButtons(player)
+	runtimePlotState.CurrentHealth = 0
+	applyTreeScale(runtimePlotState, plotRecord, TREE_DEAD_SCALE)
+	playTreeSound(runtimePlotState.SpawnedTreeModel, TREE_DEATH_SOUND_ID, 1.4)
 	playerData.setTreePlot(player, plotId, {
 		PlotId = plotState.PlotId,
 		TreeId = plotState.TreeId,
 		Unlocked = true,
 		Level = plotState.Level,
 		State = treeConstants.PlotState.Growing,
-		GrowingUntil = getServerNow() + levelData.GrowTime,
+		GrowingUntil = growingUntil,
 	})
+	updatePromptForPlot(player, plotId)
 
 	pushHitFeedback(player, {
 		plotId = plotId,
@@ -820,8 +1229,15 @@ local function handleTreeHit(player, plotId)
 		regrowDuration = levelData.GrowTime,
 	})
 
-	materializePlot(player, plotId)
 	pushStateUpdate(player, { plotId })
+
+	task.delay(TREE_HARVEST_RESPAWN_DELAY, function()
+		local latestPlotState = playerData.getTreePlot(player, plotId)
+
+		if latestPlotState and latestPlotState.State == treeConstants.PlotState.Growing then
+			materializePlot(player, plotId)
+		end
+	end)
 end
 
 function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceModule)
@@ -840,11 +1256,13 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	local treesFolder = getOrCreateChild(remotesFolder, treeConstants.TREE_REMOTE_FOLDER_NAME, "Folder")
 	getTreeStateRemote = getOrCreateChild(treesFolder, treeConstants.GET_STATE_REMOTE_NAME, "RemoteFunction")
 	requestTreeHitRemote = getOrCreateChild(treesFolder, treeConstants.REQUEST_HIT_REMOTE_NAME, "RemoteEvent")
+	requestTreeUpgradeRemote = getOrCreateChild(treesFolder, treeConstants.REQUEST_UPGRADE_REMOTE_NAME, "RemoteEvent")
 	treeStateUpdatedRemote = getOrCreateChild(treesFolder, treeConstants.STATE_UPDATED_REMOTE_NAME, "RemoteEvent")
 	treeHitFeedbackRemote = getOrCreateChild(treesFolder, treeConstants.HIT_FEEDBACK_REMOTE_NAME, "RemoteEvent")
 
 	getTreeStateRemote.OnServerInvoke = handleGetState
 	requestTreeHitRemote.OnServerEvent:Connect(handleTreeHit)
+	requestTreeUpgradeRemote.OnServerEvent:Connect(handleTreeUpgradeRequest)
 
 	if axeService == nil then
 		warn("TreeService started without AxeService")
@@ -881,28 +1299,6 @@ function TreeService.onPlayerDataReset(player)
 	cleanupPlayerRuntime(player)
 	getRuntimePlayerState(player).PlotSetId = treePlotService.getAssignedPlotSetId(player)
 	return refreshAllAssignedPlots(player)
-end
-
-function TreeService.handlePlotPromptTriggered(player, plotId)
-	if typeof(plotId) ~= "string" then
-		return buildFailure(treeConstants.FailureReason.PlotNotFound)
-	end
-
-	if not isPlayerNearPlot(player, plotId, PLOT_INTERACTION_DISTANCE) then
-		return buildFailure(treeConstants.FailureReason.NotInRange)
-	end
-
-	local plotState = playerData.getTreePlot(player, plotId)
-
-	if not plotState then
-		return buildFailure(treeConstants.FailureReason.PlotNotFound)
-	end
-
-	if not plotState.Unlocked then
-		return attemptUnlock(player, plotId)
-	end
-
-	return attemptUpgrade(player, plotId)
 end
 
 return TreeService

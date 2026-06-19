@@ -11,9 +11,9 @@
     "FrontSurface": "Studs",
     "LeftSurface": "Studs",
     "Material": "Plastic",
-    "Position": [0, 1, 0],
+    "Position": [0, 0.5, 0],
     "RightSurface": "Studs",
-    "Size": [14, 2, 14],
+    "Size": [18, 1, 18],
     "TopSurface": "Studs"
   },
   "Attributes": {
