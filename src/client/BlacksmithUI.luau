@@ -13,19 +13,26 @@ local PANEL_HIGHLIGHT = Color3.fromRGB(84, 58, 43)
 local BORDER_COLOR = Color3.fromRGB(228, 211, 187)
 local LABEL_COLOR = Color3.fromRGB(248, 242, 230)
 local SUBTLE_COLOR = Color3.fromRGB(216, 201, 183)
+local CARD_COLOR = Color3.fromRGB(68, 49, 38)
 local BUTTON_COLOR = Color3.fromRGB(167, 96, 49)
 local BUTTON_DISABLED_COLOR = Color3.fromRGB(157, 62, 62)
 local CLOSE_BUTTON_COLOR = Color3.fromRGB(198, 58, 58)
 local ERROR_COLOR = Color3.fromRGB(255, 196, 196)
+local UPGRADE_ARROW_IMAGE = "rbxassetid://16844557963"
+local SIDE_CARD_POSITION = UDim2.new(0.26, 0, 0, 88)
+local CENTER_CARD_POSITION = UDim2.new(0.5, 0, 0, 88)
+local NEXT_CARD_POSITION = UDim2.new(0.74, 0, 0, 88)
 
 local BlacksmithUI = {}
 
 local started = false
 local screenGui = nil
 local rootFrame = nil
-local axeNameLabel = nil
-local descriptionLabel = nil
-local axeImageLabel = nil
+local currentAxeFrame = nil
+local nextAxeFrame = nil
+local currentAxeImageLabel = nil
+local nextAxeImageLabel = nil
+local upgradeArrowImageLabel = nil
 local currentPowerLabel = nil
 local nextPowerLabel = nil
 local currentGoldBonusLabel = nil
@@ -33,8 +40,6 @@ local nextGoldBonusLabel = nil
 local statusLabel = nil
 local upgradeButton = nil
 local closeButton = nil
-local currentTitleLabel = nil
-local nextTitleLabel = nil
 local currentNextTierId = nil
 local buttonBaseText = "Upgrade"
 local upgradeHandler = nil
@@ -92,32 +97,60 @@ local function handleCloseActivated()
 	BlacksmithUI.close()
 end
 
-local function createSectionTitle(parent, text)
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.Position = UDim2.fromScale(0, 0)
-	label.Size = UDim2.fromScale(1, 0.26)
-	label.Font = Enum.Font.GothamBlack
-	label.Text = text
-	label.TextColor3 = LABEL_COLOR
-	label.TextScaled = true
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = parent
-	return label
-end
-
 local function createStatLabel(parent, position)
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
 	label.Position = position
-	label.Size = UDim2.fromScale(1, 0.24)
+	label.Size = UDim2.new(1, -28, 0, 34)
 	label.Font = Enum.Font.GothamBold
 	label.TextColor3 = LABEL_COLOR
 	label.TextScaled = true
 	label.TextWrapped = true
-	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.Parent = parent
 	return label
+end
+
+local function createAxeCard(parent, name, position)
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.AnchorPoint = Vector2.new(0.5, 0)
+	frame.Position = position
+	frame.Size = UDim2.fromOffset(196, 240)
+	frame.BackgroundColor3 = CARD_COLOR
+	frame.BorderSizePixel = 0
+	frame.Parent = parent
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 18)
+	corner.Parent = frame
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = BORDER_COLOR
+	stroke.Thickness = 1.5
+	stroke.Parent = frame
+
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, PANEL_HIGHLIGHT),
+		ColorSequenceKeypoint.new(1, CARD_COLOR),
+	})
+	gradient.Rotation = 90
+	gradient.Parent = frame
+
+	local imageLabel = Instance.new("ImageLabel")
+	imageLabel.Name = "AxeImage"
+	imageLabel.BackgroundTransparency = 1
+	imageLabel.Position = UDim2.fromOffset(22, 18)
+	imageLabel.Size = UDim2.new(1, -44, 0, 118)
+	imageLabel.ScaleType = Enum.ScaleType.Fit
+	imageLabel.Image = ""
+	imageLabel.Parent = frame
+
+	local powerLabel = createStatLabel(frame, UDim2.fromOffset(14, 150))
+	local goldBonusLabel = createStatLabel(frame, UDim2.fromOffset(14, 186))
+
+	return frame, imageLabel, powerLabel, goldBonusLabel
 end
 
 local function ensureGui()
@@ -145,7 +178,7 @@ local function ensureGui()
 	rootFrame.Name = "Root"
 	rootFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	rootFrame.Position = UDim2.fromScale(0.5, 0.46)
-	rootFrame.Size = UDim2.fromOffset(560, 528)
+	rootFrame.Size = UDim2.fromOffset(620, 430)
 	rootFrame.BackgroundColor3 = PANEL_COLOR
 	rootFrame.BorderSizePixel = 0
 	rootFrame.Parent = screenGui
@@ -167,20 +200,10 @@ local function ensureGui()
 	gradient.Rotation = 90
 	gradient.Parent = rootFrame
 
-	axeNameLabel = Instance.new("TextLabel")
-	axeNameLabel.Name = "AxeName"
-	axeNameLabel.BackgroundTransparency = 1
-	axeNameLabel.Position = UDim2.fromOffset(0, 24)
-	axeNameLabel.Size = UDim2.new(1, 0, 0, 44)
-	axeNameLabel.Font = Enum.Font.GothamBlack
-	axeNameLabel.TextColor3 = LABEL_COLOR
-	axeNameLabel.TextScaled = true
-	axeNameLabel.Parent = rootFrame
-
 	closeButton = Instance.new("TextButton")
 	closeButton.Name = "CloseButton"
 	closeButton.AnchorPoint = Vector2.new(0.5, 0.5)
-	closeButton.Position = UDim2.fromScale(1, 0)
+	closeButton.Position = UDim2.new(1, -30, 0, 30)
 	closeButton.Size = UDim2.fromOffset(42, 42)
 	closeButton.BackgroundColor3 = CLOSE_BUTTON_COLOR
 	closeButton.BorderSizePixel = 0
@@ -199,56 +222,30 @@ local function ensureGui()
 	closeStroke.Thickness = 1.5
 	closeStroke.Parent = closeButton
 
-	descriptionLabel = Instance.new("TextLabel")
-	descriptionLabel.Name = "Description"
-	descriptionLabel.BackgroundTransparency = 1
-	descriptionLabel.Position = UDim2.fromOffset(40, 70)
-	descriptionLabel.Size = UDim2.new(1, -80, 0, 48)
-	descriptionLabel.Font = Enum.Font.Gotham
-	descriptionLabel.TextColor3 = SUBTLE_COLOR
-	descriptionLabel.TextScaled = true
-	descriptionLabel.TextWrapped = true
-	descriptionLabel.Parent = rootFrame
+	currentAxeFrame, currentAxeImageLabel, currentPowerLabel, currentGoldBonusLabel =
+		createAxeCard(rootFrame, "CurrentAxe", SIDE_CARD_POSITION)
+	nextAxeFrame, nextAxeImageLabel, nextPowerLabel, nextGoldBonusLabel =
+		createAxeCard(rootFrame, "NextAxe", NEXT_CARD_POSITION)
 
-	axeImageLabel = Instance.new("ImageLabel")
-	axeImageLabel.Name = "AxeImage"
-	axeImageLabel.BackgroundTransparency = 1
-	axeImageLabel.AnchorPoint = Vector2.new(0.5, 0)
-	axeImageLabel.Position = UDim2.new(0.5, 0, 0, 112)
-	axeImageLabel.Size = UDim2.fromOffset(180, 118)
-	axeImageLabel.ScaleType = Enum.ScaleType.Fit
-	axeImageLabel.Image = ""
-	axeImageLabel.Parent = rootFrame
-
-	local currentStatsFrame = Instance.new("Frame")
-	currentStatsFrame.Name = "CurrentStats"
-	currentStatsFrame.BackgroundTransparency = 1
-	currentStatsFrame.Position = UDim2.fromOffset(34, 248)
-	currentStatsFrame.Size = UDim2.new(0.42, 0, 0, 120)
-	currentStatsFrame.Parent = rootFrame
-
-	local nextStatsFrame = Instance.new("Frame")
-	nextStatsFrame.Name = "NextStats"
-	nextStatsFrame.BackgroundTransparency = 1
-	nextStatsFrame.Position = UDim2.new(0.56, 0, 0, 248)
-	nextStatsFrame.Size = UDim2.new(0.34, 0, 0, 120)
-	nextStatsFrame.Parent = rootFrame
-
-	currentTitleLabel = createSectionTitle(currentStatsFrame, "Current")
-	nextTitleLabel = createSectionTitle(nextStatsFrame, "Next")
-	currentPowerLabel = createStatLabel(currentStatsFrame, UDim2.fromScale(0, 0.34))
-	nextPowerLabel = createStatLabel(nextStatsFrame, UDim2.fromScale(0, 0.34))
-	currentGoldBonusLabel = createStatLabel(currentStatsFrame, UDim2.fromScale(0, 0.66))
-	nextGoldBonusLabel = createStatLabel(nextStatsFrame, UDim2.fromScale(0, 0.66))
+	upgradeArrowImageLabel = Instance.new("ImageLabel")
+	upgradeArrowImageLabel.Name = "UpgradeArrow"
+	upgradeArrowImageLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+	upgradeArrowImageLabel.BackgroundTransparency = 1
+	upgradeArrowImageLabel.Position = UDim2.new(0.5, 0, 0, 146)
+	upgradeArrowImageLabel.Size = UDim2.fromOffset(58, 58)
+	upgradeArrowImageLabel.Image = UPGRADE_ARROW_IMAGE
+	upgradeArrowImageLabel.ScaleType = Enum.ScaleType.Fit
+	upgradeArrowImageLabel.Parent = rootFrame
 
 	statusLabel = Instance.new("TextLabel")
 	statusLabel.Name = "Status"
 	statusLabel.BackgroundTransparency = 1
-	statusLabel.Position = UDim2.fromOffset(36, 376)
+	statusLabel.Position = UDim2.fromOffset(36, 340)
 	statusLabel.Size = UDim2.new(1, -72, 0, 44)
 	statusLabel.Font = Enum.Font.GothamBold
 	statusLabel.TextScaled = true
 	statusLabel.TextWrapped = true
+	statusLabel.TextXAlignment = Enum.TextXAlignment.Center
 	statusLabel.Parent = rootFrame
 
 	upgradeButton = Instance.new("TextButton")
@@ -312,18 +309,18 @@ function BlacksmithUI.renderState(state)
 	local nextAxe = state.nextAxe
 	canAttemptUpgrade = false
 
-	axeNameLabel.Text = currentAxe.name
-	descriptionLabel.Text = currentAxe.description
-	axeImageLabel.Image = currentAxe.imageId or ""
-	currentTitleLabel.Text = "Current"
-	nextTitleLabel.Text = "Next"
+	currentAxeImageLabel.Image = currentAxe.imageId or ""
 	currentPowerLabel.Text = string.format("Power: %s", formatPower(currentAxe.power))
 	currentGoldBonusLabel.Text = string.format("Gold Bonus: %s%%", formatGoldBonus(currentAxe.goldMultiplier))
 
 	if nextAxe then
+		currentAxeFrame.Position = SIDE_CARD_POSITION
+		nextAxeFrame.Visible = true
+		upgradeArrowImageLabel.Visible = true
+		nextAxeImageLabel.Image = nextAxe.imageId or ""
 		nextPowerLabel.Text = string.format("Power: %s", formatPower(nextAxe.power))
 		nextGoldBonusLabel.Text = string.format("Gold Bonus: %s%%", formatGoldBonus(nextAxe.goldMultiplier))
-		buttonBaseText = string.format("Upgrade - %s Gold", tostring(nextAxe.cost))
+		buttonBaseText = string.format("%s Gold", tostring(nextAxe.cost))
 		currentNextTierId = state.nextTierId
 		canAttemptUpgrade = state.canUpgrade == true
 
@@ -333,12 +330,16 @@ function BlacksmithUI.renderState(state)
 			setStatus(blacksmithConstants.getFailureMessage(blacksmithConstants.FailureReason.InsufficientGold), false)
 		end
 	else
-		nextPowerLabel.Text = "Power: Maxed"
-		nextGoldBonusLabel.Text = "Gold Bonus: Maxed"
+		currentAxeFrame.Position = CENTER_CARD_POSITION
+		nextAxeFrame.Visible = false
+		upgradeArrowImageLabel.Visible = false
+		nextAxeImageLabel.Image = ""
+		nextPowerLabel.Text = ""
+		nextGoldBonusLabel.Text = ""
 		buttonBaseText = "Maxed"
 		currentNextTierId = nil
 		canAttemptUpgrade = false
-		setStatus(blacksmithConstants.getFailureMessage(blacksmithConstants.FailureReason.AlreadyMaxed), false)
+		setStatus("", false)
 	end
 
 	BlacksmithUI.setBusy(false)
