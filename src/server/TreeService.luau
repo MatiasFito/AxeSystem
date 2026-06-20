@@ -21,6 +21,8 @@ local TREE_READY_BOUNCE_STEP_SECONDS = 0.04
 local TREE_HARVEST_RESPAWN_DELAY = 0.18
 local TREE_HIT_SOUND_ID = "rbxassetid://136507037003210"
 local TREE_DEATH_SOUND_ID = "rbxassetid://7214256592"
+local TREE_IMPACT_PARTICLE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
+local TREE_IMPACT_SURFACE_OFFSET = 0.35
 local TREE_READY_BOUNCE_SCALES = { 1.08, 0.96, 1 }
 local UNLOCK_BUTTON_COLOR_READY = Color3.fromRGB(255, 255, 255)
 local UNLOCK_BUTTON_COLOR_LOCKED = Color3.fromRGB(126, 126, 126)
@@ -691,32 +693,63 @@ local function getTreeEffectPart(treeInstance)
 	return nil
 end
 
-local function emitTreeParticles(treeInstance, particleCount)
+local function getTreeImpactData(effectPart, sourcePosition)
+	if not sourcePosition then
+		return effectPart.Position, effectPart.CFrame.LookVector
+	end
+
+	local directionToSource = sourcePosition - effectPart.Position
+
+	if directionToSource.Magnitude <= 0.001 then
+		directionToSource = effectPart.CFrame.LookVector
+	end
+
+	local unitDirection = directionToSource.Unit
+	local extent = getPartExtentAlongDirection(effectPart, unitDirection)
+	return effectPart.Position + unitDirection * (extent + TREE_IMPACT_SURFACE_OFFSET), unitDirection
+end
+
+local function createTreeImpactAttachment(effectPart, sourcePosition)
+	local impactPosition, outwardDirection = getTreeImpactData(effectPart, sourcePosition)
+	local upVector = Vector3.yAxis
+
+	if math.abs(outwardDirection:Dot(upVector)) >= 0.98 then
+		upVector = effectPart.CFrame.RightVector
+	end
+
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "TreeImpactAttachment"
+	attachment.CFrame =
+		effectPart.CFrame:ToObjectSpace(CFrame.lookAt(impactPosition, impactPosition + outwardDirection, upVector))
+	attachment.Parent = effectPart
+	return attachment
+end
+
+local function emitTreeParticles(treeInstance, particleCount, sourcePosition)
 	local effectPart = getTreeEffectPart(treeInstance)
 
 	if not effectPart then
 		return
 	end
 
-	local attachment = Instance.new("Attachment")
-	attachment.Name = "TreeImpactAttachment"
-	attachment.Parent = effectPart
+	local attachment = createTreeImpactAttachment(effectPart, sourcePosition)
 
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Name = "TreeImpactParticles"
+	emitter.Texture = TREE_IMPACT_PARTICLE_TEXTURE
 	emitter.Color = ColorSequence.new(Color3.fromRGB(196, 164, 116), Color3.fromRGB(104, 73, 46))
 	emitter.Lifetime = NumberRange.new(0.18, 0.35)
-	emitter.Speed = NumberRange.new(3, 7)
+	emitter.Speed = NumberRange.new(5, 9)
 	emitter.Rate = 0
 	emitter.Rotation = NumberRange.new(0, 360)
 	emitter.RotSpeed = NumberRange.new(-180, 180)
-	emitter.SpreadAngle = Vector2.new(35, 35)
+	emitter.SpreadAngle = Vector2.new(55, 55)
 	emitter.Size = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0.35),
 		NumberSequenceKeypoint.new(1, 0),
 	})
 	emitter.LightEmission = 0
-	emitter.LockedToPart = true
+	emitter.LockedToPart = false
 	emitter.Acceleration = Vector3.new(0, -16, 0)
 	emitter.Parent = attachment
 	emitter:Emit(particleCount)
@@ -765,6 +798,7 @@ local function captureTreeVisualState(runtimePlotState, treeInstance)
 					RelativeXVector = relativeCFrame.XVector,
 					RelativeYVector = relativeCFrame.YVector,
 					RelativeZVector = relativeCFrame.ZVector,
+					Transparency = descendant.Transparency,
 				})
 			end
 		end
@@ -777,6 +811,7 @@ local function captureTreeVisualState(runtimePlotState, treeInstance)
 			RelativeXVector = relativeCFrame.XVector,
 			RelativeYVector = relativeCFrame.YVector,
 			RelativeZVector = relativeCFrame.ZVector,
+			Transparency = treeInstance.Transparency,
 		})
 	end
 
@@ -786,7 +821,7 @@ local function captureTreeVisualState(runtimePlotState, treeInstance)
 	}
 end
 
-local function applyTreeScale(runtimePlotState, plotRecord, scale)
+local function applyTreeVisual(runtimePlotState, plotRecord, scale, pivotOverride, transparencyAlpha, shouldAlignBottom)
 	local visualState = runtimePlotState.VisualState
 	local treeInstance = runtimePlotState.SpawnedTreeModel
 
@@ -795,7 +830,8 @@ local function applyTreeScale(runtimePlotState, plotRecord, scale)
 	end
 
 	local clampedScale = math.max(TREE_MIN_SCALE, scale)
-	local pivot = visualState.Pivot
+	local pivot = pivotOverride or visualState.Pivot
+	local fadeAlpha = math.clamp(transparencyAlpha or 0, 0, 1)
 
 	for _, partState in visualState.PartStates do
 		local part = partState.Part
@@ -809,12 +845,20 @@ local function applyTreeScale(runtimePlotState, plotRecord, scale)
 					partState.RelativeYVector,
 					partState.RelativeZVector
 				)
+			part.Transparency = partState.Transparency + ((1 - partState.Transparency) * fadeAlpha)
 		end
 	end
 
-	alignCloneBottomToPlot(treeInstance, plotRecord)
+	if shouldAlignBottom ~= false then
+		alignCloneBottomToPlot(treeInstance, plotRecord)
+	end
+
 	runtimePlotState.VisualScale = clampedScale
 	return true
+end
+
+local function applyTreeScale(runtimePlotState, plotRecord, scale)
+	return applyTreeVisual(runtimePlotState, plotRecord, scale, nil, 0, true)
 end
 
 local function getGrowthScale(progress)
@@ -1276,7 +1320,13 @@ local function handleTreeHit(player, plotId)
 		return
 	end
 
-	if not isPlayerNearPlot(player, plotId, TREE_HIT_DISTANCE) then
+	local rootPart = getCharacterRootPart(player)
+
+	if not rootPart then
+		return
+	end
+
+	if (rootPart.Position - plotRecord.DirtPatch.Position).Magnitude > TREE_HIT_DISTANCE then
 		return
 	end
 
@@ -1309,7 +1359,11 @@ local function handleTreeHit(player, plotId)
 	local power = math.max(1, math.floor(getToolStatValue(tool, "Power", 1)))
 	local actualDamage = math.min(runtimePlotState.CurrentHealth, power)
 	runtimePlotState.CurrentHealth -= actualDamage
-	emitTreeParticles(runtimePlotState.SpawnedTreeModel, runtimePlotState.CurrentHealth > 0 and 10 or 16)
+	emitTreeParticles(
+		runtimePlotState.SpawnedTreeModel,
+		runtimePlotState.CurrentHealth > 0 and 10 or 16,
+		rootPart.Position
+	)
 	playTreeSound(runtimePlotState.SpawnedTreeModel, TREE_HIT_SOUND_ID, 1.15)
 
 	if runtimePlotState.CurrentHealth > 0 then
@@ -1332,7 +1386,14 @@ local function handleTreeHit(player, plotId)
 	playerData.setGold(player, currentGold + reward)
 	refreshUnlockButtons(player)
 	runtimePlotState.CurrentHealth = 0
-	applyTreeScale(runtimePlotState, plotRecord, TREE_DEAD_SCALE)
+	applyTreeVisual(
+		runtimePlotState,
+		plotRecord,
+		runtimePlotState.VisualScale > 0 and runtimePlotState.VisualScale or 1,
+		nil,
+		1,
+		true
+	)
 	playTreeSound(runtimePlotState.SpawnedTreeModel, TREE_DEATH_SOUND_ID, 1.4)
 	playerData.setTreePlot(player, plotId, {
 		PlotId = plotState.PlotId,
