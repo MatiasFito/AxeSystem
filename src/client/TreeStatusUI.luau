@@ -11,6 +11,8 @@ local GUI_NAME = "TreeStatusGui"
 local REMOTE_WAIT_TIMEOUT = 10
 local REFRESH_RATE = 0.05
 local TOAST_DURATION = 1.8
+local CARDS_PADDING_X = 8
+local CARDS_PADDING_Y = 8
 
 local PANEL_COLOR = Color3.fromRGB(35, 44, 33)
 local PANEL_HIGHLIGHT = Color3.fromRGB(52, 69, 48)
@@ -18,6 +20,8 @@ local CARD_COLOR = Color3.fromRGB(58, 76, 53)
 local CARD_STROKE = Color3.fromRGB(210, 229, 201)
 local TEXT_COLOR = Color3.fromRGB(244, 247, 237)
 local SUBTLE_COLOR = Color3.fromRGB(206, 219, 198)
+local BUTTON_COLOR = Color3.fromRGB(58, 76, 53)
+local CLOSE_BUTTON_COLOR = Color3.fromRGB(198, 58, 58)
 local POSITIVE_COLOR = Color3.fromRGB(125, 214, 127)
 local WARNING_COLOR = Color3.fromRGB(234, 195, 96)
 local READY_COLOR = Color3.fromRGB(104, 202, 255)
@@ -29,11 +33,15 @@ local TreeStatusUI = {}
 local started = false
 local screenGui = nil
 local rootFrame = nil
+local toggleButton = nil
+local closeButton = nil
 local goldLabel = nil
 local plotSetLabel = nil
 local cardsContainer = nil
 local toastFrame = nil
 local toastLabel = nil
+local cardsLayout = nil
+local cardsPadding = nil
 
 local getTreeStateRemote = nil
 local treeStateUpdatedRemote = nil
@@ -50,6 +58,7 @@ local currentPlotSetId = nil
 
 local leaderstatsConnection = nil
 local goldValueConnection = nil
+local isPanelOpen = false
 
 local function formatGold(amount)
 	return tostring(math.max(0, math.floor(amount or 0)))
@@ -151,6 +160,27 @@ local function createLabel(parent, font, size, position, textColor, xAlignment)
 	label.TextXAlignment = xAlignment or Enum.TextXAlignment.Left
 	label.Parent = parent
 	return label
+end
+
+local function updateCardsCanvasSize()
+	if not cardsContainer or not cardsLayout then
+		return
+	end
+
+	local verticalPadding = CARDS_PADDING_Y * 2
+	cardsContainer.CanvasSize = UDim2.fromOffset(0, cardsLayout.AbsoluteContentSize.Y + verticalPadding)
+end
+
+local function setPanelOpen(nextOpen)
+	isPanelOpen = nextOpen == true
+
+	if rootFrame then
+		rootFrame.Visible = isPanelOpen
+	end
+
+	if toggleButton then
+		toggleButton.Visible = not isPanelOpen
+	end
 end
 
 local function ensurePlotCard(plotId)
@@ -299,6 +329,28 @@ local function ensureGui()
 	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screenGui.Parent = playerGui
 
+	toggleButton = Instance.new("TextButton")
+	toggleButton.Name = "ToggleButton"
+	toggleButton.AnchorPoint = Vector2.new(1, 0.5)
+	toggleButton.Position = UDim2.new(1, -20, 0.5, 0)
+	toggleButton.Size = UDim2.fromOffset(86, 42)
+	toggleButton.BackgroundColor3 = BUTTON_COLOR
+	toggleButton.BorderSizePixel = 0
+	toggleButton.Font = Enum.Font.GothamBlack
+	toggleButton.Text = "Trees"
+	toggleButton.TextColor3 = TEXT_COLOR
+	toggleButton.TextScaled = true
+	toggleButton.Parent = screenGui
+
+	local toggleCorner = Instance.new("UICorner")
+	toggleCorner.CornerRadius = UDim.new(0, 14)
+	toggleCorner.Parent = toggleButton
+
+	local toggleStroke = Instance.new("UIStroke")
+	toggleStroke.Color = CARD_STROKE
+	toggleStroke.Thickness = 1.5
+	toggleStroke.Parent = toggleButton
+
 	rootFrame = Instance.new("Frame")
 	rootFrame.Name = "Root"
 	rootFrame.AnchorPoint = Vector2.new(1, 0)
@@ -306,6 +358,7 @@ local function ensureGui()
 	rootFrame.Size = UDim2.fromOffset(332, 378)
 	rootFrame.BackgroundColor3 = PANEL_COLOR
 	rootFrame.BorderSizePixel = 0
+	rootFrame.Visible = false
 	rootFrame.Parent = screenGui
 
 	local rootCorner = Instance.new("UICorner")
@@ -328,12 +381,34 @@ local function ensureGui()
 	local titleLabel = createLabel(
 		rootFrame,
 		Enum.Font.GothamBlack,
-		UDim2.new(1, -28, 0, 30),
+		UDim2.new(1, -84, 0, 30),
 		UDim2.fromOffset(14, 12),
 		TEXT_COLOR,
 		Enum.TextXAlignment.Left
 	)
 	titleLabel.Text = "Tree Plots"
+
+	closeButton = Instance.new("TextButton")
+	closeButton.Name = "CloseButton"
+	closeButton.AnchorPoint = Vector2.new(0.5, 0.5)
+	closeButton.Position = UDim2.fromScale(1, 0)
+	closeButton.Size = UDim2.fromOffset(42, 42)
+	closeButton.BackgroundColor3 = CLOSE_BUTTON_COLOR
+	closeButton.BorderSizePixel = 0
+	closeButton.Font = Enum.Font.GothamBlack
+	closeButton.Text = "X"
+	closeButton.TextColor3 = TEXT_COLOR
+	closeButton.TextScaled = true
+	closeButton.Parent = rootFrame
+
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = UDim.new(0, 12)
+	closeCorner.Parent = closeButton
+
+	local closeStroke = Instance.new("UIStroke")
+	closeStroke.Color = CARD_STROKE
+	closeStroke.Thickness = 1.5
+	closeStroke.Parent = closeButton
 
 	goldLabel = createLabel(
 		rootFrame,
@@ -355,16 +430,33 @@ local function ensureGui()
 	)
 	plotSetLabel.Text = "Loading plots..."
 
-	cardsContainer = Instance.new("Frame")
+	cardsContainer = Instance.new("ScrollingFrame")
 	cardsContainer.Name = "Cards"
 	cardsContainer.BackgroundTransparency = 1
 	cardsContainer.Position = UDim2.fromOffset(14, 92)
 	cardsContainer.Size = UDim2.new(1, -28, 0, 272)
+	cardsContainer.AutomaticCanvasSize = Enum.AutomaticSize.None
+	cardsContainer.BottomImage = ""
+	cardsContainer.CanvasSize = UDim2.fromOffset(0, 0)
+	cardsContainer.MidImage = ""
+	cardsContainer.ScrollBarImageColor3 = CARD_STROKE
+	cardsContainer.ScrollBarThickness = 8
+	cardsContainer.ScrollingDirection = Enum.ScrollingDirection.Y
+	cardsContainer.TopImage = ""
+	cardsContainer.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
 	cardsContainer.Parent = rootFrame
 
-	local listLayout = Instance.new("UIListLayout")
-	listLayout.Padding = UDim.new(0, 8)
-	listLayout.Parent = cardsContainer
+	cardsPadding = Instance.new("UIPadding")
+	cardsPadding.PaddingTop = UDim.new(0, CARDS_PADDING_Y)
+	cardsPadding.PaddingBottom = UDim.new(0, CARDS_PADDING_Y)
+	cardsPadding.PaddingLeft = UDim.new(0, CARDS_PADDING_X)
+	cardsPadding.PaddingRight = UDim.new(0, CARDS_PADDING_X)
+	cardsPadding.Parent = cardsContainer
+
+	cardsLayout = Instance.new("UIListLayout")
+	cardsLayout.Padding = UDim.new(0, 12)
+	cardsLayout.Parent = cardsContainer
+	cardsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCardsCanvasSize)
 
 	toastFrame = Instance.new("Frame")
 	toastFrame.Name = "Toast"
@@ -398,6 +490,13 @@ local function ensureGui()
 
 	setToastVisible(false)
 	bindLeaderstats()
+	toggleButton.Activated:Connect(function()
+		setPanelOpen(true)
+	end)
+	closeButton.Activated:Connect(function()
+		setPanelOpen(false)
+	end)
+	setPanelOpen(false)
 end
 
 local function getCardColors(plot)
