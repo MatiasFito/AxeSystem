@@ -14,6 +14,8 @@ local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: Modul
 local treeRemoteHandlers = require(script.Parent:WaitForChild("TreeRemoteHandlers") :: ModuleScript)
 local treeStateBuilder = require(script.Parent:WaitForChild("TreeStateBuilder") :: ModuleScript)
 local treeUnlockPromptManager = require(script.Parent:WaitForChild("TreeUnlockPromptManager") :: ModuleScript)
+local treeVisualControllerModule = require(script.Parent:WaitForChild("TreeVisualController") :: ModuleScript)
+local treeGrowthControllerModule = require(script.Parent:WaitForChild("TreeGrowthController") :: ModuleScript)
 
 local TreeService = {}
 
@@ -57,6 +59,8 @@ local treeHitFeedbackRemote = nil
 local runtimeByPlayer = {}
 local attemptUnlock = nil
 local unlockPromptManager = nil
+local treeVisualController = nil
+local treeGrowthController = nil
 
 local function playUnlockButtonSuccessTween(runtimePlotState)
 	if unlockPromptManager then
@@ -74,6 +78,16 @@ local function updatePromptForPlot(player, plotId)
 	if unlockPromptManager then
 		unlockPromptManager.updatePromptForPlot(player, plotId)
 	end
+end
+
+local function getActiveRuntimePlotState(player, plotId)
+	local runtimeState = runtimeByPlayer[player]
+
+	if not runtimeState then
+		return nil
+	end
+
+	return runtimeState.Plots[plotId]
 end
 
 local function getServerNow()
@@ -239,26 +253,11 @@ local function getRuntimePlotState(player, plotId)
 end
 
 local function clearScheduledReady(runtimePlotState)
-	runtimePlotState.ReadyTaskToken += 1
-end
-
-local function beginVisualAnimation(runtimePlotState)
-	runtimePlotState.AnimationToken += 1
-	return runtimePlotState.AnimationToken
+	treeGrowthController.clearScheduledReady(runtimePlotState)
 end
 
 local function destroySpawnedTree(runtimePlotState)
-	beginVisualAnimation(runtimePlotState)
-	runtimePlotState.VisualState = nil
-	runtimePlotState.VisualScale = 1
-	runtimePlotState.FullHealth = nil
-	runtimePlotState.CurrentHealth = nil
-
-	if runtimePlotState.SpawnedTreeModel and runtimePlotState.SpawnedTreeModel.Parent then
-		runtimePlotState.SpawnedTreeModel:Destroy()
-	end
-
-	runtimePlotState.SpawnedTreeModel = nil
+	treeVisualController.destroySpawnedTree(runtimePlotState)
 end
 
 local function buildStatePayload(player, changedPlotIds)
@@ -330,272 +329,51 @@ local function getPartExtentAlongDirection(part, direction)
 		+ math.abs(unitDirection:Dot(lookVector)) * halfSize.Z
 end
 
-local function getTreeEffectPart(treeInstance)
-	if not treeInstance then
-		return nil
-	end
-
-	if treeInstance:IsA("BasePart") then
-		return treeInstance
-	end
-
-	local trunk = treeInstance:FindFirstChild("Trunk", true)
-
-	if trunk and trunk:IsA("BasePart") then
-		return trunk
-	end
-
-	for _, descendant in treeInstance:GetDescendants() do
-		if descendant:IsA("BasePart") then
-			return descendant
-		end
-	end
-
-	return nil
-end
-
-local function getTreeImpactData(effectPart, sourcePosition)
-	if not sourcePosition then
-		return effectPart.Position, effectPart.CFrame.LookVector
-	end
-
-	local directionToSource = sourcePosition - effectPart.Position
-
-	if directionToSource.Magnitude <= 0.001 then
-		directionToSource = effectPart.CFrame.LookVector
-	end
-
-	local unitDirection = directionToSource.Unit
-	local extent = getPartExtentAlongDirection(effectPart, unitDirection)
-	return effectPart.Position + unitDirection * (extent + TREE_IMPACT_SURFACE_OFFSET), unitDirection
-end
-
-local function createTreeImpactAttachment(effectPart, sourcePosition)
-	local impactPosition, outwardDirection = getTreeImpactData(effectPart, sourcePosition)
-	local upVector = Vector3.yAxis
-
-	if math.abs(outwardDirection:Dot(upVector)) >= 0.98 then
-		upVector = effectPart.CFrame.RightVector
-	end
-
-	local attachment = Instance.new("Attachment")
-	attachment.Name = "TreeImpactAttachment"
-	attachment.CFrame =
-		effectPart.CFrame:ToObjectSpace(CFrame.lookAt(impactPosition, impactPosition + outwardDirection, upVector))
-	attachment.Parent = effectPart
-	return attachment
-end
-
 local function emitTreeParticles(treeInstance, particleCount, sourcePosition)
-	local effectPart = getTreeEffectPart(treeInstance)
-
-	if not effectPart then
-		return
-	end
-
-	local attachment = createTreeImpactAttachment(effectPart, sourcePosition)
-
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Name = "TreeImpactParticles"
-	emitter.Texture = TREE_IMPACT_PARTICLE_TEXTURE
-	emitter.Color = ColorSequence.new(Color3.fromRGB(196, 164, 116), Color3.fromRGB(104, 73, 46))
-	emitter.Lifetime = NumberRange.new(0.18, 0.35)
-	emitter.Speed = NumberRange.new(5, 9)
-	emitter.Rate = 0
-	emitter.Rotation = NumberRange.new(0, 360)
-	emitter.RotSpeed = NumberRange.new(-180, 180)
-	emitter.SpreadAngle = Vector2.new(55, 55)
-	emitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.35),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	emitter.LightEmission = 0
-	emitter.LockedToPart = false
-	emitter.Acceleration = Vector3.new(0, -16, 0)
-	emitter.Parent = attachment
-	emitter:Emit(particleCount)
-
-	task.delay(1, function()
-		if attachment.Parent then
-			attachment:Destroy()
-		end
-	end)
+	treeVisualController.emitTreeParticles(treeInstance, particleCount, sourcePosition)
 end
 
 local function playTreeSound(treeInstance, soundId, volume)
-	local effectPart = getTreeEffectPart(treeInstance)
-
-	if not effectPart then
-		return
-	end
-
-	local sound = Instance.new("Sound")
-	sound.Name = "TreeEffectSound"
-	sound.SoundId = soundId
-	sound.Volume = volume
-	sound.RollOffMaxDistance = 70
-	sound.Parent = effectPart
-	sound:Play()
-
-	task.delay(4, function()
-		if sound.Parent then
-			sound:Destroy()
-		end
-	end)
+	treeVisualController.playTreeSound(treeInstance, soundId, volume)
 end
 
 local function captureTreeVisualState(runtimePlotState, treeInstance)
-	local pivot = if treeInstance:IsA("Model") then treeInstance:GetPivot() else treeInstance.CFrame
-	local partStates = {}
-
-	if treeInstance:IsA("Model") then
-		for _, descendant in treeInstance:GetDescendants() do
-			if descendant:IsA("BasePart") then
-				local relativeCFrame = pivot:ToObjectSpace(descendant.CFrame)
-				table.insert(partStates, {
-					Part = descendant,
-					Size = descendant.Size,
-					RelativePosition = relativeCFrame.Position,
-					RelativeXVector = relativeCFrame.XVector,
-					RelativeYVector = relativeCFrame.YVector,
-					RelativeZVector = relativeCFrame.ZVector,
-					Transparency = descendant.Transparency,
-				})
-			end
-		end
-	else
-		local relativeCFrame = CFrame.new()
-		table.insert(partStates, {
-			Part = treeInstance,
-			Size = treeInstance.Size,
-			RelativePosition = relativeCFrame.Position,
-			RelativeXVector = relativeCFrame.XVector,
-			RelativeYVector = relativeCFrame.YVector,
-			RelativeZVector = relativeCFrame.ZVector,
-			Transparency = treeInstance.Transparency,
-		})
-	end
-
-	runtimePlotState.VisualState = {
-		Pivot = pivot,
-		PartStates = partStates,
-	}
+	treeVisualController.captureTreeVisualState(runtimePlotState, treeInstance)
 end
 
 local function applyTreeVisual(runtimePlotState, plotRecord, scale, pivotOverride, transparencyAlpha, shouldAlignBottom)
-	local visualState = runtimePlotState.VisualState
-	local treeInstance = runtimePlotState.SpawnedTreeModel
-
-	if not visualState or not treeInstance or not treeInstance.Parent then
-		return false
-	end
-
-	local clampedScale = math.max(TREE_MIN_SCALE, scale)
-	local pivot = pivotOverride or visualState.Pivot
-	local fadeAlpha = math.clamp(transparencyAlpha or 0, 0, 1)
-
-	for _, partState in visualState.PartStates do
-		local part = partState.Part
-
-		if part and part.Parent then
-			part.Size = partState.Size * clampedScale
-			part.CFrame = pivot
-				* CFrame.fromMatrix(
-					partState.RelativePosition * clampedScale,
-					partState.RelativeXVector,
-					partState.RelativeYVector,
-					partState.RelativeZVector
-				)
-			part.Transparency = partState.Transparency + ((1 - partState.Transparency) * fadeAlpha)
-		end
-	end
-
-	if shouldAlignBottom ~= false then
-		alignCloneBottomToPlot(treeInstance, plotRecord)
-	end
-
-	runtimePlotState.VisualScale = clampedScale
-	return true
+	return treeVisualController.applyTreeVisual(
+		runtimePlotState,
+		plotRecord,
+		scale,
+		pivotOverride,
+		transparencyAlpha,
+		shouldAlignBottom
+	)
 end
 
 local function applyTreeScale(runtimePlotState, plotRecord, scale)
-	return applyTreeVisual(runtimePlotState, plotRecord, scale, nil, 0, true)
+	return treeVisualController.applyTreeScale(runtimePlotState, plotRecord, scale)
 end
 
 local function getGrowthScale(progress)
-	return TREE_MIN_SCALE + ((1 - TREE_MIN_SCALE) * math.clamp(progress, 0, 1))
+	return treeVisualController.getGrowthScale(progress)
 end
 
 local function getHarvestScale(currentHealth, maxHealth)
-	if not maxHealth or maxHealth <= 0 then
-		return 1
-	end
-
-	local healthRatio = math.clamp(currentHealth / maxHealth, 0, 1)
-	return TREE_DEAD_SCALE + ((1 - TREE_DEAD_SCALE) * healthRatio)
+	return treeVisualController.getHarvestScale(currentHealth, maxHealth)
 end
 
 local function startGrowthAnimation(player, plotId, growingUntil, growTime)
-	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
-	local runtimePlotState = getRuntimePlotState(player, plotId)
-
-	if not plotRecord or not runtimePlotState.SpawnedTreeModel then
-		return
-	end
-
-	local duration = math.max(0.01, growTime)
-	local startTime = growingUntil - duration
-	local token = beginVisualAnimation(runtimePlotState)
-
-	task.spawn(function()
-		while true do
-			local activeRuntimeState = runtimeByPlayer[player]
-			local activePlotState = activeRuntimeState and activeRuntimeState.Plots[plotId]
-			local latestPlotState = playerData.getTreePlot(player, plotId)
-
-			if not activePlotState or activePlotState.AnimationToken ~= token then
-				return
-			end
-
-			if not latestPlotState or latestPlotState.State ~= treeConstants.PlotState.Growing then
-				return
-			end
-
-			local progress = math.clamp((getServerNow() - startTime) / duration, 0, 1)
-			applyTreeScale(runtimePlotState, plotRecord, getGrowthScale(progress))
-
-			if progress >= 1 then
-				return
-			end
-
-			task.wait(TREE_GROWTH_STEP_SECONDS)
-		end
-	end)
+	treeGrowthController.startGrowthAnimation(player, plotId, growingUntil, growTime)
 end
 
 local function playReadyBounce(player, plotId)
-	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
-	local runtimePlotState = getRuntimePlotState(player, plotId)
+	treeGrowthController.playReadyBounce(player, plotId)
+end
 
-	if not plotRecord or not runtimePlotState.SpawnedTreeModel then
-		return
-	end
-
-	local token = beginVisualAnimation(runtimePlotState)
-
-	task.spawn(function()
-		for _, bounceScale in TREE_READY_BOUNCE_SCALES do
-			local activeRuntimeState = runtimeByPlayer[player]
-			local activePlotState = activeRuntimeState and activeRuntimeState.Plots[plotId]
-
-			if not activePlotState or activePlotState.AnimationToken ~= token then
-				return
-			end
-
-			applyTreeScale(runtimePlotState, plotRecord, bounceScale)
-			task.wait(TREE_READY_BOUNCE_STEP_SECONDS)
-		end
-	end)
+local function scheduleReadyTransition(player, plotId, growingUntil, onReady)
+	treeGrowthController.scheduleReadyTransition(player, plotId, growingUntil, onReady)
 end
 
 local function spawnTreeForPlot(player, plotId, initialScale)
@@ -715,24 +493,9 @@ local function materializePlot(player, plotId)
 	startGrowthAnimation(player, plotId, growingUntil, levelData.GrowTime)
 	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
 
-	local token = runtimePlotState.ReadyTaskToken + 1
-	runtimePlotState.ReadyTaskToken = token
 	updatePromptForPlot(player, plotId)
 
-	task.delay(math.max(0, growingUntil - getServerNow()), function()
-		local activeRuntimeState = runtimeByPlayer[player]
-		local activePlotState = activeRuntimeState and activeRuntimeState.Plots[plotId]
-
-		if not activePlotState or activePlotState.ReadyTaskToken ~= token then
-			return
-		end
-
-		local latestPlotState = playerData.getTreePlot(player, plotId)
-
-		if not latestPlotState or latestPlotState.State ~= treeConstants.PlotState.Growing then
-			return
-		end
-
+	scheduleReadyTransition(player, plotId, growingUntil, function(latestPlotState)
 		playerData.setTreePlot(player, plotId, {
 			PlotId = latestPlotState.PlotId,
 			TreeId = latestPlotState.TreeId,
@@ -1052,6 +815,40 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	playerData = playerDataModule
 	treePlotService = treePlotServiceModule
 	axeService = axeServiceModule
+	treeVisualController = treeVisualControllerModule.create({
+		constants = {
+			MinScale = TREE_MIN_SCALE,
+			DeadScale = TREE_DEAD_SCALE,
+			ImpactSurfaceOffset = TREE_IMPACT_SURFACE_OFFSET,
+			ImpactParticleTexture = TREE_IMPACT_PARTICLE_TEXTURE,
+		},
+		getPartExtentAlongDirection = getPartExtentAlongDirection,
+		alignCloneBottomToPlot = alignCloneBottomToPlot,
+	})
+	treeGrowthController = treeGrowthControllerModule.create({
+		constants = {
+			GrowthStepSeconds = TREE_GROWTH_STEP_SECONDS,
+			ReadyBounceStepSeconds = TREE_READY_BOUNCE_STEP_SECONDS,
+			ReadyBounceScales = TREE_READY_BOUNCE_SCALES,
+		},
+		getAssignedPlot = function(player, plotId)
+			return treePlotService.getAssignedPlot(player, plotId)
+		end,
+		getRuntimePlotState = getRuntimePlotState,
+		getActiveRuntimePlotState = getActiveRuntimePlotState,
+		getTreePlot = function(player, plotId)
+			return playerData.getTreePlot(player, plotId)
+		end,
+		getServerNow = getServerNow,
+		applyTreeScale = function(runtimePlotState, plotRecord, scale)
+			return treeVisualController.applyTreeScale(runtimePlotState, plotRecord, scale)
+		end,
+		getGrowthScale = function(progress)
+			return treeVisualController.getGrowthScale(progress)
+		end,
+		beginVisualAnimation = treeVisualController.beginVisualAnimation,
+		growingState = treeConstants.PlotState.Growing,
+	})
 	unlockPromptManager = treeUnlockPromptManager.create({
 		constants = {
 			TouchCooldown = UNLOCK_BUTTON_TOUCH_COOLDOWN,
