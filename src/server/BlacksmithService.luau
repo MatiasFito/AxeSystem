@@ -4,26 +4,16 @@ local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
 local blacksmithZoneUtils = require(sharedFolder:WaitForChild("BlacksmithZoneUtils") :: ModuleScript)
-local networkFolder = sharedFolder:WaitForChild("Network")
-local remoteRegistry = require(networkFolder:WaitForChild("RemoteRegistry") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
 local blacksmithRemoteHandlersModule = require(script.Parent:WaitForChild("BlacksmithRemoteHandlers") :: ModuleScript)
+local blacksmithRemoteRegistry = require(script.Parent:WaitForChild("BlacksmithRemoteRegistry") :: ModuleScript)
 local blacksmithStateBuilderModule = require(script.Parent:WaitForChild("BlacksmithStateBuilder") :: ModuleScript)
 local blacksmithUpgradeResolverModule = require(script.Parent:WaitForChild("BlacksmithUpgradeResolver") :: ModuleScript)
 
 local BlacksmithService = {}
 
 local started = false
-local playerData = nil
-local axeService = nil
-local blacksmithStateBuilder = nil
-local blacksmithUpgradeResolver = nil
-local blacksmithRemoteHandlers = nil
-
-local function buildStatePayload(player)
-	return blacksmithStateBuilder.buildStatePayload(player)
-end
 
 function BlacksmithService.start(playerDataModule, axeServiceModule)
 	if started then
@@ -31,23 +21,21 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 	end
 
 	started = true
-	playerData = playerDataModule
-	axeService = axeServiceModule
-	blacksmithStateBuilder = blacksmithStateBuilderModule.create({
+	local blacksmithStateBuilder = blacksmithStateBuilderModule.create({
 		failureReasons = blacksmithConstants.FailureReason,
-		isPlayerLoaded = playerData.isLoaded,
-		getAxeTierId = playerData.getAxeTierId,
+		isPlayerLoaded = playerDataModule.isLoaded,
+		getAxeTierId = playerDataModule.getAxeTierId,
 		getTier = axeConfig.getTier,
 		getNextTier = axeConfig.getNextTier,
-		getGold = playerData.getGold,
+		getGold = playerDataModule.getGold,
 		buildFailure = function(reason)
 			return serviceResult.failure(reason, blacksmithConstants.getFailureMessage)
 		end,
 		buildSuccess = serviceResult.success,
 	})
-	blacksmithUpgradeResolver = blacksmithUpgradeResolverModule.create({
+	local blacksmithUpgradeResolver = blacksmithUpgradeResolverModule.create({
 		failureReasons = blacksmithConstants.FailureReason,
-		buildStatePayload = buildStatePayload,
+		buildStatePayload = blacksmithStateBuilder.buildStatePayload,
 		isShopAvailable = function()
 			return blacksmithZoneUtils.getBlacksmithPart() ~= nil
 		end,
@@ -56,10 +44,10 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 			return serviceResult.failure(reason, blacksmithConstants.getFailureMessage, state)
 		end,
 		buildSuccess = serviceResult.success,
-		canGrantTier = axeService.canGrantTier,
-		grantAxe = axeService.grantAxe,
-		setGold = playerData.setGold,
-		setAxeTierId = playerData.setAxeTierId,
+		canGrantTier = axeServiceModule.canGrantTier,
+		grantAxe = axeServiceModule.grantAxe,
+		setGold = playerDataModule.setGold,
+		setAxeTierId = playerDataModule.setAxeTierId,
 		warnGrantFailure = function(player, requestedTierId, grantResult)
 			warn(
 				string.format(
@@ -71,7 +59,7 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 			)
 		end,
 	})
-	blacksmithRemoteHandlers = blacksmithRemoteHandlersModule.create({
+	local blacksmithRemoteHandlers = blacksmithRemoteHandlersModule.create({
 		isShopAvailable = function()
 			return blacksmithZoneUtils.getBlacksmithPart() ~= nil
 		end,
@@ -81,36 +69,13 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 				blacksmithConstants.getFailureMessage
 			)
 		end,
-		buildStatePayload = buildStatePayload,
+		buildStatePayload = blacksmithStateBuilder.buildStatePayload,
 		handleUpgrade = blacksmithUpgradeResolver.handleUpgrade,
 	})
 
-	local blacksmithFolder = remoteRegistry.getOrCreatePath(ReplicatedStorage, {
-		{
-			Name = blacksmithConstants.REMOTE_FOLDER_NAME,
-			ClassName = "Folder",
-		},
-		{
-			Name = blacksmithConstants.BLACKSMITH_REMOTE_FOLDER_NAME,
-			ClassName = "Folder",
-		},
-	})
-	local remotes = remoteRegistry.getOrCreateNamedChildren(blacksmithFolder, {
-		{
-			Name = blacksmithConstants.GET_STATE_REMOTE_NAME,
-			ClassName = "RemoteFunction",
-		},
-		{
-			Name = blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME,
-			ClassName = "RemoteFunction",
-		},
-	})
-	local getStateRemote = remotes[blacksmithConstants.GET_STATE_REMOTE_NAME] :: RemoteFunction
-	local requestUpgradeRemote = remotes[blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME] :: RemoteFunction
-
 	blacksmithRemoteHandlersModule.bind({
-		GetStateRemote = getStateRemote,
-		RequestUpgradeRemote = requestUpgradeRemote,
+		GetStateRemote = blacksmithRemoteRegistry.getOrCreateRemotes().GetStateRemote,
+		RequestUpgradeRemote = blacksmithRemoteRegistry.getOrCreateRemotes().RequestUpgradeRemote,
 	}, blacksmithRemoteHandlers)
 end
 
