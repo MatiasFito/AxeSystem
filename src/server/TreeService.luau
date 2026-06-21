@@ -12,6 +12,7 @@ local networkFolder = sharedFolder:WaitForChild("Network")
 local remoteRegistry = require(networkFolder:WaitForChild("RemoteRegistry") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
+local treeStateBuilder = require(script.Parent:WaitForChild("TreeStateBuilder") :: ModuleScript)
 
 local TreeService = {}
 
@@ -260,103 +261,8 @@ local function destroyUnlockButton(runtimePlotState)
 	end
 end
 
-local function isPlotUnlockable(treePlots, plotId)
-	local tree = treeConfig.getTreeByPlotId(plotId)
-
-	if not tree then
-		return false
-	end
-
-	if tree.PlotOrder == 1 then
-		return true
-	end
-
-	local previousTree = treeConfig.getTreeByOrder(tree.PlotOrder - 1)
-
-	if not previousTree then
-		return false
-	end
-
-	local previousPlotState = treePlots[previousTree.PlotId]
-	return previousPlotState ~= nil and previousPlotState.Unlocked == true
-end
-
-local function buildPlotSnapshot(player, plotId)
-	local plotState = playerData.getTreePlot(player, plotId)
-	local tree = treeConfig.getTreeByPlotId(plotId)
-
-	if not plotState or not tree then
-		return nil
-	end
-
-	local levelData = nil
-	local isMaxLevel = false
-	local canUpgrade = false
-	local upgradeCost = nil
-
-	if plotState.Unlocked and plotState.Level > 0 then
-		levelData = treeConfig.getLevelData(tree.Id, plotState.Level)
-		isMaxLevel = plotState.Level >= tree.MaxLevel
-		upgradeCost = treeConfig.getUpgradeCost(tree.Id, plotState.Level)
-		canUpgrade = upgradeCost ~= nil
-	end
-
-	return {
-		plotId = plotId,
-		plotOrder = tree.PlotOrder,
-		treeId = tree.Id,
-		treeName = tree.Name,
-		unlocked = plotState.Unlocked,
-		level = plotState.Level,
-		state = plotState.State,
-		isUnlockable = not plotState.Unlocked and isPlotUnlockable(playerData.getTreePlots(player) or {}, plotId),
-		unlockCost = tree.UnlockCost,
-		canUpgrade = canUpgrade,
-		upgradeCost = upgradeCost,
-		isMaxLevel = isMaxLevel,
-		stats = levelData and {
-			health = levelData.Health,
-			growTime = levelData.GrowTime,
-			reward = levelData.Reward,
-		} or nil,
-		growingUntil = plotState.GrowingUntil,
-	}
-end
-
 local function buildStatePayload(player, changedPlotIds)
-	if not playerData.isLoaded(player) then
-		return serviceResult.failure(treeConstants.FailureReason.DataNotLoaded, treeConstants.getFailureMessage)
-	end
-
-	local plotSnapshots = {}
-	local plotSetId = treePlotService.getAssignedPlotSetId(player)
-	local plotIds = changedPlotIds
-
-	if not plotIds then
-		plotIds = {}
-
-		for _, treeId in treeConfig.Order do
-			table.insert(plotIds, treeConfig.ById[treeId].PlotId)
-		end
-	end
-
-	for _, plotId in plotIds do
-		local snapshot = buildPlotSnapshot(player, plotId)
-
-		if snapshot then
-			table.insert(plotSnapshots, snapshot)
-		end
-	end
-
-	table.sort(plotSnapshots, function(left, right)
-		return left.plotOrder < right.plotOrder
-	end)
-
-	return serviceResult.success({
-		serverTime = getServerNow(),
-		plotSetId = plotSetId,
-		plots = plotSnapshots,
-	})
+	return treeStateBuilder.buildStatePayload(playerData, treePlotService, getServerNow, player, changedPlotIds)
 end
 
 local function pushStateUpdate(player, changedPlotIds)
@@ -611,7 +517,7 @@ updatePromptForPlot = function(player, plotId)
 	end
 
 	if not plotState.Unlocked then
-		if not isPlotUnlockable(playerData.getTreePlots(player) or {}, plotId) then
+		if not treeStateBuilder.isPlotUnlockable(playerData.getTreePlots(player) or {}, plotId) then
 			destroyUnlockButton(runtimePlotState)
 			return
 		end
@@ -1138,7 +1044,7 @@ attemptUnlock = function(player, plotId)
 		return serviceResult.failure(treeConstants.FailureReason.AlreadyUnlocked, treeConstants.getFailureMessage)
 	end
 
-	if not isPlotUnlockable(allPlots, plotId) then
+	if not treeStateBuilder.isPlotUnlockable(allPlots, plotId) then
 		return serviceResult.failure(treeConstants.FailureReason.NotUnlockable, treeConstants.getFailureMessage)
 	end
 

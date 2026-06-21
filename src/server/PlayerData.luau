@@ -1,4 +1,5 @@
 local playerDataSerializer = require(script.Parent:WaitForChild("PlayerDataSerializer") :: ModuleScript)
+local playerLeaderstats = require(script.Parent:WaitForChild("PlayerLeaderstats") :: ModuleScript)
 local dataStoreRegistry = require(script.Parent:WaitForChild("DataStoreRegistry"))
 
 local PlayerData = {}
@@ -12,39 +13,12 @@ local function getDataStoreKey(player)
 	return dataStoreRegistry.getPlayerKey(DATASTORE_DEFINITION_NAME, player)
 end
 
-local function ensureLeaderstats(player)
-	local leaderstats = player:FindFirstChild("leaderstats")
-
-	if not leaderstats then
-		leaderstats = Instance.new("Folder")
-		leaderstats.Name = "leaderstats"
-		leaderstats.Parent = player
-	end
-
-	local goldValue = leaderstats:FindFirstChild("Gold")
-
-	if goldValue and goldValue:IsA("IntValue") then
-		return goldValue
-	end
-
-	if goldValue then
-		goldValue:Destroy()
-	end
-
-	goldValue = Instance.new("IntValue")
-	goldValue.Name = "Gold"
-	goldValue.Parent = leaderstats
-
-	return goldValue
-end
-
 local function syncLeaderstats(player, state)
 	if not state or not state.IsLoaded then
 		return
 	end
 
-	local goldValue = ensureLeaderstats(player)
-	goldValue.Value = state.Gold
+	playerLeaderstats.syncGold(player, state.Gold)
 end
 
 function PlayerData.start()
