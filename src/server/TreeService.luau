@@ -16,6 +16,7 @@ local treeStateBuilder = require(script.Parent:WaitForChild("TreeStateBuilder") 
 local treeUnlockPromptManager = require(script.Parent:WaitForChild("TreeUnlockPromptManager") :: ModuleScript)
 local treeVisualControllerModule = require(script.Parent:WaitForChild("TreeVisualController") :: ModuleScript)
 local treeGrowthControllerModule = require(script.Parent:WaitForChild("TreeGrowthController") :: ModuleScript)
+local treeHitControllerModule = require(script.Parent:WaitForChild("TreeHitController") :: ModuleScript)
 
 local TreeService = {}
 
@@ -61,6 +62,7 @@ local attemptUnlock = nil
 local unlockPromptManager = nil
 local treeVisualController = nil
 local treeGrowthController = nil
+local treeHitController = nil
 
 local function playUnlockButtonSuccessTween(runtimePlotState)
 	if unlockPromptManager then
@@ -329,27 +331,8 @@ local function getPartExtentAlongDirection(part, direction)
 		+ math.abs(unitDirection:Dot(lookVector)) * halfSize.Z
 end
 
-local function emitTreeParticles(treeInstance, particleCount, sourcePosition)
-	treeVisualController.emitTreeParticles(treeInstance, particleCount, sourcePosition)
-end
-
-local function playTreeSound(treeInstance, soundId, volume)
-	treeVisualController.playTreeSound(treeInstance, soundId, volume)
-end
-
 local function captureTreeVisualState(runtimePlotState, treeInstance)
 	treeVisualController.captureTreeVisualState(runtimePlotState, treeInstance)
-end
-
-local function applyTreeVisual(runtimePlotState, plotRecord, scale, pivotOverride, transparencyAlpha, shouldAlignBottom)
-	return treeVisualController.applyTreeVisual(
-		runtimePlotState,
-		plotRecord,
-		scale,
-		pivotOverride,
-		transparencyAlpha,
-		shouldAlignBottom
-	)
 end
 
 local function applyTreeScale(runtimePlotState, plotRecord, scale)
@@ -358,10 +341,6 @@ end
 
 local function getGrowthScale(progress)
 	return treeVisualController.getGrowthScale(progress)
-end
-
-local function getHarvestScale(currentHealth, maxHealth)
-	return treeVisualController.getHarvestScale(currentHealth, maxHealth)
 end
 
 local function startGrowthAnimation(player, plotId, growingUntil, growTime)
@@ -680,130 +659,8 @@ local function attemptUpgrade(player, plotId)
 	return serviceResult.success(buildStatePayload(player, { plotId }).state)
 end
 
-local function resolveReward(levelData, tool)
-	local goldMultiplier = getToolStatValue(tool, "GoldBonus", 1)
-	return math.max(0, math.floor(levelData.Reward * goldMultiplier))
-end
-
 local function processTreeHit(player, plotId)
-	if not playerData.isLoaded(player) then
-		return
-	end
-
-	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
-	local plotState = playerData.getTreePlot(player, plotId)
-
-	if not plotRecord or not plotState or plotState.State ~= treeConstants.PlotState.Grown then
-		return
-	end
-
-	local rootPart = getCharacterRootPart(player)
-
-	if not rootPart then
-		return
-	end
-
-	if (rootPart.Position - plotRecord.DirtPatch.Position).Magnitude > TREE_HIT_DISTANCE then
-		return
-	end
-
-	local tool = getEquippedAxeTool(player)
-
-	if not tool then
-		return
-	end
-
-	local runtimePlotState = getRuntimePlotState(player, plotId)
-	local now = os.clock()
-
-	if now - runtimePlotState.LastAcceptedHitAt < HIT_COOLDOWN_SECONDS then
-		return
-	end
-
-	runtimePlotState.LastAcceptedHitAt = now
-
-	local tree = treeConfig.getTreeByPlotId(plotId)
-	local levelData = tree and treeConfig.getLevelData(tree.Id, plotState.Level) or nil
-
-	if not tree or not levelData then
-		return
-	end
-
-	if runtimePlotState.CurrentHealth == nil then
-		runtimePlotState.CurrentHealth = levelData.Health
-	end
-
-	local power = math.max(1, math.floor(getToolStatValue(tool, "Power", 1)))
-	local actualDamage = math.min(runtimePlotState.CurrentHealth, power)
-	runtimePlotState.CurrentHealth -= actualDamage
-	emitTreeParticles(
-		runtimePlotState.SpawnedTreeModel,
-		runtimePlotState.CurrentHealth > 0 and 10 or 16,
-		rootPart.Position
-	)
-	playTreeSound(runtimePlotState.SpawnedTreeModel, TREE_HIT_SOUND_ID, 1.15)
-
-	if runtimePlotState.CurrentHealth > 0 then
-		applyTreeScale(runtimePlotState, plotRecord, getHarvestScale(runtimePlotState.CurrentHealth, levelData.Health))
-		pushHitFeedback(player, {
-			plotId = plotId,
-			treeId = tree.Id,
-			treeName = tree.Name,
-			kind = "hit",
-			damage = actualDamage,
-			currentHealth = runtimePlotState.CurrentHealth,
-			maxHealth = levelData.Health,
-		})
-		return
-	end
-
-	local reward = resolveReward(levelData, tool)
-	local currentGold = playerData.getGold(player) or 0
-	local growingUntil = getServerNow() + levelData.GrowTime
-	playerData.setGold(player, currentGold + reward)
-	refreshUnlockButtons(player)
-	runtimePlotState.CurrentHealth = 0
-	applyTreeVisual(
-		runtimePlotState,
-		plotRecord,
-		runtimePlotState.VisualScale > 0 and runtimePlotState.VisualScale or 1,
-		nil,
-		1,
-		true
-	)
-	playTreeSound(runtimePlotState.SpawnedTreeModel, TREE_DEATH_SOUND_ID, 1.4)
-	playerData.setTreePlot(player, plotId, {
-		PlotId = plotState.PlotId,
-		TreeId = plotState.TreeId,
-		Unlocked = true,
-		Level = plotState.Level,
-		State = treeConstants.PlotState.Growing,
-		GrowingUntil = growingUntil,
-	})
-	updatePromptForPlot(player, plotId)
-
-	pushHitFeedback(player, {
-		plotId = plotId,
-		treeId = tree.Id,
-		treeName = tree.Name,
-		kind = "felled",
-		damage = actualDamage,
-		currentHealth = 0,
-		maxHealth = levelData.Health,
-		reward = reward,
-		goldAfter = currentGold + reward,
-		regrowDuration = levelData.GrowTime,
-	})
-
-	pushStateUpdate(player, { plotId })
-
-	task.delay(TREE_HARVEST_RESPAWN_DELAY, function()
-		local latestPlotState = playerData.getTreePlot(player, plotId)
-
-		if latestPlotState and latestPlotState.State == treeConstants.PlotState.Growing then
-			materializePlot(player, plotId)
-		end
-	end)
+	treeHitController.processTreeHit(player, plotId)
 end
 
 function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceModule)
@@ -847,6 +704,46 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 			return treeVisualController.getGrowthScale(progress)
 		end,
 		beginVisualAnimation = treeVisualController.beginVisualAnimation,
+		growingState = treeConstants.PlotState.Growing,
+	})
+	treeHitController = treeHitControllerModule.create({
+		constants = {
+			HitDistance = TREE_HIT_DISTANCE,
+			HitCooldownSeconds = HIT_COOLDOWN_SECONDS,
+			HitSoundId = TREE_HIT_SOUND_ID,
+			DeathSoundId = TREE_DEATH_SOUND_ID,
+			HarvestRespawnDelay = TREE_HARVEST_RESPAWN_DELAY,
+		},
+		isPlayerLoaded = playerData.isLoaded,
+		getAssignedPlot = function(player, plotId)
+			return treePlotService.getAssignedPlot(player, plotId)
+		end,
+		getTreePlot = function(player, plotId)
+			return playerData.getTreePlot(player, plotId)
+		end,
+		getCharacterRootPart = getCharacterRootPart,
+		getEquippedAxeTool = getEquippedAxeTool,
+		getRuntimePlotState = getRuntimePlotState,
+		getTreeByPlotId = treeConfig.getTreeByPlotId,
+		getLevelData = treeConfig.getLevelData,
+		getToolStatValue = getToolStatValue,
+		emitTreeParticles = treeVisualController.emitTreeParticles,
+		playTreeSound = treeVisualController.playTreeSound,
+		applyTreeScale = function(runtimePlotState, plotRecord, scale)
+			return treeVisualController.applyTreeScale(runtimePlotState, plotRecord, scale)
+		end,
+		getHarvestScale = treeVisualController.getHarvestScale,
+		getGold = playerData.getGold,
+		setGold = playerData.setGold,
+		refreshUnlockButtons = refreshUnlockButtons,
+		applyTreeVisual = treeVisualController.applyTreeVisual,
+		setTreePlot = playerData.setTreePlot,
+		updatePromptForPlot = updatePromptForPlot,
+		pushHitFeedback = pushHitFeedback,
+		pushStateUpdate = pushStateUpdate,
+		materializePlot = materializePlot,
+		getServerNow = getServerNow,
+		grownState = treeConstants.PlotState.Grown,
 		growingState = treeConstants.PlotState.Growing,
 	})
 	unlockPromptManager = treeUnlockPromptManager.create({
