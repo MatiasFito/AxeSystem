@@ -8,6 +8,8 @@ local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
+local utilsFolder = sharedFolder:WaitForChild("Utils")
+local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
 
 local TreeService = {}
 
@@ -256,20 +258,6 @@ local function destroyUnlockButton(runtimePlotState)
 	end
 end
 
-local function buildFailure(reason, state)
-	local payload = {
-		success = false,
-		reason = reason,
-		message = treeConstants.getFailureMessage(reason),
-	}
-
-	if state then
-		payload.state = state
-	end
-
-	return payload
-end
-
 local function isPlotUnlockable(treePlots, plotId)
 	local tree = treeConfig.getTreeByPlotId(plotId)
 
@@ -335,7 +323,7 @@ end
 
 local function buildStatePayload(player, changedPlotIds)
 	if not playerData.isLoaded(player) then
-		return buildFailure(treeConstants.FailureReason.DataNotLoaded)
+		return serviceResult.failure(treeConstants.FailureReason.DataNotLoaded, treeConstants.getFailureMessage)
 	end
 
 	local plotSnapshots = {}
@@ -362,14 +350,11 @@ local function buildStatePayload(player, changedPlotIds)
 		return left.plotOrder < right.plotOrder
 	end)
 
-	return {
-		success = true,
-		state = {
-			serverTime = getServerNow(),
-			plotSetId = plotSetId,
-			plots = plotSnapshots,
-		},
-	}
+	return serviceResult.success({
+		serverTime = getServerNow(),
+		plotSetId = plotSetId,
+		plots = plotSnapshots,
+	})
 end
 
 local function pushStateUpdate(player, changedPlotIds)
@@ -1129,13 +1114,13 @@ end
 
 attemptUnlock = function(player, plotId)
 	if not playerData.isLoaded(player) then
-		return buildFailure(treeConstants.FailureReason.DataNotLoaded)
+		return serviceResult.failure(treeConstants.FailureReason.DataNotLoaded, treeConstants.getFailureMessage)
 	end
 
 	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
 
 	if not plotRecord then
-		return buildFailure(treeConstants.FailureReason.NotOwned)
+		return serviceResult.failure(treeConstants.FailureReason.NotOwned, treeConstants.getFailureMessage)
 	end
 
 	local plotState = playerData.getTreePlot(player, plotId)
@@ -1144,25 +1129,25 @@ attemptUnlock = function(player, plotId)
 	local gold = playerData.getGold(player) or 0
 
 	if not plotState or not tree then
-		return buildFailure(treeConstants.FailureReason.ConfigError)
+		return serviceResult.failure(treeConstants.FailureReason.ConfigError, treeConstants.getFailureMessage)
 	end
 
 	if plotState.Unlocked then
-		return buildFailure(treeConstants.FailureReason.AlreadyUnlocked)
+		return serviceResult.failure(treeConstants.FailureReason.AlreadyUnlocked, treeConstants.getFailureMessage)
 	end
 
 	if not isPlotUnlockable(allPlots, plotId) then
-		return buildFailure(treeConstants.FailureReason.NotUnlockable)
+		return serviceResult.failure(treeConstants.FailureReason.NotUnlockable, treeConstants.getFailureMessage)
 	end
 
 	if gold < tree.UnlockCost then
-		return buildFailure(treeConstants.FailureReason.InsufficientGold)
+		return serviceResult.failure(treeConstants.FailureReason.InsufficientGold, treeConstants.getFailureMessage)
 	end
 
 	local levelData = treeConfig.getLevelData(tree.Id, 1)
 
 	if not levelData then
-		return buildFailure(treeConstants.FailureReason.ConfigError)
+		return serviceResult.failure(treeConstants.FailureReason.ConfigError, treeConstants.getFailureMessage)
 	end
 
 	playerData.setGold(player, gold - tree.UnlockCost)
@@ -1190,19 +1175,16 @@ attemptUnlock = function(player, plotId)
 	refreshUnlockButtons(player)
 
 	pushStateUpdate(player, changedPlots)
-	return {
-		success = true,
-		state = buildStatePayload(player, changedPlots).state,
-	}
+	return serviceResult.success(buildStatePayload(player, changedPlots).state)
 end
 
 local function attemptUpgrade(player, plotId)
 	if not playerData.isLoaded(player) then
-		return buildFailure(treeConstants.FailureReason.DataNotLoaded)
+		return serviceResult.failure(treeConstants.FailureReason.DataNotLoaded, treeConstants.getFailureMessage)
 	end
 
 	if not treePlotService.getAssignedPlot(player, plotId) then
-		return buildFailure(treeConstants.FailureReason.NotOwned)
+		return serviceResult.failure(treeConstants.FailureReason.NotOwned, treeConstants.getFailureMessage)
 	end
 
 	local plotState = playerData.getTreePlot(player, plotId)
@@ -1210,29 +1192,29 @@ local function attemptUpgrade(player, plotId)
 	local gold = playerData.getGold(player) or 0
 
 	if not plotState or not tree or not plotState.Unlocked then
-		return buildFailure(treeConstants.FailureReason.PlotNotFound)
+		return serviceResult.failure(treeConstants.FailureReason.PlotNotFound, treeConstants.getFailureMessage)
 	end
 
 	local nextLevel = treeConfig.getUpgradeLevel(tree.Id, plotState.Level)
 
 	if not nextLevel then
-		return buildFailure(treeConstants.FailureReason.AlreadyMaxed)
+		return serviceResult.failure(treeConstants.FailureReason.AlreadyMaxed, treeConstants.getFailureMessage)
 	end
 
 	local upgradeCost = treeConfig.getUpgradeCost(tree.Id, plotState.Level)
 
 	if not upgradeCost then
-		return buildFailure(treeConstants.FailureReason.ConfigError)
+		return serviceResult.failure(treeConstants.FailureReason.ConfigError, treeConstants.getFailureMessage)
 	end
 
 	if gold < upgradeCost then
-		return buildFailure(treeConstants.FailureReason.InsufficientGold)
+		return serviceResult.failure(treeConstants.FailureReason.InsufficientGold, treeConstants.getFailureMessage)
 	end
 
 	local nextLevelData = treeConfig.getLevelData(tree.Id, nextLevel)
 
 	if not nextLevelData then
-		return buildFailure(treeConstants.FailureReason.ConfigError)
+		return serviceResult.failure(treeConstants.FailureReason.ConfigError, treeConstants.getFailureMessage)
 	end
 
 	playerData.setGold(player, gold - upgradeCost)
@@ -1255,10 +1237,7 @@ local function attemptUpgrade(player, plotId)
 	refreshUnlockButtons(player)
 	pushStateUpdate(player, { plotId })
 
-	return {
-		success = true,
-		state = buildStatePayload(player, { plotId }).state,
-	}
+	return serviceResult.success(buildStatePayload(player, { plotId }).state)
 end
 
 local function resolveReward(levelData, tool)
@@ -1282,7 +1261,7 @@ end
 
 local function handleGetState(player)
 	if not treePlotService.getAssignedPlotSet(player) then
-		return buildFailure(treeConstants.FailureReason.PlotNotFound)
+		return serviceResult.failure(treeConstants.FailureReason.PlotNotFound, treeConstants.getFailureMessage)
 	end
 
 	return buildStatePayload(player)

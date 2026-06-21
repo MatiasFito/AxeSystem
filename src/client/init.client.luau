@@ -1,11 +1,3 @@
-local autoSwingUI = require(script:WaitForChild("AutoSwingUI"))
-local blacksmithZoneController = require(script:WaitForChild("BlacksmithZoneController"))
-local swingSpeedPad = require(script:WaitForChild("SwingSpeedPad"))
-local treeStatusUI = require(script:WaitForChild("TreeStatusUI"))
-local treeUpgradePadController = require(script:WaitForChild("TreeUpgradePadController"))
+local clientBootstrap = require(script:WaitForChild("Bootstrap"):WaitForChild("ClientBootstrap") :: ModuleScript)
 
-autoSwingUI.start()
-blacksmithZoneController.start()
-swingSpeedPad.start()
-treeStatusUI.start()
-treeUpgradePadController.start()
+clientBootstrap.start(script)

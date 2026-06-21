@@ -4,6 +4,8 @@ local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
 local blacksmithZoneUtils = require(sharedFolder:WaitForChild("BlacksmithZoneUtils") :: ModuleScript)
+local utilsFolder = sharedFolder:WaitForChild("Utils")
+local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
 
 local BlacksmithService = {}
 
@@ -50,52 +52,44 @@ local function buildAxeSnapshot(tier, includeCost)
 	return snapshot
 end
 
-local function buildFailure(reason, state)
-	local payload = {
-		success = false,
-		reason = reason,
-		message = blacksmithConstants.getFailureMessage(reason),
-	}
-
-	if state then
-		payload.state = state
-	end
-
-	return payload
-end
-
 local function buildStatePayload(player)
 	if not playerData.isLoaded(player) then
-		return buildFailure(blacksmithConstants.FailureReason.DataNotLoaded)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.DataNotLoaded,
+			blacksmithConstants.getFailureMessage
+		)
 	end
 
 	local currentTierId = playerData.getAxeTierId(player)
 	local currentTier = axeConfig.getTier(currentTierId)
 
 	if not currentTier then
-		return buildFailure(blacksmithConstants.FailureReason.ConfigError)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.ConfigError,
+			blacksmithConstants.getFailureMessage
+		)
 	end
 
 	local nextTier = axeConfig.getNextTier(currentTierId)
 	local gold = playerData.getGold(player) or 0
 
-	return {
-		success = true,
-		state = {
-			gold = gold,
-			currentTierId = currentTierId,
-			currentAxe = buildAxeSnapshot(currentTier, false),
-			nextTierId = nextTier and nextTier.Id or nil,
-			nextAxe = buildAxeSnapshot(nextTier, true),
-			canUpgrade = nextTier ~= nil and gold >= nextTier.Cost,
-			isMaxTier = nextTier == nil,
-		},
-	}
+	return serviceResult.success({
+		gold = gold,
+		currentTierId = currentTierId,
+		currentAxe = buildAxeSnapshot(currentTier, false),
+		nextTierId = nextTier and nextTier.Id or nil,
+		nextAxe = buildAxeSnapshot(nextTier, true),
+		canUpgrade = nextTier ~= nil and gold >= nextTier.Cost,
+		isMaxTier = nextTier == nil,
+	})
 end
 
 local function handleGetState(player)
 	if not blacksmithZoneUtils.getBlacksmithPart() then
-		return buildFailure(blacksmithConstants.FailureReason.ShopUnavailable)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.ShopUnavailable,
+			blacksmithConstants.getFailureMessage
+		)
 	end
 
 	return buildStatePayload(player)
@@ -111,35 +105,63 @@ local function handleUpgrade(player, requestedTierId)
 	local state = statePayload.state
 
 	if not blacksmithZoneUtils.getBlacksmithPart() then
-		return buildFailure(blacksmithConstants.FailureReason.ShopUnavailable, state)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.ShopUnavailable,
+			blacksmithConstants.getFailureMessage,
+			state
+		)
 	end
 
 	if not blacksmithZoneUtils.isCharacterInZone(player.Character) then
-		return buildFailure(blacksmithConstants.FailureReason.NotInRange, state)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.NotInRange,
+			blacksmithConstants.getFailureMessage,
+			state
+		)
 	end
 
 	if state.isMaxTier then
-		return buildFailure(blacksmithConstants.FailureReason.AlreadyMaxed, state)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.AlreadyMaxed,
+			blacksmithConstants.getFailureMessage,
+			state
+		)
 	end
 
 	if typeof(requestedTierId) ~= "string" or requestedTierId ~= state.nextTierId then
-		return buildFailure(blacksmithConstants.FailureReason.InvalidTier, state)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.InvalidTier,
+			blacksmithConstants.getFailureMessage,
+			state
+		)
 	end
 
 	local nextAxe = state.nextAxe
 
 	if not nextAxe then
-		return buildFailure(blacksmithConstants.FailureReason.ConfigError, state)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.ConfigError,
+			blacksmithConstants.getFailureMessage,
+			state
+		)
 	end
 
 	if state.gold < nextAxe.cost then
-		return buildFailure(blacksmithConstants.FailureReason.InsufficientGold, state)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.InsufficientGold,
+			blacksmithConstants.getFailureMessage,
+			state
+		)
 	end
 
 	local canGrantTier = axeService.canGrantTier(requestedTierId)
 
 	if not canGrantTier then
-		return buildFailure(blacksmithConstants.FailureReason.ConfigError, state)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.ConfigError,
+			blacksmithConstants.getFailureMessage,
+			state
+		)
 	end
 
 	local grantSuccess, grantResult = axeService.grantAxe(player, requestedTierId, true)
@@ -153,7 +175,11 @@ local function handleUpgrade(player, requestedTierId)
 				tostring(grantResult)
 			)
 		)
-		return buildFailure(blacksmithConstants.FailureReason.ConfigError, state)
+		return serviceResult.failure(
+			blacksmithConstants.FailureReason.ConfigError,
+			blacksmithConstants.getFailureMessage,
+			state
+		)
 	end
 
 	playerData.setGold(player, state.gold - nextAxe.cost)
@@ -165,16 +191,14 @@ local function handleUpgrade(player, requestedTierId)
 		return refreshedStatePayload
 	end
 
-	return {
-		success = true,
-		state = refreshedStatePayload.state,
+	return serviceResult.success(refreshedStatePayload.state, {
 		purchase = {
 			previousTierId = state.currentTierId,
 			newTierId = requestedTierId,
 			costPaid = nextAxe.cost,
 			goldAfter = refreshedStatePayload.state.gold,
 		},
-	}
+	})
 end
 function BlacksmithService.start(playerDataModule, axeServiceModule)
 	if started then
