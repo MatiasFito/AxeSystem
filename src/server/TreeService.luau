@@ -17,6 +17,7 @@ local treeUnlockPromptManager = require(script.Parent:WaitForChild("TreeUnlockPr
 local treeVisualControllerModule = require(script.Parent:WaitForChild("TreeVisualController") :: ModuleScript)
 local treeGrowthControllerModule = require(script.Parent:WaitForChild("TreeGrowthController") :: ModuleScript)
 local treeHitControllerModule = require(script.Parent:WaitForChild("TreeHitController") :: ModuleScript)
+local treePlotMaterializerModule = require(script.Parent:WaitForChild("TreePlotMaterializer") :: ModuleScript)
 
 local TreeService = {}
 
@@ -63,6 +64,7 @@ local unlockPromptManager = nil
 local treeVisualController = nil
 local treeGrowthController = nil
 local treeHitController = nil
+local treePlotMaterializer = nil
 
 local function playUnlockButtonSuccessTween(runtimePlotState)
 	if unlockPromptManager then
@@ -339,171 +341,12 @@ local function applyTreeScale(runtimePlotState, plotRecord, scale)
 	return treeVisualController.applyTreeScale(runtimePlotState, plotRecord, scale)
 end
 
-local function getGrowthScale(progress)
-	return treeVisualController.getGrowthScale(progress)
-end
-
-local function startGrowthAnimation(player, plotId, growingUntil, growTime)
-	treeGrowthController.startGrowthAnimation(player, plotId, growingUntil, growTime)
-end
-
-local function playReadyBounce(player, plotId)
-	treeGrowthController.playReadyBounce(player, plotId)
-end
-
-local function scheduleReadyTransition(player, plotId, growingUntil, onReady)
-	treeGrowthController.scheduleReadyTransition(player, plotId, growingUntil, onReady)
-end
-
-local function spawnTreeForPlot(player, plotId, initialScale)
-	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
-	local plotState = playerData.getTreePlot(player, plotId)
-	local runtimePlotState = getRuntimePlotState(player, plotId)
-
-	if not plotRecord or not plotState then
-		return false
-	end
-
-	local tree = treeConfig.getTree(plotState.TreeId)
-	local levelData = tree and treeConfig.getLevelData(tree.Id, plotState.Level) or nil
-	local templatesFolder = getTreeTemplatesFolder()
-
-	if not tree or not levelData or not templatesFolder then
-		return false
-	end
-
-	local template = templatesFolder:FindFirstChild(tree.TemplateName)
-
-	if not template then
-		warn(string.format("Missing tree template '%s'", tree.TemplateName))
-		return false
-	end
-
-	destroySpawnedTree(runtimePlotState)
-
-	local clone = template:Clone()
-	clone.Name = string.format("%s_%s", plotRecord.PlotSetId, plotId)
-	clone:SetAttribute(treeConstants.IS_MANAGED_TREE_ATTRIBUTE, true)
-	clone:SetAttribute(treeConstants.TREE_ID_ATTRIBUTE, tree.Id)
-	clone:SetAttribute(treeConstants.TREE_PLOT_ID_ATTRIBUTE, plotId)
-
-	for _, descendant in clone:GetDescendants() do
-		if descendant:IsA("BasePart") then
-			descendant:SetAttribute(treeConstants.IS_MANAGED_TREE_ATTRIBUTE, true)
-			descendant:SetAttribute(treeConstants.TREE_ID_ATTRIBUTE, tree.Id)
-			descendant:SetAttribute(treeConstants.TREE_PLOT_ID_ATTRIBUTE, plotId)
-		end
-	end
-
-	clone.Parent = getOrCreateSetRuntimeFolder(plotRecord.PlotSetId)
-
-	local spawnCFrame = getSpawnCFrame(plotRecord.TreeSpawn)
-
-	if clone:IsA("Model") then
-		clone:PivotTo(spawnCFrame)
-		alignCloneBottomToPlot(clone, plotRecord)
-	elseif clone:IsA("BasePart") then
-		clone.CFrame = spawnCFrame
-		alignCloneBottomToPlot(clone, plotRecord)
-	end
-
-	captureTreeVisualState(runtimePlotState, clone)
-	runtimePlotState.SpawnedTreeModel = clone
-	runtimePlotState.CurrentHealth = levelData.Health
-	runtimePlotState.FullHealth = levelData.Health
-	applyTreeScale(runtimePlotState, plotRecord, initialScale or 1)
-	return true
-end
-
 local function materializePlot(player, plotId)
-	local plotState = playerData.getTreePlot(player, plotId)
-	local runtimePlotState = getRuntimePlotState(player, plotId)
-
-	if not plotState then
-		return
-	end
-
-	clearScheduledReady(runtimePlotState)
-
-	if not plotState.Unlocked then
-		destroySpawnedTree(runtimePlotState)
-		updatePromptForPlot(player, plotId)
-		return
-	end
-
-	if plotState.State == treeConstants.PlotState.Grown then
-		spawnTreeForPlot(player, plotId, 1)
-		updatePromptForPlot(player, plotId)
-		return
-	end
-
-	destroySpawnedTree(runtimePlotState)
-
-	local tree = treeConfig.getTree(plotState.TreeId)
-	local levelData = tree and treeConfig.getLevelData(tree.Id, plotState.Level) or nil
-
-	if not tree or not levelData then
-		return
-	end
-
-	local growingUntil = plotState.GrowingUntil or getServerNow()
-
-	if growingUntil <= getServerNow() then
-		local updatedPlotState = {
-			PlotId = plotState.PlotId,
-			TreeId = plotState.TreeId,
-			Unlocked = true,
-			Level = plotState.Level,
-			State = treeConstants.PlotState.Grown,
-			GrowingUntil = nil,
-		}
-
-		playerData.setTreePlot(player, plotId, updatedPlotState)
-		spawnTreeForPlot(player, plotId, 1)
-		playReadyBounce(player, plotId)
-		updatePromptForPlot(player, plotId)
-		pushStateUpdate(player, { plotId })
-		return
-	end
-
-	local remaining = math.max(0, growingUntil - getServerNow())
-	local initialProgress = math.clamp(1 - (remaining / math.max(0.01, levelData.GrowTime)), 0, 1)
-	spawnTreeForPlot(player, plotId, getGrowthScale(initialProgress))
-	startGrowthAnimation(player, plotId, growingUntil, levelData.GrowTime)
-	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
-
-	updatePromptForPlot(player, plotId)
-
-	scheduleReadyTransition(player, plotId, growingUntil, function(latestPlotState)
-		playerData.setTreePlot(player, plotId, {
-			PlotId = latestPlotState.PlotId,
-			TreeId = latestPlotState.TreeId,
-			Unlocked = true,
-			Level = latestPlotState.Level,
-			State = treeConstants.PlotState.Grown,
-			GrowingUntil = nil,
-		})
-
-		applyTreeScale(runtimePlotState, plotRecord, 1)
-		playReadyBounce(player, plotId)
-		updatePromptForPlot(player, plotId)
-		pushStateUpdate(player, { plotId })
-	end)
+	treePlotMaterializer.materializePlot(player, plotId)
 end
 
 local function refreshAllAssignedPlots(player)
-	local plotSet = treePlotService.getAssignedPlotSet(player)
-
-	if not plotSet then
-		return false
-	end
-
-	for _, plotId in plotSet.OrderedPlotIds do
-		materializePlot(player, plotId)
-	end
-
-	pushStateUpdate(player)
-	return true
+	return treePlotMaterializer.refreshAllAssignedPlots(player)
 end
 
 local function cleanupPlayerRuntime(player)
@@ -705,6 +548,42 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		end,
 		beginVisualAnimation = treeVisualController.beginVisualAnimation,
 		growingState = treeConstants.PlotState.Growing,
+	})
+	treePlotMaterializer = treePlotMaterializerModule.create({
+		constants = {
+			IsManagedTreeAttribute = treeConstants.IS_MANAGED_TREE_ATTRIBUTE,
+			TreeIdAttribute = treeConstants.TREE_ID_ATTRIBUTE,
+			TreePlotIdAttribute = treeConstants.TREE_PLOT_ID_ATTRIBUTE,
+		},
+		getAssignedPlot = function(player, plotId)
+			return treePlotService.getAssignedPlot(player, plotId)
+		end,
+		getAssignedPlotSet = function(player)
+			return treePlotService.getAssignedPlotSet(player)
+		end,
+		getTreePlot = function(player, plotId)
+			return playerData.getTreePlot(player, plotId)
+		end,
+		setTreePlot = playerData.setTreePlot,
+		getRuntimePlotState = getRuntimePlotState,
+		clearScheduledReady = clearScheduledReady,
+		destroySpawnedTree = destroySpawnedTree,
+		updatePromptForPlot = updatePromptForPlot,
+		getTree = treeConfig.getTree,
+		getLevelData = treeConfig.getLevelData,
+		getTreeTemplatesFolder = getTreeTemplatesFolder,
+		getOrCreateSetRuntimeFolder = getOrCreateSetRuntimeFolder,
+		getSpawnCFrame = getSpawnCFrame,
+		alignCloneBottomToPlot = alignCloneBottomToPlot,
+		captureTreeVisualState = captureTreeVisualState,
+		applyTreeScale = applyTreeScale,
+		getGrowthScale = treeVisualController.getGrowthScale,
+		startGrowthAnimation = treeGrowthController.startGrowthAnimation,
+		playReadyBounce = treeGrowthController.playReadyBounce,
+		scheduleReadyTransition = treeGrowthController.scheduleReadyTransition,
+		pushStateUpdate = pushStateUpdate,
+		getServerNow = getServerNow,
+		grownState = treeConstants.PlotState.Grown,
 	})
 	treeHitController = treeHitControllerModule.create({
 		constants = {

@@ -8,6 +8,7 @@ local networkFolder = sharedFolder:WaitForChild("Network")
 local remoteRegistry = require(networkFolder:WaitForChild("RemoteRegistry") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
+local blacksmithStateBuilderModule = require(script.Parent:WaitForChild("BlacksmithStateBuilder") :: ModuleScript)
 local blacksmithUpgradeResolverModule = require(script.Parent:WaitForChild("BlacksmithUpgradeResolver") :: ModuleScript)
 
 local BlacksmithService = {}
@@ -15,59 +16,11 @@ local BlacksmithService = {}
 local started = false
 local playerData = nil
 local axeService = nil
+local blacksmithStateBuilder = nil
 local blacksmithUpgradeResolver = nil
 
-local function buildAxeSnapshot(tier, includeCost)
-	if not tier then
-		return nil
-	end
-
-	local snapshot = {
-		id = tier.Id,
-		name = tier.Name,
-		description = tier.Description,
-		power = tier.Power,
-		goldMultiplier = tier.GoldMultiplier,
-		imageId = tier.ImageId,
-	}
-
-	if includeCost then
-		snapshot.cost = tier.Cost
-	end
-
-	return snapshot
-end
-
 local function buildStatePayload(player)
-	if not playerData.isLoaded(player) then
-		return serviceResult.failure(
-			blacksmithConstants.FailureReason.DataNotLoaded,
-			blacksmithConstants.getFailureMessage
-		)
-	end
-
-	local currentTierId = playerData.getAxeTierId(player)
-	local currentTier = axeConfig.getTier(currentTierId)
-
-	if not currentTier then
-		return serviceResult.failure(
-			blacksmithConstants.FailureReason.ConfigError,
-			blacksmithConstants.getFailureMessage
-		)
-	end
-
-	local nextTier = axeConfig.getNextTier(currentTierId)
-	local gold = playerData.getGold(player) or 0
-
-	return serviceResult.success({
-		gold = gold,
-		currentTierId = currentTierId,
-		currentAxe = buildAxeSnapshot(currentTier, false),
-		nextTierId = nextTier and nextTier.Id or nil,
-		nextAxe = buildAxeSnapshot(nextTier, true),
-		canUpgrade = nextTier ~= nil and gold >= nextTier.Cost,
-		isMaxTier = nextTier == nil,
-	})
+	return blacksmithStateBuilder.buildStatePayload(player)
 end
 
 local function handleGetState(player)
@@ -92,6 +45,18 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 	started = true
 	playerData = playerDataModule
 	axeService = axeServiceModule
+	blacksmithStateBuilder = blacksmithStateBuilderModule.create({
+		failureReasons = blacksmithConstants.FailureReason,
+		isPlayerLoaded = playerData.isLoaded,
+		getAxeTierId = playerData.getAxeTierId,
+		getTier = axeConfig.getTier,
+		getNextTier = axeConfig.getNextTier,
+		getGold = playerData.getGold,
+		buildFailure = function(reason)
+			return serviceResult.failure(reason, blacksmithConstants.getFailureMessage)
+		end,
+		buildSuccess = serviceResult.success,
+	})
 	blacksmithUpgradeResolver = blacksmithUpgradeResolverModule.create({
 		failureReasons = blacksmithConstants.FailureReason,
 		buildStatePayload = buildStatePayload,
