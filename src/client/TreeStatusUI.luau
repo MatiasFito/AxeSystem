@@ -9,7 +9,6 @@ local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: Modu
 local networkFolder = sharedFolder:WaitForChild("Network")
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
-local leaderstatsWatcher = require(utilsFolder:WaitForChild("LeaderstatsWatcher") :: ModuleScript)
 local remoteResolver = require(networkFolder:WaitForChild("RemoteResolver") :: ModuleScript)
 local timeSync = require(utilsFolder:WaitForChild("TimeSync") :: ModuleScript)
 local TreePlotCard = require(script.Parent:WaitForChild("TreePlotCard") :: ModuleScript)
@@ -39,7 +38,6 @@ local screenGui = nil
 local rootFrame = nil
 local toggleButton = nil
 local closeButton = nil
-local goldLabel = nil
 local plotSetLabel = nil
 local cardsContainer = nil
 local toastFrame = nil
@@ -60,7 +58,6 @@ local hasReceivedInitialState = false
 local toastToken = 0
 local currentPlotSetId = nil
 
-local disconnectLeaderstatsWatcher = nil
 local isPanelOpen = false
 
 local function setToastVisible(visible)
@@ -172,23 +169,6 @@ local function ensurePlotCard(plotId)
 	return existingCard
 end
 
-local function updateGoldDisplay(amount)
-	if goldLabel then
-		goldLabel.Text = string.format("Gold  %s", currencyFormatter.formatGold(amount))
-	end
-end
-
-local function bindLeaderstats()
-	if disconnectLeaderstatsWatcher then
-		disconnectLeaderstatsWatcher()
-		disconnectLeaderstatsWatcher = nil
-	end
-
-	disconnectLeaderstatsWatcher = leaderstatsWatcher.watchIntValue(player, "Gold", REMOTE_WAIT_TIMEOUT, function(value)
-		updateGoldDisplay(value)
-	end)
-end
-
 local function ensureGui()
 	if screenGui then
 		return
@@ -288,21 +268,11 @@ local function ensureGui()
 	closeStroke.Thickness = 1.5
 	closeStroke.Parent = closeButton
 
-	goldLabel = createLabel(
-		rootFrame,
-		Enum.Font.GothamBold,
-		UDim2.new(1, -28, 0, 24),
-		UDim2.fromOffset(14, 42),
-		WARNING_COLOR,
-		Enum.TextXAlignment.Left
-	)
-	updateGoldDisplay(0)
-
 	plotSetLabel = createLabel(
 		rootFrame,
 		Enum.Font.Gotham,
 		UDim2.new(1, -28, 0, 20),
-		UDim2.fromOffset(14, 64),
+		UDim2.fromOffset(14, 42),
 		SUBTLE_COLOR,
 		Enum.TextXAlignment.Left
 	)
@@ -311,8 +281,8 @@ local function ensureGui()
 	cardsContainer = Instance.new("ScrollingFrame")
 	cardsContainer.Name = "Cards"
 	cardsContainer.BackgroundTransparency = 1
-	cardsContainer.Position = UDim2.fromOffset(14, 92)
-	cardsContainer.Size = UDim2.new(1, -28, 0, 272)
+	cardsContainer.Position = UDim2.fromOffset(14, 70)
+	cardsContainer.Size = UDim2.new(1, -28, 0, 294)
 	cardsContainer.AutomaticCanvasSize = Enum.AutomaticSize.None
 	cardsContainer.BottomImage = ""
 	cardsContainer.CanvasSize = UDim2.fromOffset(0, 0)
@@ -367,7 +337,6 @@ local function ensureGui()
 	toastLabel.TextTransparency = 1
 
 	setToastVisible(false)
-	bindLeaderstats()
 	toggleButton.Activated:Connect(function()
 		setPanelOpen(true)
 	end)

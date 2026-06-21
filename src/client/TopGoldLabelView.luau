@@ -1,0 +1,200 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local utilsFolder = sharedFolder:WaitForChild("Utils")
+local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
+
+local GUI_NAME = "TopGoldLabelGui"
+local WIDTH_SCALE = 0.3
+local LABEL_HEIGHT = 56
+local TOP_PADDING = 6
+local INNER_HORIZONTAL_PADDING = 16
+local INNER_VERTICAL_PADDING = 8
+local MIN_ANIMATION_DURATION = 0.08
+local MAX_ANIMATION_DURATION = 0.5
+local SECONDS_PER_STEP = 0.013
+local MAX_VISIBLE_STEPS = 42
+
+local BACKGROUND_COLOR = Color3.fromRGB(12, 11, 9)
+local SHADOW_COLOR = Color3.fromRGB(0, 0, 0)
+local GRADIENT_TOP_COLOR = Color3.fromRGB(35, 28, 14)
+local GRADIENT_BOTTOM_COLOR = Color3.fromRGB(12, 11, 9)
+local STROKE_COLOR = Color3.fromRGB(234, 195, 96)
+local HIGHLIGHT_COLOR = Color3.fromRGB(255, 233, 162)
+local TEXT_COLOR = Color3.fromRGB(245, 214, 118)
+
+local TopGoldLabelView = {}
+
+local screenGui = nil
+local rootFrame = nil
+local amountLabel = nil
+local displayedGold = 0
+local animationToken = 0
+
+local function formatGold(amount)
+	return string.format("$ %s", currencyFormatter.formatGold(amount))
+end
+
+local function renderGold(amount)
+	displayedGold = amount
+
+	if amountLabel then
+		amountLabel.Text = formatGold(amount)
+	end
+end
+
+local function ensureGui(player)
+	if screenGui then
+		return
+	end
+
+	local playerGui = player:WaitForChild("PlayerGui")
+	local existingGui = playerGui:FindFirstChild(GUI_NAME)
+
+	if existingGui and existingGui:IsA("ScreenGui") then
+		existingGui:Destroy()
+	end
+
+	screenGui = Instance.new("ScreenGui")
+	screenGui.Name = GUI_NAME
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = true
+	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	screenGui.Parent = playerGui
+
+	local shadowFrame = Instance.new("Frame")
+	shadowFrame.Name = "Shadow"
+	shadowFrame.AnchorPoint = Vector2.new(0.5, 0)
+	shadowFrame.Position = UDim2.new(0.5, 0, 0, TOP_PADDING + 4)
+	shadowFrame.Size = UDim2.new(WIDTH_SCALE, 0, 0, LABEL_HEIGHT)
+	shadowFrame.BackgroundColor3 = SHADOW_COLOR
+	shadowFrame.BackgroundTransparency = 0.45
+	shadowFrame.BorderSizePixel = 0
+	shadowFrame.ZIndex = 0
+	shadowFrame.Parent = screenGui
+
+	local shadowCorner = Instance.new("UICorner")
+	shadowCorner.CornerRadius = UDim.new(0, 14)
+	shadowCorner.Parent = shadowFrame
+
+	rootFrame = Instance.new("Frame")
+	rootFrame.Name = "Root"
+	rootFrame.AnchorPoint = Vector2.new(0.5, 0)
+	rootFrame.Position = UDim2.new(0.5, 0, 0, TOP_PADDING)
+	rootFrame.Size = UDim2.new(WIDTH_SCALE, 0, 0, LABEL_HEIGHT)
+	rootFrame.BackgroundColor3 = BACKGROUND_COLOR
+	rootFrame.BorderSizePixel = 0
+	rootFrame.ZIndex = 1
+	rootFrame.Parent = screenGui
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 14)
+	corner.Parent = rootFrame
+
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, GRADIENT_TOP_COLOR),
+		ColorSequenceKeypoint.new(1, GRADIENT_BOTTOM_COLOR),
+	})
+	gradient.Rotation = 90
+	gradient.Parent = rootFrame
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = STROKE_COLOR
+	stroke.Thickness = 2
+	stroke.Parent = rootFrame
+
+	local highlight = Instance.new("Frame")
+	highlight.Name = "Highlight"
+	highlight.AnchorPoint = Vector2.new(0.5, 0)
+	highlight.Position = UDim2.new(0.5, 0, 0, 1)
+	highlight.Size = UDim2.new(1, -18, 0, 2)
+	highlight.BackgroundColor3 = HIGHLIGHT_COLOR
+	highlight.BackgroundTransparency = 0.2
+	highlight.BorderSizePixel = 0
+	highlight.ZIndex = 2
+	highlight.Parent = rootFrame
+
+	local highlightCorner = Instance.new("UICorner")
+	highlightCorner.CornerRadius = UDim.new(1, 0)
+	highlightCorner.Parent = highlight
+
+	amountLabel = Instance.new("TextLabel")
+	amountLabel.Name = "Amount"
+	amountLabel.BackgroundTransparency = 1
+	amountLabel.Position = UDim2.fromOffset(INNER_HORIZONTAL_PADDING, INNER_VERTICAL_PADDING)
+	amountLabel.Size = UDim2.new(1, -(INNER_HORIZONTAL_PADDING * 2), 1, -(INNER_VERTICAL_PADDING * 2))
+	amountLabel.Font = Enum.Font.GothamBlack
+	amountLabel.Text = ""
+	amountLabel.TextColor3 = TEXT_COLOR
+	amountLabel.TextScaled = true
+	amountLabel.TextStrokeColor3 = BACKGROUND_COLOR
+	amountLabel.TextStrokeTransparency = 0.5
+	amountLabel.TextWrapped = true
+	amountLabel.TextXAlignment = Enum.TextXAlignment.Center
+	amountLabel.ZIndex = 3
+	amountLabel.Parent = rootFrame
+
+	renderGold(displayedGold)
+end
+
+function TopGoldLabelView.mount(player)
+	ensureGui(player)
+end
+
+function TopGoldLabelView.setGold(nextAmount)
+	nextAmount = math.max(0, math.floor(tonumber(nextAmount) or 0))
+
+	if not amountLabel then
+		renderGold(nextAmount)
+		return
+	end
+
+	animationToken += 1
+	local currentToken = animationToken
+	local startAmount = displayedGold
+
+	if startAmount == nextAmount then
+		renderGold(nextAmount)
+		return
+	end
+
+	local delta = nextAmount - startAmount
+	local direction = delta > 0 and 1 or -1
+	local distance = math.abs(delta)
+	local visibleSteps = math.max(1, math.min(distance, MAX_VISIBLE_STEPS))
+	local totalDuration = math.clamp(distance * SECONDS_PER_STEP, MIN_ANIMATION_DURATION, MAX_ANIMATION_DURATION)
+	local stepDelay = totalDuration / visibleSteps
+
+	task.spawn(function()
+		local previousAmount = startAmount
+
+		for stepIndex = 1, visibleSteps do
+			if currentToken ~= animationToken then
+				return
+			end
+
+			local progress = stepIndex / visibleSteps
+			local nextDisplayAmount = startAmount + direction * math.floor(distance * progress + 0.5)
+
+			if direction > 0 and nextDisplayAmount <= previousAmount then
+				nextDisplayAmount = math.min(previousAmount + 1, nextAmount)
+			elseif direction < 0 and nextDisplayAmount >= previousAmount then
+				nextDisplayAmount = math.max(previousAmount - 1, nextAmount)
+			end
+
+			renderGold(nextDisplayAmount)
+			previousAmount = nextDisplayAmount
+
+			if stepIndex < visibleSteps then
+				task.wait(stepDelay)
+			end
+		end
+
+		if currentToken == animationToken then
+			renderGold(nextAmount)
+		end
+	end)
+end
+
+return TopGoldLabelView
