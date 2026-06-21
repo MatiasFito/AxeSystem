@@ -19,6 +19,7 @@ local treeGrowthControllerModule = require(script.Parent:WaitForChild("TreeGrowt
 local treeHitControllerModule = require(script.Parent:WaitForChild("TreeHitController") :: ModuleScript)
 local treePlotMaterializerModule = require(script.Parent:WaitForChild("TreePlotMaterializer") :: ModuleScript)
 local treeProgressionResolverModule = require(script.Parent:WaitForChild("TreeProgressionResolver") :: ModuleScript)
+local treeRuntimeManagerModule = require(script.Parent:WaitForChild("TreeRuntimeManager") :: ModuleScript)
 
 local TreeService = {}
 
@@ -52,14 +53,12 @@ local playerData = nil
 local treePlotService = nil
 local axeService = nil
 
-local runtimeFolder = nil
 local getTreeStateRemote = nil
 local requestTreeHitRemote = nil
 local requestTreeUpgradeRemote = nil
 local treeStateUpdatedRemote = nil
 local treeHitFeedbackRemote = nil
 
-local runtimeByPlayer = {}
 local attemptUnlock = nil
 local unlockPromptManager = nil
 local treeVisualController = nil
@@ -67,6 +66,7 @@ local treeGrowthController = nil
 local treeHitController = nil
 local treePlotMaterializer = nil
 local treeProgressionResolver = nil
+local treeRuntimeManager = nil
 
 local function playUnlockButtonSuccessTween(runtimePlotState)
 	if unlockPromptManager then
@@ -87,35 +87,11 @@ local function updatePromptForPlot(player, plotId)
 end
 
 local function getActiveRuntimePlotState(player, plotId)
-	local runtimeState = runtimeByPlayer[player]
-
-	if not runtimeState then
-		return nil
-	end
-
-	return runtimeState.Plots[plotId]
+	return treeRuntimeManager.getActiveRuntimePlotState(player, plotId)
 end
 
 local function getServerNow()
 	return Workspace:GetServerTimeNow()
-end
-
-local function getOrCreateChild(parent, name, className)
-	local child = parent:FindFirstChild(name)
-
-	if child and child.ClassName == className then
-		return child
-	end
-
-	if child then
-		child:Destroy()
-	end
-
-	child = Instance.new(className)
-	child.Name = name
-	child.Parent = parent
-
-	return child
 end
 
 local function getTreeTemplatesFolder()
@@ -123,16 +99,11 @@ local function getTreeTemplatesFolder()
 end
 
 local function getOrCreateRuntimeFolder()
-	if runtimeFolder and runtimeFolder.Parent == Workspace then
-		return runtimeFolder
-	end
-
-	runtimeFolder = getOrCreateChild(Workspace, treeConstants.TREE_RUNTIME_FOLDER_NAME, "Folder")
-	return runtimeFolder
+	return treeRuntimeManager.getOrCreateRuntimeFolder()
 end
 
 local function getOrCreateSetRuntimeFolder(plotSetId)
-	return getOrCreateChild(getOrCreateRuntimeFolder(), plotSetId, "Folder")
+	return treeRuntimeManager.getOrCreateSetRuntimeFolder(plotSetId)
 end
 
 local function getCharacterRootPart(player)
@@ -213,49 +184,8 @@ local function alignCloneBottomToPlot(clone, plotRecord)
 	end
 end
 
-local function getRuntimePlayerState(player)
-	local runtimeState = runtimeByPlayer[player]
-
-	if runtimeState then
-		return runtimeState
-	end
-
-	local plotSetId = treePlotService.getAssignedPlotSetId(player)
-
-	runtimeState = {
-		PlotSetId = plotSetId,
-		Plots = {},
-	}
-	runtimeByPlayer[player] = runtimeState
-
-	return runtimeState
-end
-
 local function getRuntimePlotState(player, plotId)
-	local runtimeState = getRuntimePlayerState(player)
-	local runtimePlotState = runtimeState.Plots[plotId]
-
-	if runtimePlotState then
-		return runtimePlotState
-	end
-
-	runtimePlotState = {
-		CurrentHealth = nil,
-		FullHealth = nil,
-		SpawnedTreeModel = nil,
-		UnlockButtonModel = nil,
-		UnlockTouchConnection = nil,
-		UnlockTweenToken = 0,
-		IsUnlockAnimating = false,
-		LastUnlockTouchAt = 0,
-		ReadyTaskToken = 0,
-		LastAcceptedHitAt = 0,
-		AnimationToken = 0,
-		VisualState = nil,
-		VisualScale = 1,
-	}
-	runtimeState.Plots[plotId] = runtimePlotState
-	return runtimePlotState
+	return treeRuntimeManager.getRuntimePlotState(player, plotId)
 end
 
 local function clearScheduledReady(runtimePlotState)
@@ -352,28 +282,7 @@ local function refreshAllAssignedPlots(player)
 end
 
 local function cleanupPlayerRuntime(player)
-	local runtimeState = runtimeByPlayer[player]
-
-	if not runtimeState then
-		return
-	end
-
-	for _, runtimePlotState in runtimeState.Plots do
-		clearScheduledReady(runtimePlotState)
-		destroySpawnedTree(runtimePlotState)
-	end
-
-	local plotSetId = runtimeState.PlotSetId
-
-	if plotSetId and runtimeFolder then
-		local setFolder = runtimeFolder:FindFirstChild(plotSetId)
-
-		if setFolder then
-			setFolder:Destroy()
-		end
-	end
-
-	runtimeByPlayer[player] = nil
+	treeRuntimeManager.cleanupPlayerRuntime(player)
 end
 
 attemptUnlock = function(player, plotId)
@@ -397,6 +306,15 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	playerData = playerDataModule
 	treePlotService = treePlotServiceModule
 	axeService = axeServiceModule
+	treeRuntimeManager = treeRuntimeManagerModule.create({
+		workspace = Workspace,
+		runtimeFolderName = treeConstants.TREE_RUNTIME_FOLDER_NAME,
+		getAssignedPlotSetId = function(player)
+			return treePlotService.getAssignedPlotSetId(player)
+		end,
+		clearScheduledReady = clearScheduledReady,
+		destroySpawnedTree = destroySpawnedTree,
+	})
 	treeVisualController = treeVisualControllerModule.create({
 		constants = {
 			MinScale = TREE_MIN_SCALE,
@@ -665,7 +583,7 @@ function TreeService.onPlayerAdded(player)
 	end
 
 	cleanupPlayerRuntime(player)
-	getRuntimePlayerState(player).PlotSetId = plotSet.Id
+	treeRuntimeManager.setPlotSetId(player, plotSet.Id)
 	return refreshAllAssignedPlots(player)
 end
 
@@ -680,7 +598,7 @@ function TreeService.onPlayerDataReset(player)
 	end
 
 	cleanupPlayerRuntime(player)
-	getRuntimePlayerState(player).PlotSetId = treePlotService.getAssignedPlotSetId(player)
+	treeRuntimeManager.setPlotSetId(player, treePlotService.getAssignedPlotSetId(player))
 	return refreshAllAssignedPlots(player)
 end
 
