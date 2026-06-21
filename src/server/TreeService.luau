@@ -1,7 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
-local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
@@ -12,7 +11,9 @@ local networkFolder = sharedFolder:WaitForChild("Network")
 local remoteRegistry = require(networkFolder:WaitForChild("RemoteRegistry") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
+local treeRemoteHandlers = require(script.Parent:WaitForChild("TreeRemoteHandlers") :: ModuleScript)
 local treeStateBuilder = require(script.Parent:WaitForChild("TreeStateBuilder") :: ModuleScript)
+local treeUnlockPromptManager = require(script.Parent:WaitForChild("TreeUnlockPromptManager") :: ModuleScript)
 
 local TreeService = {}
 
@@ -54,8 +55,26 @@ local treeStateUpdatedRemote = nil
 local treeHitFeedbackRemote = nil
 
 local runtimeByPlayer = {}
-local updatePromptForPlot = nil
 local attemptUnlock = nil
+local unlockPromptManager = nil
+
+local function playUnlockButtonSuccessTween(runtimePlotState)
+	if unlockPromptManager then
+		unlockPromptManager.playUnlockButtonSuccessTween(runtimePlotState)
+	end
+end
+
+local function refreshUnlockButtons(player)
+	if unlockPromptManager then
+		unlockPromptManager.refreshUnlockButtons(player)
+	end
+end
+
+local function updatePromptForPlot(player, plotId)
+	if unlockPromptManager then
+		unlockPromptManager.updatePromptForPlot(player, plotId)
+	end
+end
 
 local function getServerNow()
 	return Workspace:GetServerTimeNow()
@@ -242,25 +261,6 @@ local function destroySpawnedTree(runtimePlotState)
 	runtimePlotState.SpawnedTreeModel = nil
 end
 
-local function destroyUnlockButton(runtimePlotState)
-	runtimePlotState.UnlockTweenToken += 1
-	runtimePlotState.IsUnlockAnimating = false
-
-	if runtimePlotState.UnlockTouchConnection then
-		runtimePlotState.UnlockTouchConnection:Disconnect()
-		runtimePlotState.UnlockTouchConnection = nil
-	end
-
-	if runtimePlotState.UnlockButtonModel and runtimePlotState.UnlockButtonModel.Parent then
-		runtimePlotState.UnlockButtonModel:Destroy()
-	end
-
-	runtimePlotState.UnlockButtonModel = nil
-	if runtimePlotState.LastUnlockTouchAt == nil then
-		runtimePlotState.LastUnlockTouchAt = 0
-	end
-end
-
 local function buildStatePayload(player, changedPlotIds)
 	return treeStateBuilder.buildStatePayload(playerData, treePlotService, getServerNow, player, changedPlotIds)
 end
@@ -328,237 +328,6 @@ local function getPartExtentAlongDirection(part, direction)
 	return math.abs(unitDirection:Dot(rightVector)) * halfSize.X
 		+ math.abs(unitDirection:Dot(upVector)) * halfSize.Y
 		+ math.abs(unitDirection:Dot(lookVector)) * halfSize.Z
-end
-
-local function createUnlockButtonModel(plotRecord)
-	local model = Instance.new("Model")
-	model.Name = string.format("%sUnlockButton", plotRecord.PlotId)
-
-	local base = Instance.new("Part")
-	base.Name = "Base"
-	base.Shape = Enum.PartType.Cylinder
-	base.Material = Enum.Material.Plastic
-	base.Anchored = true
-	base.CanCollide = false
-	base.CanQuery = true
-	base.CanTouch = true
-	base.Size = Vector3.new(0.9, 3.8, 3.8) * UNLOCK_BUTTON_SCALE
-	setAllSurfacesStuds(base)
-	base.Parent = model
-
-	local button = Instance.new("Part")
-	button.Name = "Button"
-	button.Shape = Enum.PartType.Cylinder
-	button.Material = Enum.Material.Plastic
-	button.Anchored = true
-	button.CanCollide = false
-	button.CanQuery = true
-	button.CanTouch = true
-	button.Size = Vector3.new(0.75, 2.9, 2.9) * UNLOCK_BUTTON_SCALE
-	setAllSurfacesStuds(button)
-	button.Parent = model
-
-	local forwardDirection = getHorizontalDirection(plotRecord.DirtPatch.CFrame.LookVector)
-	local dirtPatchExtent = getPartExtentAlongDirection(plotRecord.DirtPatch, forwardDirection)
-	local targetPosition = plotRecord.DirtPatch.Position
-		+ forwardDirection * (dirtPatchExtent + UNLOCK_BUTTON_EDGE_OFFSET)
-	local pivotCFrame = CFrame.lookAt(targetPosition, targetPosition + forwardDirection, Vector3.yAxis)
-		* CFrame.Angles(0, 0, math.rad(90))
-	base.CFrame = pivotCFrame
-	button.CFrame = pivotCFrame * CFrame.new(0.2, 0, 0)
-
-	local baseVerticalHalfExtent = base.Size.X * 0.5
-	local dirtPatchTopY = plotRecord.DirtPatch.Position.Y + (plotRecord.DirtPatch.Size.Y * 0.5)
-	local yOffset = (dirtPatchTopY - baseVerticalHalfExtent) - base.Position.Y
-	base.CFrame += Vector3.new(0, yOffset, 0)
-	button.CFrame += Vector3.new(0, yOffset, 0)
-
-	local billboardGui = Instance.new("BillboardGui")
-	billboardGui.Name = "CostBillboard"
-	billboardGui.Adornee = button
-	billboardGui.AlwaysOnTop = true
-	billboardGui.LightInfluence = 0
-	billboardGui.Size = UDim2.fromOffset(140, 50)
-	billboardGui.StudsOffsetWorldSpace = Vector3.new(0, 1.9, 0)
-	billboardGui.Parent = model
-
-	local costLabel = Instance.new("TextLabel")
-	costLabel.Name = "CostLabel"
-	costLabel.BackgroundTransparency = 1
-	costLabel.Size = UDim2.fromScale(1, 1)
-	costLabel.Font = Enum.Font.GothamBlack
-	costLabel.TextScaled = true
-	costLabel.TextStrokeTransparency = 0.35
-	costLabel.Text = ""
-	costLabel.Parent = billboardGui
-
-	return model, button, base
-end
-
-local function updateUnlockButtonVisuals(buttonModel, tree, canAfford)
-	if not buttonModel or not tree then
-		return
-	end
-
-	local buttonPart = buttonModel:FindFirstChild("Button")
-	local basePart = buttonModel:FindFirstChild("Base")
-	local billboardGui = buttonModel:FindFirstChild("CostBillboard")
-	local costLabel = billboardGui and billboardGui:FindFirstChild("CostLabel")
-
-	if not buttonPart or not basePart or not costLabel or not costLabel:IsA("TextLabel") then
-		return
-	end
-
-	buttonPart.Color = canAfford and UNLOCK_BUTTON_COLOR_READY or UNLOCK_BUTTON_COLOR_LOCKED
-	basePart.Color = canAfford and UNLOCK_BUTTON_BASE_COLOR_READY or UNLOCK_BUTTON_BASE_COLOR_LOCKED
-	costLabel.Text = string.format("$ %d", tree.UnlockCost)
-	costLabel.TextColor3 = canAfford and UNLOCK_BUTTON_TEXT_READY or UNLOCK_BUTTON_TEXT_LOCKED
-end
-
-local function playUnlockButtonSuccessTween(runtimePlotState)
-	local buttonModel = runtimePlotState.UnlockButtonModel
-
-	if not buttonModel or not buttonModel.Parent then
-		destroyUnlockButton(runtimePlotState)
-		return
-	end
-
-	local buttonPart = buttonModel:FindFirstChild("Button")
-	local basePart = buttonModel:FindFirstChild("Base")
-	local billboardGui = buttonModel:FindFirstChild("CostBillboard")
-	local costLabel = billboardGui and billboardGui:FindFirstChild("CostLabel")
-
-	if not buttonPart or not basePart or not billboardGui or not costLabel or not costLabel:IsA("TextLabel") then
-		destroyUnlockButton(runtimePlotState)
-		return
-	end
-
-	runtimePlotState.UnlockTweenToken += 1
-	runtimePlotState.IsUnlockAnimating = true
-
-	if runtimePlotState.UnlockTouchConnection then
-		runtimePlotState.UnlockTouchConnection:Disconnect()
-		runtimePlotState.UnlockTouchConnection = nil
-	end
-
-	buttonPart.CanTouch = false
-	buttonPart.CanQuery = false
-	basePart.CanTouch = false
-	basePart.CanQuery = false
-
-	local sound = Instance.new("Sound")
-	sound.Name = "UnlockButtonSound"
-	sound.SoundId = UNLOCK_BUTTON_SOUND_ID
-	sound.Volume = 1.2
-	sound.RollOffMaxDistance = 50
-	sound.Parent = buttonPart
-	sound:Play()
-
-	local buttonSizeTween = TweenService:Create(
-		buttonPart,
-		TweenInfo.new(UNLOCK_BUTTON_TWEEN_DURATION, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-		{ Size = Vector3.new(UNLOCK_BUTTON_MIN_THICKNESS, buttonPart.Size.Y, buttonPart.Size.Z), Transparency = 1 }
-	)
-	local baseSizeTween = TweenService:Create(
-		basePart,
-		TweenInfo.new(UNLOCK_BUTTON_TWEEN_DURATION, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-		{ Size = Vector3.new(UNLOCK_BUTTON_MIN_THICKNESS, basePart.Size.Y, basePart.Size.Z), Transparency = 1 }
-	)
-	local billboardTween = TweenService:Create(
-		costLabel,
-		TweenInfo.new(UNLOCK_BUTTON_TWEEN_DURATION, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-		{ TextTransparency = 1, TextStrokeTransparency = 1 }
-	)
-
-	if billboardGui:IsA("BillboardGui") then
-		billboardGui.Enabled = true
-	end
-
-	buttonSizeTween:Play()
-	baseSizeTween:Play()
-	billboardTween:Play()
-
-	local tweenToken = runtimePlotState.UnlockTweenToken
-	buttonSizeTween.Completed:Connect(function()
-		if runtimePlotState.UnlockTweenToken ~= tweenToken then
-			return
-		end
-
-		destroyUnlockButton(runtimePlotState)
-	end)
-end
-
-local function refreshUnlockButtons(player)
-	local plotSet = treePlotService.getAssignedPlotSet(player)
-
-	if not plotSet then
-		return
-	end
-
-	for _, ownedPlotId in plotSet.OrderedPlotIds do
-		updatePromptForPlot(player, ownedPlotId)
-	end
-end
-
-updatePromptForPlot = function(player, plotId)
-	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
-
-	if not plotRecord then
-		return
-	end
-
-	local plotState = playerData.getTreePlot(player, plotId)
-	local tree = treeConfig.getTreeByPlotId(plotId)
-	local runtimePlotState = getRuntimePlotState(player, plotId)
-
-	if not plotState or not tree then
-		destroyUnlockButton(runtimePlotState)
-		return
-	end
-
-	if not plotState.Unlocked then
-		if not treeStateBuilder.isPlotUnlockable(playerData.getTreePlots(player) or {}, plotId) then
-			destroyUnlockButton(runtimePlotState)
-			return
-		end
-
-		local buttonModel = runtimePlotState.UnlockButtonModel
-		local buttonPart = buttonModel and buttonModel:FindFirstChild("Button")
-		local basePart = buttonModel and buttonModel:FindFirstChild("Base")
-
-		if not buttonModel or not buttonPart or not basePart then
-			destroyUnlockButton(runtimePlotState)
-			buttonModel, buttonPart, basePart = createUnlockButtonModel(plotRecord)
-			buttonModel.Parent = plotRecord.Model
-			runtimePlotState.UnlockButtonModel = buttonModel
-			runtimePlotState.UnlockTouchConnection = buttonPart.Touched:Connect(function(hit)
-				local touchingPlayer = getTouchingPlayer(hit)
-
-				if touchingPlayer ~= player then
-					return
-				end
-
-				local now = os.clock()
-
-				if now - runtimePlotState.LastUnlockTouchAt < UNLOCK_BUTTON_TOUCH_COOLDOWN then
-					return
-				end
-
-				runtimePlotState.LastUnlockTouchAt = now
-				attemptUnlock(player, plotId)
-			end)
-		end
-
-		local canAfford = (playerData.getGold(player) or 0) >= tree.UnlockCost
-		updateUnlockButtonVisuals(buttonModel, tree, canAfford)
-		return
-	end
-
-	if runtimePlotState.IsUnlockAnimating then
-		return
-	end
-
-	destroyUnlockButton(runtimePlotState)
 end
 
 local function getTreeEffectPart(treeInstance)
@@ -1153,33 +922,7 @@ local function resolveReward(levelData, tool)
 	return math.max(0, math.floor(levelData.Reward * goldMultiplier))
 end
 
-local function handleTreeUpgradeRequest(player, plotId)
-	if typeof(plotId) ~= "string" then
-		return
-	end
-
-	local plotState = playerData.getTreePlot(player, plotId)
-
-	if not plotState or not plotState.Unlocked then
-		return
-	end
-
-	attemptUpgrade(player, plotId)
-end
-
-local function handleGetState(player)
-	if not treePlotService.getAssignedPlotSet(player) then
-		return serviceResult.failure(treeConstants.FailureReason.PlotNotFound, treeConstants.getFailureMessage)
-	end
-
-	return buildStatePayload(player)
-end
-
-local function handleTreeHit(player, plotId)
-	if typeof(plotId) ~= "string" then
-		return
-	end
-
+local function processTreeHit(player, plotId)
 	if not playerData.isLoaded(player) then
 		return
 	end
@@ -1309,6 +1052,47 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	playerData = playerDataModule
 	treePlotService = treePlotServiceModule
 	axeService = axeServiceModule
+	unlockPromptManager = treeUnlockPromptManager.create({
+		constants = {
+			TouchCooldown = UNLOCK_BUTTON_TOUCH_COOLDOWN,
+			EdgeOffset = UNLOCK_BUTTON_EDGE_OFFSET,
+			Scale = UNLOCK_BUTTON_SCALE,
+			ColorReady = UNLOCK_BUTTON_COLOR_READY,
+			ColorLocked = UNLOCK_BUTTON_COLOR_LOCKED,
+			BaseColorReady = UNLOCK_BUTTON_BASE_COLOR_READY,
+			BaseColorLocked = UNLOCK_BUTTON_BASE_COLOR_LOCKED,
+			TextReady = UNLOCK_BUTTON_TEXT_READY,
+			TextLocked = UNLOCK_BUTTON_TEXT_LOCKED,
+			SoundId = UNLOCK_BUTTON_SOUND_ID,
+			TweenDuration = UNLOCK_BUTTON_TWEEN_DURATION,
+			MinThickness = UNLOCK_BUTTON_MIN_THICKNESS,
+		},
+		setAllSurfacesStuds = setAllSurfacesStuds,
+		getHorizontalDirection = getHorizontalDirection,
+		getPartExtentAlongDirection = getPartExtentAlongDirection,
+		getAssignedPlot = function(player, plotId)
+			return treePlotService.getAssignedPlot(player, plotId)
+		end,
+		getAssignedPlotSet = function(player)
+			return treePlotService.getAssignedPlotSet(player)
+		end,
+		getTreePlot = function(player, plotId)
+			return playerData.getTreePlot(player, plotId)
+		end,
+		getTreePlots = function(player)
+			return playerData.getTreePlots(player)
+		end,
+		getGold = function(player)
+			return playerData.getGold(player)
+		end,
+		getTreeByPlotId = treeConfig.getTreeByPlotId,
+		getRuntimePlotState = getRuntimePlotState,
+		getTouchingPlayer = getTouchingPlayer,
+		attemptUnlock = function(player, plotId)
+			return attemptUnlock(player, plotId)
+		end,
+		isPlotUnlockable = treeStateBuilder.isPlotUnlockable,
+	})
 
 	getOrCreateRuntimeFolder()
 
@@ -1350,9 +1134,26 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	treeStateUpdatedRemote = remotes[treeConstants.STATE_UPDATED_REMOTE_NAME] :: RemoteEvent
 	treeHitFeedbackRemote = remotes[treeConstants.HIT_FEEDBACK_REMOTE_NAME] :: RemoteEvent
 
-	getTreeStateRemote.OnServerInvoke = handleGetState
-	requestTreeHitRemote.OnServerEvent:Connect(handleTreeHit)
-	requestTreeUpgradeRemote.OnServerEvent:Connect(handleTreeUpgradeRequest)
+	local handlers = treeRemoteHandlers.create({
+		getTreePlot = function(player, plotId)
+			return playerData.getTreePlot(player, plotId)
+		end,
+		attemptUpgrade = attemptUpgrade,
+		hasAssignedPlotSet = function(player)
+			return treePlotService.getAssignedPlotSet(player) ~= nil
+		end,
+		buildPlotNotFoundFailure = function()
+			return serviceResult.failure(treeConstants.FailureReason.PlotNotFound, treeConstants.getFailureMessage)
+		end,
+		buildStatePayload = buildStatePayload,
+		processTreeHit = processTreeHit,
+	})
+
+	treeRemoteHandlers.bind({
+		GetTreeStateRemote = getTreeStateRemote,
+		RequestTreeHitRemote = requestTreeHitRemote,
+		RequestTreeUpgradeRemote = requestTreeUpgradeRemote,
+	}, handlers)
 
 	if axeService == nil then
 		warn("TreeService started without AxeService")
