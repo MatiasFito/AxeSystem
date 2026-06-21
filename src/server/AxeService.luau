@@ -3,8 +3,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local axeToolBuilder = require(script.Parent:WaitForChild("AxeToolBuilder") :: ModuleScript)
+local axeInventoryPolicyModule = require(script.Parent:WaitForChild("AxeInventoryPolicy") :: ModuleScript)
 
 local AxeService = {}
+local axeInventoryPolicy = axeInventoryPolicyModule.create({
+	isAxeTool = axeConfig.isAxeTool,
+})
 
 function AxeService.isAxeTool(tool)
 	return axeConfig.isAxeTool(tool)
@@ -15,20 +19,7 @@ function AxeService.canGrantTier(tierId)
 end
 
 function AxeService.removePlayerAxes(player)
-	local containers = {
-		player:FindFirstChildOfClass("Backpack"),
-		player.Character,
-	}
-
-	for _, container in containers do
-		if container then
-			for _, child in container:GetChildren() do
-				if AxeService.isAxeTool(child) then
-					child:Destroy()
-				end
-			end
-		end
-	end
+	return axeInventoryPolicy.removePlayerAxes(player)
 end
 
 function AxeService.grantAxe(player, tierId, equipTool)
@@ -38,26 +29,8 @@ function AxeService.grantAxe(player, tierId, equipTool)
 		return false, toolOrReason
 	end
 
-	local backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack", 5)
-
-	if not backpack then
-		return false, "backpackMissing"
-	end
-
-	AxeService.removePlayerAxes(player)
-
 	local tool = toolOrReason
-	tool.Parent = backpack
-
-	if equipTool and player.Character then
-		local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-
-		if humanoid then
-			humanoid:EquipTool(tool)
-		end
-	end
-
-	return true, tool
+	return axeInventoryPolicy.grantTool(player, tool, equipTool)
 end
 
 return AxeService

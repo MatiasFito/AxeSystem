@@ -18,6 +18,7 @@ local treeVisualControllerModule = require(script.Parent:WaitForChild("TreeVisua
 local treeGrowthControllerModule = require(script.Parent:WaitForChild("TreeGrowthController") :: ModuleScript)
 local treeHitControllerModule = require(script.Parent:WaitForChild("TreeHitController") :: ModuleScript)
 local treePlotMaterializerModule = require(script.Parent:WaitForChild("TreePlotMaterializer") :: ModuleScript)
+local treeProgressionResolverModule = require(script.Parent:WaitForChild("TreeProgressionResolver") :: ModuleScript)
 
 local TreeService = {}
 
@@ -65,6 +66,7 @@ local treeVisualController = nil
 local treeGrowthController = nil
 local treeHitController = nil
 local treePlotMaterializer = nil
+local treeProgressionResolver = nil
 
 local function playUnlockButtonSuccessTween(runtimePlotState)
 	if unlockPromptManager then
@@ -375,131 +377,11 @@ local function cleanupPlayerRuntime(player)
 end
 
 attemptUnlock = function(player, plotId)
-	if not playerData.isLoaded(player) then
-		return serviceResult.failure(treeConstants.FailureReason.DataNotLoaded, treeConstants.getFailureMessage)
-	end
-
-	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
-
-	if not plotRecord then
-		return serviceResult.failure(treeConstants.FailureReason.NotOwned, treeConstants.getFailureMessage)
-	end
-
-	local plotState = playerData.getTreePlot(player, plotId)
-	local allPlots = playerData.getTreePlots(player) or {}
-	local tree = treeConfig.getTreeByPlotId(plotId)
-	local gold = playerData.getGold(player) or 0
-
-	if not plotState or not tree then
-		return serviceResult.failure(treeConstants.FailureReason.ConfigError, treeConstants.getFailureMessage)
-	end
-
-	if plotState.Unlocked then
-		return serviceResult.failure(treeConstants.FailureReason.AlreadyUnlocked, treeConstants.getFailureMessage)
-	end
-
-	if not treeStateBuilder.isPlotUnlockable(allPlots, plotId) then
-		return serviceResult.failure(treeConstants.FailureReason.NotUnlockable, treeConstants.getFailureMessage)
-	end
-
-	if gold < tree.UnlockCost then
-		return serviceResult.failure(treeConstants.FailureReason.InsufficientGold, treeConstants.getFailureMessage)
-	end
-
-	local levelData = treeConfig.getLevelData(tree.Id, 1)
-
-	if not levelData then
-		return serviceResult.failure(treeConstants.FailureReason.ConfigError, treeConstants.getFailureMessage)
-	end
-
-	playerData.setGold(player, gold - tree.UnlockCost)
-	playerData.setTreePlot(player, plotId, {
-		PlotId = plotId,
-		TreeId = tree.Id,
-		Unlocked = true,
-		Level = 1,
-		State = treeConstants.PlotState.Growing,
-		GrowingUntil = getServerNow() + levelData.GrowTime,
-	})
-
-	playUnlockButtonSuccessTween(getRuntimePlotState(player, plotId))
-
-	materializePlot(player, plotId)
-
-	local nextTree = treeConfig.getTreeByOrder(tree.PlotOrder + 1)
-	local changedPlots = { plotId }
-
-	if nextTree then
-		updatePromptForPlot(player, nextTree.PlotId)
-		table.insert(changedPlots, nextTree.PlotId)
-	end
-
-	refreshUnlockButtons(player)
-
-	pushStateUpdate(player, changedPlots)
-	return serviceResult.success(buildStatePayload(player, changedPlots).state)
+	return treeProgressionResolver.attemptUnlock(player, plotId)
 end
 
 local function attemptUpgrade(player, plotId)
-	if not playerData.isLoaded(player) then
-		return serviceResult.failure(treeConstants.FailureReason.DataNotLoaded, treeConstants.getFailureMessage)
-	end
-
-	if not treePlotService.getAssignedPlot(player, plotId) then
-		return serviceResult.failure(treeConstants.FailureReason.NotOwned, treeConstants.getFailureMessage)
-	end
-
-	local plotState = playerData.getTreePlot(player, plotId)
-	local tree = treeConfig.getTreeByPlotId(plotId)
-	local gold = playerData.getGold(player) or 0
-
-	if not plotState or not tree or not plotState.Unlocked then
-		return serviceResult.failure(treeConstants.FailureReason.PlotNotFound, treeConstants.getFailureMessage)
-	end
-
-	local nextLevel = treeConfig.getUpgradeLevel(tree.Id, plotState.Level)
-
-	if not nextLevel then
-		return serviceResult.failure(treeConstants.FailureReason.AlreadyMaxed, treeConstants.getFailureMessage)
-	end
-
-	local upgradeCost = treeConfig.getUpgradeCost(tree.Id, plotState.Level)
-
-	if not upgradeCost then
-		return serviceResult.failure(treeConstants.FailureReason.ConfigError, treeConstants.getFailureMessage)
-	end
-
-	if gold < upgradeCost then
-		return serviceResult.failure(treeConstants.FailureReason.InsufficientGold, treeConstants.getFailureMessage)
-	end
-
-	local nextLevelData = treeConfig.getLevelData(tree.Id, nextLevel)
-
-	if not nextLevelData then
-		return serviceResult.failure(treeConstants.FailureReason.ConfigError, treeConstants.getFailureMessage)
-	end
-
-	playerData.setGold(player, gold - upgradeCost)
-
-	local updatedPlotState = {
-		PlotId = plotState.PlotId,
-		TreeId = plotState.TreeId,
-		Unlocked = true,
-		Level = nextLevel,
-		State = plotState.State,
-		GrowingUntil = plotState.GrowingUntil,
-	}
-
-	if plotState.State == treeConstants.PlotState.Growing then
-		updatedPlotState.GrowingUntil = getServerNow() + nextLevelData.GrowTime
-	end
-
-	playerData.setTreePlot(player, plotId, updatedPlotState)
-	materializePlot(player, plotId)
-	refreshUnlockButtons(player)
-	pushStateUpdate(player, { plotId })
-
-	return serviceResult.success(buildStatePayload(player, { plotId }).state)
+	return treeProgressionResolver.attemptUpgrade(player, plotId)
 end
 
 local function processTreeHit(player, plotId)
@@ -585,6 +467,43 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getServerNow = getServerNow,
 		grownState = treeConstants.PlotState.Grown,
 	})
+	treeProgressionResolver = treeProgressionResolverModule.create({
+		failureReasons = treeConstants.FailureReason,
+		isPlayerLoaded = playerData.isLoaded,
+		getAssignedPlot = function(player, plotId)
+			return treePlotService.getAssignedPlot(player, plotId)
+		end,
+		getTreePlot = function(player, plotId)
+			return playerData.getTreePlot(player, plotId)
+		end,
+		getTreePlots = function(player)
+			return playerData.getTreePlots(player)
+		end,
+		getTreeByPlotId = treeConfig.getTreeByPlotId,
+		getTreeByOrder = treeConfig.getTreeByOrder,
+		getGold = playerData.getGold,
+		isPlotUnlockable = treeStateBuilder.isPlotUnlockable,
+		getLevelData = treeConfig.getLevelData,
+		getUpgradeLevel = treeConfig.getUpgradeLevel,
+		getUpgradeCost = treeConfig.getUpgradeCost,
+		setGold = playerData.setGold,
+		setTreePlot = playerData.setTreePlot,
+		playUnlockButtonSuccessTween = function(player, plotId)
+			playUnlockButtonSuccessTween(getRuntimePlotState(player, plotId))
+		end,
+		materializePlot = materializePlot,
+		updatePromptForPlot = updatePromptForPlot,
+		refreshUnlockButtons = refreshUnlockButtons,
+		pushStateUpdate = pushStateUpdate,
+		buildStatePayload = buildStatePayload,
+		buildFailure = function(reason)
+			return serviceResult.failure(reason, treeConstants.getFailureMessage)
+		end,
+		buildSuccess = serviceResult.success,
+		getServerNow = getServerNow,
+		growingState = treeConstants.PlotState.Growing,
+	})
+	attemptUnlock = treeProgressionResolver.attemptUnlock
 	treeHitController = treeHitControllerModule.create({
 		constants = {
 			HitDistance = TREE_HIT_DISTANCE,
