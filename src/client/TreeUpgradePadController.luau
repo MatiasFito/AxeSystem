@@ -6,6 +6,12 @@ local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
+local networkFolder = sharedFolder:WaitForChild("Network")
+local utilsFolder = sharedFolder:WaitForChild("Utils")
+local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
+local leaderstatsWatcher = require(utilsFolder:WaitForChild("LeaderstatsWatcher") :: ModuleScript)
+local remoteResolver = require(networkFolder:WaitForChild("RemoteResolver") :: ModuleScript)
+local timeSync = require(utilsFolder:WaitForChild("TimeSync") :: ModuleScript)
 local TreePlotCard = require(script.Parent:WaitForChild("TreePlotCard") :: ModuleScript)
 
 local GUI_NAME = "TreeUpgradePads"
@@ -54,23 +60,10 @@ local plotSetId = nil
 local goldAmount = 0
 local plotStatesById = {}
 local padUisByPlotId = {}
-local goldConnection = nil
-local leaderstatsChildConnection = nil
+local disconnectLeaderstatsWatcher = nil
 local serverTimeAtSync = 0
 local localClockAtSync = 0
 local lastRefreshAt = 0
-
-local function formatGold(amount)
-	return tostring(math.max(0, math.floor(amount or 0)))
-end
-
-local function getEstimatedServerTime()
-	if serverTimeAtSync <= 0 then
-		return 0
-	end
-
-	return serverTimeAtSync + (os.clock() - localClockAtSync)
-end
 
 local function getOwnedPlotSetFolder()
 	if typeof(plotSetId) ~= "string" or plotSetId == "" then
@@ -263,7 +256,7 @@ local function renderPad(plotId)
 	end
 
 	TreePlotCard.render(padUi.Card, plotState, {
-		estimatedServerTime = getEstimatedServerTime(),
+		estimatedServerTime = timeSync.estimateServerTime(serverTimeAtSync, localClockAtSync),
 	})
 
 	if plotState.isMaxLevel or plotState.upgradeCost == nil then
@@ -274,7 +267,7 @@ local function renderPad(plotId)
 	end
 
 	local canAfford = goldAmount >= plotState.upgradeCost
-	padUi.UpgradeButton.Text = string.format("%s GOLD", formatGold(plotState.upgradeCost))
+	padUi.UpgradeButton.Text = string.format("%s GOLD", currencyFormatter.formatGold(plotState.upgradeCost))
 	padUi.UpgradeButton.BackgroundColor3 = canAfford and GREEN_COLOR or RED_COLOR
 	padUi.UpgradeButton.Active = true
 end
@@ -313,62 +306,47 @@ local function applyState(state)
 	rerenderPads()
 end
 
-local function attachGoldValue(goldValue)
-	if goldConnection then
-		goldConnection:Disconnect()
-		goldConnection = nil
+local function bindLeaderstats()
+	if disconnectLeaderstatsWatcher then
+		disconnectLeaderstatsWatcher()
+		disconnectLeaderstatsWatcher = nil
 	end
 
-	if not goldValue or not goldValue:IsA("IntValue") then
-		return
-	end
-
-	goldAmount = goldValue.Value
-	rerenderPads()
-	goldConnection = goldValue:GetPropertyChangedSignal("Value"):Connect(function()
-		goldAmount = goldValue.Value
+	disconnectLeaderstatsWatcher = leaderstatsWatcher.watchIntValue(player, "Gold", REMOTE_WAIT_TIMEOUT, function(value)
+		goldAmount = value
 		rerenderPads()
 	end)
 end
 
-local function bindLeaderstats()
-	if leaderstatsChildConnection then
-		leaderstatsChildConnection:Disconnect()
-		leaderstatsChildConnection = nil
-	end
-
-	local leaderstats = player:FindFirstChild("leaderstats") or player:WaitForChild("leaderstats", REMOTE_WAIT_TIMEOUT)
-
-	if not leaderstats then
-		return
-	end
-
-	attachGoldValue(leaderstats:FindFirstChild("Gold") or leaderstats:WaitForChild("Gold", REMOTE_WAIT_TIMEOUT))
-	leaderstatsChildConnection = leaderstats.ChildAdded:Connect(function(child)
-		if child.Name == "Gold" then
-			attachGoldValue(child)
-		end
-	end)
-end
-
 local function resolveRemotes()
-	local remotesFolder = ReplicatedStorage:WaitForChild(treeConstants.REMOTE_FOLDER_NAME, REMOTE_WAIT_TIMEOUT)
-
-	if not remotesFolder then
-		warn("Tree remotes folder was not found for upgrade pads")
-		return false
-	end
-
-	local treesFolder = remotesFolder:WaitForChild(treeConstants.TREE_REMOTE_FOLDER_NAME, REMOTE_WAIT_TIMEOUT)
+	local treesFolder = remoteResolver.waitForPath(ReplicatedStorage, {
+		{
+			Name = treeConstants.REMOTE_FOLDER_NAME,
+			ErrorMessage = "Tree remotes folder was not found for upgrade pads",
+		},
+		{
+			Name = treeConstants.TREE_REMOTE_FOLDER_NAME,
+			ErrorMessage = "Tree remote folder was not found for upgrade pads",
+		},
+	}, REMOTE_WAIT_TIMEOUT)
 
 	if not treesFolder then
-		warn("Tree remote folder was not found for upgrade pads")
 		return false
 	end
 
-	getTreeStateRemote = treesFolder:WaitForChild(treeConstants.GET_STATE_REMOTE_NAME, REMOTE_WAIT_TIMEOUT)
-	treeStateUpdatedRemote = treesFolder:WaitForChild(treeConstants.STATE_UPDATED_REMOTE_NAME, REMOTE_WAIT_TIMEOUT)
-	requestTreeUpgradeRemote = treesFolder:WaitForChild(treeConstants.REQUEST_UPGRADE_REMOTE_NAME, REMOTE_WAIT_TIMEOUT)
+	local remotes = remoteResolver.waitForNamedChildren(treesFolder, {
+		treeConstants.GET_STATE_REMOTE_NAME,
+		treeConstants.STATE_UPDATED_REMOTE_NAME,
+		treeConstants.REQUEST_UPGRADE_REMOTE_NAME,
+	}, REMOTE_WAIT_TIMEOUT, "Tree remote")
+
+	if not remotes then
+		return false
+	end
+
+	getTreeStateRemote = remotes[treeConstants.GET_STATE_REMOTE_NAME] :: RemoteFunction
+	treeStateUpdatedRemote = remotes[treeConstants.STATE_UPDATED_REMOTE_NAME] :: RemoteEvent
+	requestTreeUpgradeRemote = remotes[treeConstants.REQUEST_UPGRADE_REMOTE_NAME] :: RemoteEvent
 
 	return getTreeStateRemote ~= nil and treeStateUpdatedRemote ~= nil and requestTreeUpgradeRemote ~= nil
 end

@@ -6,6 +6,12 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
+local networkFolder = sharedFolder:WaitForChild("Network")
+local utilsFolder = sharedFolder:WaitForChild("Utils")
+local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
+local leaderstatsWatcher = require(utilsFolder:WaitForChild("LeaderstatsWatcher") :: ModuleScript)
+local remoteResolver = require(networkFolder:WaitForChild("RemoteResolver") :: ModuleScript)
+local timeSync = require(utilsFolder:WaitForChild("TimeSync") :: ModuleScript)
 local TreePlotCard = require(script.Parent:WaitForChild("TreePlotCard") :: ModuleScript)
 
 local GUI_NAME = "TreeStatusGui"
@@ -54,21 +60,8 @@ local hasReceivedInitialState = false
 local toastToken = 0
 local currentPlotSetId = nil
 
-local leaderstatsConnection = nil
-local goldValueConnection = nil
+local disconnectLeaderstatsWatcher = nil
 local isPanelOpen = false
-
-local function formatGold(amount)
-	return tostring(math.max(0, math.floor(amount or 0)))
-end
-
-local function getEstimatedServerTime()
-	if serverTimeAtSync <= 0 then
-		return 0
-	end
-
-	return serverTimeAtSync + (os.clock() - localClockAtSync)
-end
 
 local function setToastVisible(visible)
 	if not toastFrame or not toastLabel then
@@ -181,48 +174,18 @@ end
 
 local function updateGoldDisplay(amount)
 	if goldLabel then
-		goldLabel.Text = string.format("Gold  %s", formatGold(amount))
+		goldLabel.Text = string.format("Gold  %s", currencyFormatter.formatGold(amount))
 	end
 end
 
 local function bindLeaderstats()
-	if goldValueConnection then
-		goldValueConnection:Disconnect()
-		goldValueConnection = nil
+	if disconnectLeaderstatsWatcher then
+		disconnectLeaderstatsWatcher()
+		disconnectLeaderstatsWatcher = nil
 	end
 
-	if leaderstatsConnection then
-		leaderstatsConnection:Disconnect()
-		leaderstatsConnection = nil
-	end
-
-	local leaderstats = player:FindFirstChild("leaderstats") or player:WaitForChild("leaderstats", REMOTE_WAIT_TIMEOUT)
-
-	if not leaderstats then
-		return
-	end
-
-	local function attachGoldValue()
-		if goldValueConnection then
-			goldValueConnection:Disconnect()
-			goldValueConnection = nil
-		end
-
-		local goldValue = leaderstats:FindFirstChild("Gold") or leaderstats:WaitForChild("Gold", REMOTE_WAIT_TIMEOUT)
-
-		if goldValue and goldValue:IsA("IntValue") then
-			updateGoldDisplay(goldValue.Value)
-			goldValueConnection = goldValue:GetPropertyChangedSignal("Value"):Connect(function()
-				updateGoldDisplay(goldValue.Value)
-			end)
-		end
-	end
-
-	attachGoldValue()
-	leaderstatsConnection = leaderstats.ChildAdded:Connect(function(child)
-		if child.Name == "Gold" and child:IsA("IntValue") then
-			attachGoldValue()
-		end
+	disconnectLeaderstatsWatcher = leaderstatsWatcher.watchIntValue(player, "Gold", REMOTE_WAIT_TIMEOUT, function(value)
+		updateGoldDisplay(value)
 	end)
 end
 
@@ -417,7 +380,7 @@ end
 local function renderPlotCard(plot)
 	local card = ensurePlotCard(plot.plotId)
 	TreePlotCard.render(card, plot, {
-		estimatedServerTime = getEstimatedServerTime(),
+		estimatedServerTime = timeSync.estimateServerTime(serverTimeAtSync, localClockAtSync),
 	})
 end
 
@@ -512,7 +475,10 @@ local function handleHitFeedback(payload)
 			pulseCard(card, POSITIVE_COLOR)
 		end
 
-		showToast(string.format("+%s Gold from %s", formatGold(payload.reward), treeName), POSITIVE_COLOR)
+		showToast(
+			string.format("+%s Gold from %s", currencyFormatter.formatGold(payload.reward), treeName),
+			POSITIVE_COLOR
+		)
 		return
 	end
 
@@ -524,32 +490,43 @@ local function handleHitFeedback(payload)
 		string.format(
 			"%s  -%s HP  (%s/%s)",
 			treeName,
-			formatGold(payload.damage),
-			formatGold(payload.currentHealth),
-			formatGold(payload.maxHealth)
+			currencyFormatter.formatGold(payload.damage),
+			currencyFormatter.formatGold(payload.currentHealth),
+			currencyFormatter.formatGold(payload.maxHealth)
 		),
 		WARNING_COLOR
 	)
 end
 
 local function resolveRemotes()
-	local remotesFolder = ReplicatedStorage:WaitForChild(treeConstants.REMOTE_FOLDER_NAME, REMOTE_WAIT_TIMEOUT)
-
-	if not remotesFolder then
-		warn("Tree remotes folder was not found")
-		return false
-	end
-
-	local treesFolder = remotesFolder:WaitForChild(treeConstants.TREE_REMOTE_FOLDER_NAME, REMOTE_WAIT_TIMEOUT)
+	local treesFolder = remoteResolver.waitForPath(ReplicatedStorage, {
+		{
+			Name = treeConstants.REMOTE_FOLDER_NAME,
+			ErrorMessage = "Tree remotes folder was not found",
+		},
+		{
+			Name = treeConstants.TREE_REMOTE_FOLDER_NAME,
+			ErrorMessage = "Tree remote folder was not found",
+		},
+	}, REMOTE_WAIT_TIMEOUT)
 
 	if not treesFolder then
-		warn("Tree remote folder was not found")
 		return false
 	end
 
-	getTreeStateRemote = treesFolder:WaitForChild(treeConstants.GET_STATE_REMOTE_NAME, REMOTE_WAIT_TIMEOUT)
-	treeStateUpdatedRemote = treesFolder:WaitForChild(treeConstants.STATE_UPDATED_REMOTE_NAME, REMOTE_WAIT_TIMEOUT)
-	treeHitFeedbackRemote = treesFolder:WaitForChild(treeConstants.HIT_FEEDBACK_REMOTE_NAME, REMOTE_WAIT_TIMEOUT)
+	local remotes = remoteResolver.waitForNamedChildren(treesFolder, {
+		treeConstants.GET_STATE_REMOTE_NAME,
+		treeConstants.STATE_UPDATED_REMOTE_NAME,
+		treeConstants.HIT_FEEDBACK_REMOTE_NAME,
+	}, REMOTE_WAIT_TIMEOUT, "Tree remote")
+
+	if not remotes then
+		return false
+	end
+
+	getTreeStateRemote = remotes[treeConstants.GET_STATE_REMOTE_NAME] :: RemoteFunction
+	treeStateUpdatedRemote = remotes[treeConstants.STATE_UPDATED_REMOTE_NAME] :: RemoteEvent
+	treeHitFeedbackRemote = remotes[treeConstants.HIT_FEEDBACK_REMOTE_NAME] :: RemoteEvent
 
 	return getTreeStateRemote ~= nil and treeStateUpdatedRemote ~= nil and treeHitFeedbackRemote ~= nil
 end

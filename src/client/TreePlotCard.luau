@@ -2,6 +2,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
+local utilsFolder = sharedFolder:WaitForChild("Utils")
+local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
 
 local TreePlotCard = {}
 
@@ -31,10 +33,6 @@ TreePlotCard.DEFAULT_LAYOUT = {
 	MeterPosition = UDim2.fromOffset(14, 58),
 	MeterSize = UDim2.new(1, -28, 0, 6),
 }
-
-local function formatGold(amount)
-	return tostring(math.max(0, math.floor(amount or 0)))
-end
 
 local function formatSeconds(seconds)
 	local clampedSeconds = math.max(0, seconds or 0)
@@ -208,13 +206,16 @@ function TreePlotCard.render(card, plot, options)
 
 	if not plot.unlocked then
 		card.DetailLabel.Text = plot.isUnlockable and "Ready to unlock" or "Unlock previous plot first"
-		card.FooterLabel.Text = string.format("Cost %s Gold", formatGold(plot.unlockCost))
+		card.FooterLabel.Text = string.format("Cost %s Gold", currencyFormatter.formatGold(plot.unlockCost))
 		card.MeterFill.Size = UDim2.fromScale(baseProgress, 1)
 		return
 	end
 
-	card.FooterLabel.Text =
-		string.format("HP %s  Reward %s", formatGold(levelStats.health), formatGold(levelStats.reward))
+	card.FooterLabel.Text = string.format(
+		"HP %s  Reward %s",
+		currencyFormatter.formatGold(levelStats.health),
+		currencyFormatter.formatGold(levelStats.reward)
+	)
 
 	if plot.state == treeConstants.PlotState.Growing then
 		local maxGrowTime = math.max(0.01, levelStats.growTime or 0.01)

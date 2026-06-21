@@ -8,6 +8,8 @@ local player = Players.LocalPlayer
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
 local blacksmithZoneUtils = require(sharedFolder:WaitForChild("BlacksmithZoneUtils") :: ModuleScript)
+local networkFolder = sharedFolder:WaitForChild("Network")
+local remoteResolver = require(networkFolder:WaitForChild("RemoteResolver") :: ModuleScript)
 
 local POLL_INTERVAL = 0.15
 local MISS_THRESHOLD = 3
@@ -22,22 +24,32 @@ local insideZone = false
 local missCount = 0
 
 local function resolveRemotes()
-	local remotesFolder = ReplicatedStorage:WaitForChild(blacksmithConstants.REMOTE_FOLDER_NAME, 10)
-
-	if not remotesFolder then
-		warn("Blacksmith remotes folder was not found")
-		return false
-	end
-
-	local blacksmithFolder = remotesFolder:WaitForChild(blacksmithConstants.BLACKSMITH_REMOTE_FOLDER_NAME, 10)
+	local blacksmithFolder = remoteResolver.waitForPath(ReplicatedStorage, {
+		{
+			Name = blacksmithConstants.REMOTE_FOLDER_NAME,
+			ErrorMessage = "Blacksmith remotes folder was not found",
+		},
+		{
+			Name = blacksmithConstants.BLACKSMITH_REMOTE_FOLDER_NAME,
+			ErrorMessage = "Blacksmith remote folder was not found",
+		},
+	}, 10)
 
 	if not blacksmithFolder then
-		warn("Blacksmith remote folder was not found")
 		return false
 	end
 
-	getStateRemote = blacksmithFolder:WaitForChild(blacksmithConstants.GET_STATE_REMOTE_NAME, 10)
-	requestUpgradeRemote = blacksmithFolder:WaitForChild(blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME, 10)
+	local remotes = remoteResolver.waitForNamedChildren(blacksmithFolder, {
+		blacksmithConstants.GET_STATE_REMOTE_NAME,
+		blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME,
+	}, 10, "Blacksmith remote")
+
+	if not remotes then
+		return false
+	end
+
+	getStateRemote = remotes[blacksmithConstants.GET_STATE_REMOTE_NAME] :: RemoteFunction
+	requestUpgradeRemote = remotes[blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME] :: RemoteFunction
 
 	return getStateRemote ~= nil and requestUpgradeRemote ~= nil
 end
