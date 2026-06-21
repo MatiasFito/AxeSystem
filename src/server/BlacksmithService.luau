@@ -4,6 +4,8 @@ local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
 local blacksmithZoneUtils = require(sharedFolder:WaitForChild("BlacksmithZoneUtils") :: ModuleScript)
+local networkFolder = sharedFolder:WaitForChild("Network")
+local remoteRegistry = require(networkFolder:WaitForChild("RemoteRegistry") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
 
@@ -12,24 +14,6 @@ local BlacksmithService = {}
 local started = false
 local playerData = nil
 local axeService = nil
-
-local function getOrCreateChild(parent, name, className)
-	local child = parent:FindFirstChild(name)
-
-	if child and child.ClassName == className then
-		return child
-	end
-
-	if child then
-		child:Destroy()
-	end
-
-	child = Instance.new(className)
-	child.Name = name
-	child.Parent = parent
-
-	return child
-end
 
 local function buildAxeSnapshot(tier, includeCost)
 	if not tier then
@@ -209,13 +193,28 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 	playerData = playerDataModule
 	axeService = axeServiceModule
 
-	local remotesFolder = getOrCreateChild(ReplicatedStorage, blacksmithConstants.REMOTE_FOLDER_NAME, "Folder")
-	local blacksmithFolder =
-		getOrCreateChild(remotesFolder, blacksmithConstants.BLACKSMITH_REMOTE_FOLDER_NAME, "Folder")
-	local getStateRemote =
-		getOrCreateChild(blacksmithFolder, blacksmithConstants.GET_STATE_REMOTE_NAME, "RemoteFunction")
-	local requestUpgradeRemote =
-		getOrCreateChild(blacksmithFolder, blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME, "RemoteFunction")
+	local blacksmithFolder = remoteRegistry.getOrCreatePath(ReplicatedStorage, {
+		{
+			Name = blacksmithConstants.REMOTE_FOLDER_NAME,
+			ClassName = "Folder",
+		},
+		{
+			Name = blacksmithConstants.BLACKSMITH_REMOTE_FOLDER_NAME,
+			ClassName = "Folder",
+		},
+	})
+	local remotes = remoteRegistry.getOrCreateNamedChildren(blacksmithFolder, {
+		{
+			Name = blacksmithConstants.GET_STATE_REMOTE_NAME,
+			ClassName = "RemoteFunction",
+		},
+		{
+			Name = blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME,
+			ClassName = "RemoteFunction",
+		},
+	})
+	local getStateRemote = remotes[blacksmithConstants.GET_STATE_REMOTE_NAME] :: RemoteFunction
+	local requestUpgradeRemote = remotes[blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME] :: RemoteFunction
 
 	getStateRemote.OnServerInvoke = handleGetState
 	requestUpgradeRemote.OnServerInvoke = handleUpgrade

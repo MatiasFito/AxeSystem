@@ -8,6 +8,8 @@ local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
+local networkFolder = sharedFolder:WaitForChild("Network")
+local remoteRegistry = require(networkFolder:WaitForChild("RemoteRegistry") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
 
@@ -1404,13 +1406,43 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 
 	getOrCreateRuntimeFolder()
 
-	local remotesFolder = getOrCreateChild(ReplicatedStorage, treeConstants.REMOTE_FOLDER_NAME, "Folder")
-	local treesFolder = getOrCreateChild(remotesFolder, treeConstants.TREE_REMOTE_FOLDER_NAME, "Folder")
-	getTreeStateRemote = getOrCreateChild(treesFolder, treeConstants.GET_STATE_REMOTE_NAME, "RemoteFunction")
-	requestTreeHitRemote = getOrCreateChild(treesFolder, treeConstants.REQUEST_HIT_REMOTE_NAME, "RemoteEvent")
-	requestTreeUpgradeRemote = getOrCreateChild(treesFolder, treeConstants.REQUEST_UPGRADE_REMOTE_NAME, "RemoteEvent")
-	treeStateUpdatedRemote = getOrCreateChild(treesFolder, treeConstants.STATE_UPDATED_REMOTE_NAME, "RemoteEvent")
-	treeHitFeedbackRemote = getOrCreateChild(treesFolder, treeConstants.HIT_FEEDBACK_REMOTE_NAME, "RemoteEvent")
+	local treesFolder = remoteRegistry.getOrCreatePath(ReplicatedStorage, {
+		{
+			Name = treeConstants.REMOTE_FOLDER_NAME,
+			ClassName = "Folder",
+		},
+		{
+			Name = treeConstants.TREE_REMOTE_FOLDER_NAME,
+			ClassName = "Folder",
+		},
+	})
+	local remotes = remoteRegistry.getOrCreateNamedChildren(treesFolder, {
+		{
+			Name = treeConstants.GET_STATE_REMOTE_NAME,
+			ClassName = "RemoteFunction",
+		},
+		{
+			Name = treeConstants.REQUEST_HIT_REMOTE_NAME,
+			ClassName = "RemoteEvent",
+		},
+		{
+			Name = treeConstants.REQUEST_UPGRADE_REMOTE_NAME,
+			ClassName = "RemoteEvent",
+		},
+		{
+			Name = treeConstants.STATE_UPDATED_REMOTE_NAME,
+			ClassName = "RemoteEvent",
+		},
+		{
+			Name = treeConstants.HIT_FEEDBACK_REMOTE_NAME,
+			ClassName = "RemoteEvent",
+		},
+	})
+	getTreeStateRemote = remotes[treeConstants.GET_STATE_REMOTE_NAME] :: RemoteFunction
+	requestTreeHitRemote = remotes[treeConstants.REQUEST_HIT_REMOTE_NAME] :: RemoteEvent
+	requestTreeUpgradeRemote = remotes[treeConstants.REQUEST_UPGRADE_REMOTE_NAME] :: RemoteEvent
+	treeStateUpdatedRemote = remotes[treeConstants.STATE_UPDATED_REMOTE_NAME] :: RemoteEvent
+	treeHitFeedbackRemote = remotes[treeConstants.HIT_FEEDBACK_REMOTE_NAME] :: RemoteEvent
 
 	getTreeStateRemote.OnServerInvoke = handleGetState
 	requestTreeHitRemote.OnServerEvent:Connect(handleTreeHit)
