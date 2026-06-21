@@ -11,7 +11,6 @@ local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: Modu
 
 local TreeService = {}
 
-local PLOT_INTERACTION_DISTANCE = 14
 local TREE_HIT_DISTANCE = 16
 local HIT_COOLDOWN_SECONDS = 0.18
 local TREE_MIN_SCALE = 0.05
@@ -1262,17 +1261,6 @@ local function attemptUpgrade(player, plotId)
 	}
 end
 
-local function isPlayerNearPlot(player, plotId, maxDistance)
-	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
-	local rootPart = getCharacterRootPart(player)
-
-	if not plotRecord or not rootPart then
-		return false
-	end
-
-	return (rootPart.Position - plotRecord.DirtPatch.Position).Magnitude <= maxDistance
-end
-
 local function resolveReward(levelData, tool)
 	local goldMultiplier = getToolStatValue(tool, "GoldBonus", 1)
 	return math.max(0, math.floor(levelData.Reward * goldMultiplier))
@@ -1280,10 +1268,6 @@ end
 
 local function handleTreeUpgradeRequest(player, plotId)
 	if typeof(plotId) ~= "string" then
-		return
-	end
-
-	if not isPlayerNearPlot(player, plotId, PLOT_INTERACTION_DISTANCE) then
 		return
 	end
 

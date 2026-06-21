@@ -6,6 +6,7 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
+local TreePlotCard = require(script.Parent:WaitForChild("TreePlotCard") :: ModuleScript)
 
 local GUI_NAME = "TreeStatusGui"
 local REMOTE_WAIT_TIMEOUT = 10
@@ -16,7 +17,6 @@ local CARDS_PADDING_Y = 8
 
 local PANEL_COLOR = Color3.fromRGB(35, 44, 33)
 local PANEL_HIGHLIGHT = Color3.fromRGB(52, 69, 48)
-local CARD_COLOR = Color3.fromRGB(58, 76, 53)
 local CARD_STROKE = Color3.fromRGB(210, 229, 201)
 local TEXT_COLOR = Color3.fromRGB(244, 247, 237)
 local SUBTLE_COLOR = Color3.fromRGB(206, 219, 198)
@@ -25,8 +25,6 @@ local CLOSE_BUTTON_COLOR = Color3.fromRGB(198, 58, 58)
 local POSITIVE_COLOR = Color3.fromRGB(125, 214, 127)
 local WARNING_COLOR = Color3.fromRGB(234, 195, 96)
 local READY_COLOR = Color3.fromRGB(104, 202, 255)
-local LOCKED_COLOR = Color3.fromRGB(116, 116, 116)
-local GROWING_COLOR = Color3.fromRGB(122, 201, 118)
 
 local TreeStatusUI = {}
 
@@ -62,20 +60,6 @@ local isPanelOpen = false
 
 local function formatGold(amount)
 	return tostring(math.max(0, math.floor(amount or 0)))
-end
-
-local function formatSeconds(seconds)
-	local clampedSeconds = math.max(0, seconds or 0)
-
-	if clampedSeconds >= 10 then
-		return string.format("%.0fs", clampedSeconds)
-	end
-
-	if clampedSeconds >= 1 then
-		return string.format("%.1fs", clampedSeconds)
-	end
-
-	return string.format("%.2fs", clampedSeconds)
 end
 
 local function getEstimatedServerTime()
@@ -190,76 +174,7 @@ local function ensurePlotCard(plotId)
 		return existingCard
 	end
 
-	local frame = Instance.new("Frame")
-	frame.Name = plotId
-	frame.BackgroundColor3 = CARD_COLOR
-	frame.BorderSizePixel = 0
-	frame.Size = UDim2.new(1, 0, 0, 72)
-	frame.Parent = cardsContainer
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 16)
-	corner.Parent = frame
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = CARD_STROKE
-	stroke.Thickness = 1.5
-	stroke.Parent = frame
-
-	local titleLabel = createLabel(
-		frame,
-		Enum.Font.GothamBlack,
-		UDim2.new(0.58, 0, 0, 24),
-		UDim2.fromOffset(14, 10),
-		TEXT_COLOR,
-		Enum.TextXAlignment.Left
-	)
-	local detailLabel = createLabel(
-		frame,
-		Enum.Font.GothamBold,
-		UDim2.new(0.58, 0, 0, 20),
-		UDim2.fromOffset(14, 34),
-		SUBTLE_COLOR,
-		Enum.TextXAlignment.Left
-	)
-	local footerLabel = createLabel(
-		frame,
-		Enum.Font.Gotham,
-		UDim2.new(0.38, -16, 0, 44),
-		UDim2.new(0.62, 2, 0, 14),
-		SUBTLE_COLOR,
-		Enum.TextXAlignment.Right
-	)
-
-	local meterBackground = Instance.new("Frame")
-	meterBackground.BackgroundColor3 = Color3.fromRGB(31, 39, 29)
-	meterBackground.BorderSizePixel = 0
-	meterBackground.Position = UDim2.fromOffset(14, 58)
-	meterBackground.Size = UDim2.new(1, -28, 0, 6)
-	meterBackground.Parent = frame
-
-	local meterCorner = Instance.new("UICorner")
-	meterCorner.CornerRadius = UDim.new(1, 0)
-	meterCorner.Parent = meterBackground
-
-	local meterFill = Instance.new("Frame")
-	meterFill.BackgroundColor3 = READY_COLOR
-	meterFill.BorderSizePixel = 0
-	meterFill.Size = UDim2.fromScale(0, 1)
-	meterFill.Parent = meterBackground
-
-	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(1, 0)
-	fillCorner.Parent = meterFill
-
-	existingCard = {
-		Root = frame,
-		Stroke = stroke,
-		TitleLabel = titleLabel,
-		DetailLabel = detailLabel,
-		FooterLabel = footerLabel,
-		MeterFill = meterFill,
-	}
+	existingCard = TreePlotCard.create(cardsContainer, plotId)
 	cardsByPlotId[plotId] = existingCard
 	return existingCard
 end
@@ -499,49 +414,11 @@ local function ensureGui()
 	setPanelOpen(false)
 end
 
-local function getCardColors(plot)
-	if not plot.unlocked then
-		return LOCKED_COLOR, 0
-	end
-
-	if plot.state == treeConstants.PlotState.Growing then
-		return GROWING_COLOR, 0.2
-	end
-
-	return READY_COLOR, 1
-end
-
 local function renderPlotCard(plot)
 	local card = ensurePlotCard(plot.plotId)
-	local accentColor, baseProgress = getCardColors(plot)
-	local titleSuffix = plot.unlocked and string.format("Lv.%d", plot.level) or "Locked"
-	local levelStats = plot.stats or {}
-	card.Root.LayoutOrder = plot.plotOrder
-	card.TitleLabel.Text = string.format("%s  %s", plot.treeName, titleSuffix)
-	card.MeterFill.BackgroundColor3 = accentColor
-
-	if not plot.unlocked then
-		card.DetailLabel.Text = plot.isUnlockable and "Ready to unlock" or "Unlock previous plot first"
-		card.FooterLabel.Text = string.format("Cost %s Gold", formatGold(plot.unlockCost))
-		card.MeterFill.Size = UDim2.fromScale(baseProgress, 1)
-		return
-	end
-
-	card.FooterLabel.Text =
-		string.format("HP %s  Reward %s", formatGold(levelStats.health), formatGold(levelStats.reward))
-
-	if plot.state == treeConstants.PlotState.Growing then
-		local maxGrowTime = math.max(0.01, levelStats.growTime or 0.01)
-		local remaining = math.max(0, (plot.growingUntil or 0) - getEstimatedServerTime())
-		local progress = math.clamp(1 - (remaining / maxGrowTime), 0, 1)
-		card.DetailLabel.Text = string.format("Growing  %s", formatSeconds(remaining))
-		card.MeterFill.Size = UDim2.fromScale(progress, 1)
-		return
-	end
-
-	card.DetailLabel.Text = "Ready to chop"
-
-	card.MeterFill.Size = UDim2.fromScale(1, 1)
+	TreePlotCard.render(card, plot, {
+		estimatedServerTime = getEstimatedServerTime(),
+	})
 end
 
 local function renderPlots()
