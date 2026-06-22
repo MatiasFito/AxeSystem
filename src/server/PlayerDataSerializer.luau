@@ -36,6 +36,8 @@ function PlayerDataSerializer.cloneTreePlotState(plotState)
 		Level = plotState.Level,
 		State = plotState.State,
 		GrowingUntil = plotState.GrowingUntil,
+		HasLumberjack = plotState.HasLumberjack,
+		LumberjackLevel = plotState.LumberjackLevel,
 	}
 end
 
@@ -67,6 +69,8 @@ function PlayerDataSerializer.normalizeTreePlotState(plotId, rawPlotState)
 		Level = 0,
 		State = treeConstants.PlotState.Locked,
 		GrowingUntil = nil,
+		HasLumberjack = false,
+		LumberjackLevel = 0,
 	}
 
 	if typeof(rawPlotState) ~= "table" then
@@ -146,6 +150,34 @@ function PlayerDataSerializer.normalizeTreePlotState(plotId, rawPlotState)
 		wasChanged = true
 	end
 
+	local hasLumberjack = rawPlotState.HasLumberjack == true
+
+	if hasLumberjack ~= rawPlotState.HasLumberjack then
+		wasChanged = true
+	end
+
+	local lumberjackLevel = 0
+
+	if hasLumberjack then
+		if isFiniteNumber(rawPlotState.LumberjackLevel) then
+			lumberjackLevel = math.max(0, math.floor(rawPlotState.LumberjackLevel))
+
+			if lumberjackLevel ~= rawPlotState.LumberjackLevel then
+				wasChanged = true
+			end
+		else
+			lumberjackLevel = 1
+			wasChanged = true
+		end
+	elseif rawPlotState.LumberjackLevel ~= nil and rawPlotState.LumberjackLevel ~= 0 then
+		wasChanged = true
+	end
+
+	if hasLumberjack and lumberjackLevel < 1 then
+		lumberjackLevel = 1
+		wasChanged = true
+	end
+
 	return {
 		PlotId = tree.PlotId,
 		TreeId = tree.Id,
@@ -153,6 +185,8 @@ function PlayerDataSerializer.normalizeTreePlotState(plotId, rawPlotState)
 		Level = normalizedLevel,
 		State = normalizedState,
 		GrowingUntil = normalizedGrowingUntil,
+		HasLumberjack = hasLumberjack,
+		LumberjackLevel = lumberjackLevel,
 	},
 		wasChanged
 end

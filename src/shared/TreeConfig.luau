@@ -112,6 +112,8 @@ local function cloneDefaultPlotState(plotState)
 		Level = plotState.Level,
 		State = plotState.State,
 		GrowingUntil = plotState.GrowingUntil,
+		HasLumberjack = plotState.HasLumberjack,
+		LumberjackLevel = plotState.LumberjackLevel,
 	}
 end
 
@@ -201,6 +203,8 @@ function TreeConfig.getDefaultPlotStates()
 			Level = 0,
 			State = treeConstants.PlotState.Locked,
 			GrowingUntil = nil,
+			HasLumberjack = false,
+			LumberjackLevel = 0,
 		})
 	end
 

@@ -47,6 +47,8 @@ function TreeProgressionResolver.create(deps)
 			Level = 1,
 			State = deps.growingState,
 			GrowingUntil = deps.getServerNow() + levelData.GrowTime,
+			HasLumberjack = plotState.HasLumberjack == true,
+			LumberjackLevel = plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0) or 0,
 		})
 
 		deps.playUnlockButtonSuccessTween(player, plotId)
@@ -113,6 +115,8 @@ function TreeProgressionResolver.create(deps)
 			Level = nextLevel,
 			State = plotState.State,
 			GrowingUntil = plotState.GrowingUntil,
+			HasLumberjack = plotState.HasLumberjack == true,
+			LumberjackLevel = plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0) or 0,
 		}
 
 		if plotState.State == deps.growingState then

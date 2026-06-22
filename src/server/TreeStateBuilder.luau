@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local lumberjackConfig = require(sharedFolder:WaitForChild("LumberjackConfig") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
@@ -41,6 +42,13 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 	local isMaxLevel = false
 	local canUpgrade = false
 	local upgradeCost = nil
+	local hasLumberjack = plotState.HasLumberjack == true
+	local lumberjackLevel = hasLumberjack and math.max(1, plotState.LumberjackLevel or 0) or 0
+	local lumberjackHireCost = lumberjackConfig.getHireCostByPlotId(plotId)
+	local lumberjackUpgradeCost = hasLumberjack and lumberjackConfig.getUpgradeCostByPlotId(plotId, lumberjackLevel)
+		or nil
+	local canHireLumberjack = plotState.Unlocked and not hasLumberjack
+	local canUpgradeLumberjack = plotState.Unlocked and hasLumberjack
 
 	if plotState.Unlocked and plotState.Level > 0 then
 		levelData = treeConfig.getLevelData(tree.Id, plotState.Level)
@@ -63,6 +71,14 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 		canUpgrade = canUpgrade,
 		upgradeCost = upgradeCost,
 		isMaxLevel = isMaxLevel,
+		hasLumberjack = hasLumberjack,
+		lumberjackLevel = lumberjackLevel,
+		canHireLumberjack = canHireLumberjack,
+		lumberjackHireCost = lumberjackHireCost,
+		canUpgradeLumberjack = canUpgradeLumberjack,
+		lumberjackUpgradeCost = lumberjackUpgradeCost,
+		lumberjackGoldBonusPercent = lumberjackConfig.getGoldBonusPercent(lumberjackLevel),
+		showLumberjackUpgradePad = canUpgradeLumberjack,
 		stats = levelData and {
 			health = levelData.Health,
 			growTime = levelData.GrowTime,

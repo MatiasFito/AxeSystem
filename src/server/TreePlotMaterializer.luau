@@ -104,6 +104,8 @@ function TreePlotMaterializer.create(deps)
 				Level = plotState.Level,
 				State = deps.grownState,
 				GrowingUntil = nil,
+				HasLumberjack = plotState.HasLumberjack == true,
+				LumberjackLevel = plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0) or 0,
 			}
 
 			deps.setTreePlot(player, plotId, updatedPlotState)
@@ -130,6 +132,9 @@ function TreePlotMaterializer.create(deps)
 				Level = latestPlotState.Level,
 				State = deps.grownState,
 				GrowingUntil = nil,
+				HasLumberjack = latestPlotState.HasLumberjack == true,
+				LumberjackLevel = latestPlotState.HasLumberjack and math.max(1, latestPlotState.LumberjackLevel or 0)
+					or 0,
 			})
 
 			deps.applyTreeScale(runtimePlotState, plotRecord, 1)

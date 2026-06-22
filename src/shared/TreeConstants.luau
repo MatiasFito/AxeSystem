@@ -1,6 +1,6 @@
 local TreeConstants = {}
 
-TreeConstants.CURRENT_SCHEMA_VERSION = 2
+TreeConstants.CURRENT_SCHEMA_VERSION = 3
 
 TreeConstants.TREE_TEMPLATE_FOLDER_NAME = "Trees"
 TreeConstants.TREE_PLOT_SETS_FOLDER_NAME = "TreePlotSets"
@@ -22,6 +22,7 @@ TreeConstants.TREE_REMOTE_FOLDER_NAME = "Trees"
 TreeConstants.GET_STATE_REMOTE_NAME = "GetTreeState"
 TreeConstants.REQUEST_HIT_REMOTE_NAME = "RequestTreeHit"
 TreeConstants.REQUEST_UPGRADE_REMOTE_NAME = "RequestTreeUpgrade"
+TreeConstants.REQUEST_LUMBERJACK_UPGRADE_REMOTE_NAME = "RequestLumberjackUpgrade"
 TreeConstants.STATE_UPDATED_REMOTE_NAME = "TreeStateUpdated"
 TreeConstants.HIT_FEEDBACK_REMOTE_NAME = "TreeHitFeedback"
 
@@ -37,8 +38,10 @@ TreeConstants.FailureReason = {
 	NotOwned = "notOwned",
 	NotUnlockable = "notUnlockable",
 	AlreadyUnlocked = "alreadyUnlocked",
+	AlreadyHired = "alreadyHired",
 	AlreadyMaxed = "alreadyMaxed",
 	InsufficientGold = "insufficientGold",
+	NotHired = "notHired",
 	NotReady = "notReady",
 	InvalidHit = "invalidHit",
 	NotInRange = "notInRange",
@@ -51,8 +54,10 @@ TreeConstants.FailureMessage = {
 	[TreeConstants.FailureReason.NotOwned] = "You cannot interact with that tree plot.",
 	[TreeConstants.FailureReason.NotUnlockable] = "Unlock the previous tree plot first.",
 	[TreeConstants.FailureReason.AlreadyUnlocked] = "That tree plot is already unlocked.",
+	[TreeConstants.FailureReason.AlreadyHired] = "That plot already has a Lumberjack.",
 	[TreeConstants.FailureReason.AlreadyMaxed] = "That tree is already at the highest level.",
 	[TreeConstants.FailureReason.InsufficientGold] = "You need more Gold for that tree upgrade.",
+	[TreeConstants.FailureReason.NotHired] = "Hire a Lumberjack on that plot first.",
 	[TreeConstants.FailureReason.NotReady] = "That tree is still growing.",
 	[TreeConstants.FailureReason.InvalidHit] = "That hit did not count.",
 	[TreeConstants.FailureReason.NotInRange] = "Move closer to interact with that tree.",
