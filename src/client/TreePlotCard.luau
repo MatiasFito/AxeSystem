@@ -199,6 +199,10 @@ function TreePlotCard.render(card, plot, options)
 	local accentColor, baseProgress = getAccent(plot, resolvedColors)
 	local titleSuffix = plot.unlocked and string.format("Lv.%d", plot.level) or "Locked"
 	local levelStats = plot.stats or {}
+	local hasLumberjack = plot.hasLumberjack == true
+	local lumberjackBonusPercent = plot.lumberjackGoldBonusPercent or 0
+	local lumberjackLevel = plot.lumberjackLevel or 0
+	local lumberjackHireCost = plot.lumberjackHireCost or 0
 
 	card.Root.LayoutOrder = plot.plotOrder or card.Root.LayoutOrder
 	card.TitleLabel.Text = string.format("%s  %s", plot.treeName, titleSuffix)
@@ -212,21 +216,38 @@ function TreePlotCard.render(card, plot, options)
 	end
 
 	card.FooterLabel.Text = string.format(
-		"HP %s  Reward %s",
+		"HP %s  Reward %s%s",
 		currencyFormatter.formatGold(levelStats.health),
-		currencyFormatter.formatGold(levelStats.reward)
+		currencyFormatter.formatGold(levelStats.reward),
+		hasLumberjack and string.format("  Auto +%d%%", lumberjackBonusPercent) or ""
 	)
 
 	if plot.state == treeConstants.PlotState.Growing then
 		local maxGrowTime = math.max(0.01, levelStats.growTime or 0.01)
 		local remaining = math.max(0, (plot.growingUntil or 0) - estimatedServerTime)
 		local progress = math.clamp(1 - (remaining / maxGrowTime), 0, 1)
-		card.DetailLabel.Text = string.format("Growing  %s", formatSeconds(remaining))
+		if hasLumberjack then
+			card.DetailLabel.Text =
+				string.format("Growing  %s  Lumberjack Lv.%d", formatSeconds(remaining), lumberjackLevel)
+		else
+			card.DetailLabel.Text = string.format(
+				"Growing  %s  Hire Lumberjack for %s Gold",
+				formatSeconds(remaining),
+				currencyFormatter.formatGold(lumberjackHireCost)
+			)
+		end
 		card.MeterFill.Size = UDim2.fromScale(progress, 1)
 		return
 	end
 
-	card.DetailLabel.Text = "Ready to chop"
+	if hasLumberjack then
+		card.DetailLabel.Text = string.format("Ready to chop  Lumberjack Lv.%d active", lumberjackLevel)
+	else
+		card.DetailLabel.Text = string.format(
+			"Ready to chop  Hire Lumberjack for %s Gold",
+			currencyFormatter.formatGold(lumberjackHireCost)
+		)
+	end
 	card.MeterFill.Size = UDim2.fromScale(baseProgress, 1)
 end
 
