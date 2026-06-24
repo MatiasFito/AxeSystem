@@ -46,11 +46,10 @@ local PROMPT_TWEEN_DURATION = 0.75
 local PROMPT_MIN_THICKNESS = 0.05
 local REFRESH_LOOP_SECONDS = 0.35
 local IDLE_LOOP_SECONDS = 0.2
-local NPC_SIDE_OFFSET = 4.25
-local NPC_FORWARD_OFFSET = 0.5
+local TREE_OFFSET_DISTANCE = 8
 local UPGRADE_PAD_SIZE = Vector3.new(4, 0.2, 4)
-local UPGRADE_PAD_OFFSET = Vector3.new(0, -2.75, 0)
-local AXE_WELD_OFFSET = CFrame.new(0, -0.4, -0.45) * CFrame.Angles(math.rad(90), 0, 0)
+local UPGRADE_PAD_SURFACE_OFFSET = 0.05
+local AXE_WELD_OFFSET = CFrame.new(0, -0.6, -0.2) * CFrame.Angles(math.rad(90), 0, math.rad(90))
 
 local function getOrCreateChild(parent, name, className)
 	local child = parent:FindFirstChild(name)
@@ -278,33 +277,31 @@ local function getCosmeticAxeTemplate(tierId)
 	return tier, nil
 end
 
-local function getNpcPlacementCFrame(plotRecord)
+local function getPlotAnchorPosition(plotRecord)
+	local spawnCFrame = treeSpatialUtils.getSpawnCFrame(plotRecord.TreeSpawn)
 	local sideDirection = treeSpatialUtils.getHorizontalDirection(-plotRecord.DirtPatch.CFrame.RightVector)
-	local forwardDirection = treeSpatialUtils.getHorizontalDirection(plotRecord.DirtPatch.CFrame.LookVector)
-	local sideExtent = treeSpatialUtils.getPartExtentAlongDirection(plotRecord.DirtPatch, sideDirection)
-	local targetPosition = plotRecord.DirtPatch.Position
-		+ sideDirection * (sideExtent + NPC_SIDE_OFFSET)
-		+ forwardDirection * NPC_FORWARD_OFFSET
+	return spawnCFrame.Position + sideDirection * TREE_OFFSET_DISTANCE, sideDirection
+end
+
+local function getNpcPlacementCFrame(plotRecord)
+	local targetPosition = getPlotAnchorPosition(plotRecord)
 
 	return CFrame.lookAt(targetPosition, plotRecord.DirtPatch.Position, Vector3.yAxis)
 end
 
-local function createUpgradePadPart(model)
-	local rootPart = model:FindFirstChild("HumanoidRootPart")
-
-	if not rootPart or not rootPart:IsA("BasePart") then
-		return nil
-	end
+local function createUpgradePadPart(plotRecord, model)
+	local targetPosition = getPlotAnchorPosition(plotRecord)
+	local dirtPatchTopY = plotRecord.DirtPatch.Position.Y + (plotRecord.DirtPatch.Size.Y * 0.5)
 
 	local pad = Instance.new("Part")
 	pad.Name = lumberjackConstants.UPGRADE_PAD_PART_NAME
 	pad.Anchored = true
 	pad.CanCollide = false
-	pad.CanQuery = false
+	pad.CanQuery = true
 	pad.CanTouch = false
 	pad.Transparency = 1
 	pad.Size = UPGRADE_PAD_SIZE
-	pad.CFrame = rootPart.CFrame + UPGRADE_PAD_OFFSET
+	pad.CFrame = CFrame.new(targetPosition.X, dirtPatchTopY + UPGRADE_PAD_SURFACE_OFFSET, targetPosition.Z)
 	pad.Parent = model
 	return pad
 end
@@ -321,6 +318,8 @@ local function attachCosmeticAxe(player, runtimePlotState)
 	if not rightHand or not rightHand:IsA("BasePart") then
 		return
 	end
+
+	local gripAttachment = rightHand:FindFirstChild("RightGripAttachment")
 
 	local existingAxe = model:FindFirstChild(lumberjackConstants.COSMETIC_AXE_NAME)
 
@@ -342,7 +341,12 @@ local function attachCosmeticAxe(player, runtimePlotState)
 	handle.CanTouch = false
 	handle.CanQuery = false
 	handle.Massless = true
-	handle.CFrame = rightHand.CFrame * AXE_WELD_OFFSET
+	handle.CollisionGroup = lumberjackConstants.COLLISION_GROUP_NAME
+	if gripAttachment and gripAttachment:IsA("Attachment") then
+		handle.CFrame = rightHand.CFrame * gripAttachment.CFrame * AXE_WELD_OFFSET
+	else
+		handle.CFrame = rightHand.CFrame * AXE_WELD_OFFSET
+	end
 	handle.Parent = model
 
 	local weld = Instance.new("WeldConstraint")
@@ -402,8 +406,11 @@ end
 local function applyCollisionSettings(model)
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BasePart") then
-			descendant.Anchored = true
+			descendant.Anchored = descendant.Name == "HumanoidRootPart"
 			descendant.CanCollide = false
+			descendant.CanQuery = descendant.Name == lumberjackConstants.UPGRADE_PAD_PART_NAME or descendant.CanQuery
+			descendant.CanTouch = descendant.Name == "HumanoidRootPart"
+			descendant.Massless = descendant.Name ~= "HumanoidRootPart"
 			descendant.CollisionGroup = lumberjackConstants.COLLISION_GROUP_NAME
 		end
 	end
@@ -514,7 +521,7 @@ local function spawnLumberjack(player, plotId)
 	treeSpatialUtils.alignCloneBottomToPlot(model, plotRecord)
 	applyCollisionSettings(model)
 	runtimePlotState.LumberjackModel = model
-	runtimePlotState.UpgradePadPart = createUpgradePadPart(model)
+	runtimePlotState.UpgradePadPart = createUpgradePadPart(plotRecord, model)
 	attachCosmeticAxe(player, runtimePlotState)
 	ensureAutomationLoop(player, plotId)
 end
@@ -617,6 +624,7 @@ function LumberjackService.start(playerDataModule, treePlotServiceModule, treeSe
 			MinThickness = PROMPT_MIN_THICKNESS,
 		},
 		setAllSurfacesStuds = treeSpatialUtils.setAllSurfacesStuds,
+		getSpawnCFrame = treeSpatialUtils.getSpawnCFrame,
 		getHorizontalDirection = treeSpatialUtils.getHorizontalDirection,
 		getPartExtentAlongDirection = treeSpatialUtils.getPartExtentAlongDirection,
 		getAssignedPlot = treePlotService.getAssignedPlot,

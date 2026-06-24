@@ -1,5 +1,7 @@
 local TweenService = game:GetService("TweenService")
 
+local TREE_OFFSET_DISTANCE = 8
+
 local LumberjackHirePromptManager = {}
 
 function LumberjackHirePromptManager.create(deps)
@@ -52,9 +54,9 @@ function LumberjackHirePromptManager.create(deps)
 		deps.setAllSurfacesStuds(button)
 		button.Parent = model
 
+		local spawnCFrame = deps.getSpawnCFrame(plotRecord.TreeSpawn)
 		local leftDirection = deps.getHorizontalDirection(-plotRecord.DirtPatch.CFrame.RightVector)
-		local dirtPatchExtent = deps.getPartExtentAlongDirection(plotRecord.DirtPatch, leftDirection)
-		local targetPosition = plotRecord.DirtPatch.Position + leftDirection * (dirtPatchExtent + constants.EdgeOffset)
+		local targetPosition = spawnCFrame.Position + leftDirection * TREE_OFFSET_DISTANCE
 		local pivotCFrame = CFrame.lookAt(targetPosition, targetPosition + leftDirection, Vector3.yAxis)
 			* CFrame.Angles(0, 0, math.rad(90))
 		base.CFrame = pivotCFrame
