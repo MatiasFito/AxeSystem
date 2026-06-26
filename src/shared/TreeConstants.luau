@@ -5,8 +5,11 @@ TreeConstants.CURRENT_SCHEMA_VERSION = 3
 TreeConstants.TREE_TEMPLATE_FOLDER_NAME = "Trees"
 TreeConstants.TREE_PLOT_SETS_FOLDER_NAME = "TreePlotSets"
 TreeConstants.TREE_RUNTIME_FOLDER_NAME = "TreeRuntime"
+TreeConstants.TREE_PLOT_TEMPLATE_NAME = "TreePlotTemplate"
+TreeConstants.TREE_PLOT_GENERATED_FOLDER_NAME = "GeneratedPlots"
 
 TreeConstants.PLOT_MODEL_NAME = "TreePlot"
+TreeConstants.PLOT_SET_ORIGIN_NAME = "PlotOrigin"
 TreeConstants.DIRT_PATCH_NAME = "DirtPatch"
 TreeConstants.TREE_SPAWN_NAME = "TreeSpawn"
 

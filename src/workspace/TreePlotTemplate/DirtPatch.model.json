@@ -15,8 +15,5 @@
     "RightSurface": "Studs",
     "Size": [18, 1, 18],
     "TopSurface": "Studs"
-  },
-  "Attributes": {
-    "PlotId": "Plot01"
   }
 }
