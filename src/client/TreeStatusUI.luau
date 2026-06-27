@@ -1,14 +1,12 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 local networkFolder = sharedFolder:WaitForChild("Network")
 local utilsFolder = sharedFolder:WaitForChild("Utils")
-local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
 local remoteResolver = require(networkFolder:WaitForChild("RemoteResolver") :: ModuleScript)
 local timeSync = require(utilsFolder:WaitForChild("TimeSync") :: ModuleScript)
 local TreePlotCard = require(script.Parent:WaitForChild("TreePlotCard") :: ModuleScript)
@@ -16,7 +14,6 @@ local TreePlotCard = require(script.Parent:WaitForChild("TreePlotCard") :: Modul
 local GUI_NAME = "TreeStatusGui"
 local REMOTE_WAIT_TIMEOUT = 10
 local REFRESH_RATE = 0.05
-local TOAST_DURATION = 1.8
 local CARDS_PADDING_X = 8
 local CARDS_PADDING_Y = 8
 
@@ -40,8 +37,6 @@ local toggleButton = nil
 local closeButton = nil
 local plotSetLabel = nil
 local cardsContainer = nil
-local toastFrame = nil
-local toastLabel = nil
 local cardsLayout = nil
 local cardsPadding = nil
 
@@ -55,53 +50,9 @@ local serverTimeAtSync = 0
 local localClockAtSync = 0
 local lastRefreshAt = 0
 local hasReceivedInitialState = false
-local toastToken = 0
 local currentPlotSetId = nil
 
 local isPanelOpen = false
-
-local function setToastVisible(visible)
-	if not toastFrame or not toastLabel then
-		return
-	end
-
-	toastFrame.Visible = visible
-	toastFrame.BackgroundTransparency = visible and 0.08 or 1
-	toastLabel.TextTransparency = visible and 0 or 1
-end
-
-local function showToast(message, accentColor)
-	if not toastFrame or not toastLabel then
-		return
-	end
-
-	toastToken += 1
-	local currentToken = toastToken
-	toastLabel.Text = message
-	toastLabel.TextColor3 = accentColor or TEXT_COLOR
-	setToastVisible(true)
-
-	local fadeInInfo = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	TweenService:Create(toastFrame, fadeInInfo, { BackgroundTransparency = 0.08 }):Play()
-	TweenService:Create(toastLabel, fadeInInfo, { TextTransparency = 0 }):Play()
-
-	task.delay(TOAST_DURATION, function()
-		if currentToken ~= toastToken or not toastFrame or not toastLabel then
-			return
-		end
-
-		local fadeOutInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-		local fadeFrame = TweenService:Create(toastFrame, fadeOutInfo, { BackgroundTransparency = 1 })
-		local fadeText = TweenService:Create(toastLabel, fadeOutInfo, { TextTransparency = 1 })
-		fadeFrame:Play()
-		fadeText:Play()
-		fadeText.Completed:Connect(function()
-			if currentToken == toastToken then
-				toastFrame.Visible = false
-			end
-		end)
-	end)
-end
 
 local function pulseCard(card, accentColor)
 	if not card or not card.Stroke then
@@ -305,38 +256,6 @@ local function ensureGui()
 	cardsLayout.Padding = UDim.new(0, 12)
 	cardsLayout.Parent = cardsContainer
 	cardsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCardsCanvasSize)
-
-	toastFrame = Instance.new("Frame")
-	toastFrame.Name = "Toast"
-	toastFrame.AnchorPoint = Vector2.new(0.5, 1)
-	toastFrame.Position = UDim2.new(0.5, 0, 1, -18)
-	toastFrame.Size = UDim2.fromOffset(350, 54)
-	toastFrame.BackgroundColor3 = Color3.fromRGB(24, 31, 23)
-	toastFrame.BackgroundTransparency = 1
-	toastFrame.BorderSizePixel = 0
-	toastFrame.Visible = false
-	toastFrame.Parent = screenGui
-
-	local toastCorner = Instance.new("UICorner")
-	toastCorner.CornerRadius = UDim.new(0, 18)
-	toastCorner.Parent = toastFrame
-
-	local toastStroke = Instance.new("UIStroke")
-	toastStroke.Color = CARD_STROKE
-	toastStroke.Thickness = 1.5
-	toastStroke.Parent = toastFrame
-
-	toastLabel = createLabel(
-		toastFrame,
-		Enum.Font.GothamBlack,
-		UDim2.new(1, -24, 1, -14),
-		UDim2.fromOffset(12, 7),
-		TEXT_COLOR,
-		Enum.TextXAlignment.Center
-	)
-	toastLabel.TextTransparency = 1
-
-	setToastVisible(false)
 	toggleButton.Activated:Connect(function()
 		setPanelOpen(true)
 	end)
@@ -387,13 +306,11 @@ local function announcePlotTransitions(previousPlot, nextPlot)
 
 	if (not previousPlot or previousPlot.unlocked ~= true) and nextPlot.unlocked then
 		pulseCard(card, POSITIVE_COLOR)
-		showToast(string.format("%s unlocked", nextPlot.treeName), POSITIVE_COLOR)
 		return
 	end
 
 	if previousPlot and nextPlot.level > previousPlot.level then
 		pulseCard(card, WARNING_COLOR)
-		showToast(string.format("%s reached Lv.%d", nextPlot.treeName, nextPlot.level), WARNING_COLOR)
 		return
 	end
 
@@ -403,7 +320,6 @@ local function announcePlotTransitions(previousPlot, nextPlot)
 		and nextPlot.state == treeConstants.PlotState.Grown
 	then
 		pulseCard(card, READY_COLOR)
-		showToast(string.format("%s is ready", nextPlot.treeName), READY_COLOR)
 	end
 end
 
@@ -435,19 +351,12 @@ local function handleHitFeedback(payload)
 		return
 	end
 
-	local plot = payload.plotId and plotsByPlotId[payload.plotId] or nil
-	local treeName = payload.treeName or (plot and plot.treeName) or "Tree"
 	local card = payload.plotId and cardsByPlotId[payload.plotId] or nil
 
 	if payload.kind == "felled" then
 		if card then
 			pulseCard(card, POSITIVE_COLOR)
 		end
-
-		showToast(
-			string.format("+%s Gold from %s", currencyFormatter.formatGold(payload.reward), treeName),
-			POSITIVE_COLOR
-		)
 		return
 	end
 
@@ -455,28 +364,12 @@ local function handleHitFeedback(payload)
 		if card then
 			pulseCard(card, POSITIVE_COLOR)
 		end
-
-		showToast(
-			string.format("+%s Gold from %s", currencyFormatter.formatGold(payload.reward), treeName),
-			POSITIVE_COLOR
-		)
 		return
 	end
 
 	if card then
 		pulseCard(card, WARNING_COLOR)
 	end
-
-	showToast(
-		string.format(
-			"%s  -%s HP  (%s/%s)",
-			treeName,
-			currencyFormatter.formatGold(payload.damage),
-			currencyFormatter.formatGold(payload.currentHealth),
-			currencyFormatter.formatGold(payload.maxHealth)
-		),
-		WARNING_COLOR
-	)
 end
 
 local function resolveRemotes()
@@ -522,7 +415,6 @@ local function requestInitialState()
 	end)
 
 	if not success then
-		showToast("Tree state unavailable", WARNING_COLOR)
 		return
 	end
 
@@ -530,8 +422,6 @@ local function requestInitialState()
 		applyState(payload.state)
 		return
 	end
-
-	showToast(payload.message or "Tree state unavailable", WARNING_COLOR)
 end
 
 function TreeStatusUI.start()
