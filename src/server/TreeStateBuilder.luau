@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local lumberjackConfig = require(sharedFolder:WaitForChild("LumberjackConfig") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
@@ -13,6 +14,10 @@ function TreeStateBuilder.isPlotUnlockable(treePlots, plotId)
 
 	if not tree then
 		return false
+	end
+
+	if tree.UnlockMode == "Affordable" then
+		return true
 	end
 
 	if tree.PlotOrder == 1 then
@@ -41,10 +46,18 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 	local isMaxLevel = false
 	local canUpgrade = false
 	local upgradeCost = nil
+	local supportsLumberjack = tree.SupportsLumberjack ~= false
+	local hasLumberjack = supportsLumberjack and plotState.HasLumberjack == true
+	local lumberjackLevel = hasLumberjack and math.max(1, plotState.LumberjackLevel or 0) or 0
+	local lumberjackHireCost = supportsLumberjack and lumberjackConfig.getHireCostByPlotId(plotId) or nil
+	local lumberjackUpgradeCost = hasLumberjack and lumberjackConfig.getUpgradeCostByPlotId(plotId, lumberjackLevel)
+		or nil
+	local canHireLumberjack = supportsLumberjack and plotState.Unlocked and not hasLumberjack
+	local canUpgradeLumberjack = supportsLumberjack and plotState.Unlocked and hasLumberjack
 
 	if plotState.Unlocked and plotState.Level > 0 then
 		levelData = treeConfig.getLevelData(tree.Id, plotState.Level)
-		isMaxLevel = plotState.Level >= tree.MaxLevel
+		isMaxLevel = (not tree.IsInfiniteTree) and plotState.Level >= tree.MaxLevel
 		upgradeCost = treeConfig.getUpgradeCost(tree.Id, plotState.Level)
 		canUpgrade = upgradeCost ~= nil
 	end
@@ -60,9 +73,19 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 		isUnlockable = not plotState.Unlocked
 			and TreeStateBuilder.isPlotUnlockable(playerData.getTreePlots(player) or {}, plotId),
 		unlockCost = tree.UnlockCost,
+		isInfiniteTree = tree.IsInfiniteTree == true,
 		canUpgrade = canUpgrade,
 		upgradeCost = upgradeCost,
 		isMaxLevel = isMaxLevel,
+		hasLumberjack = hasLumberjack,
+		lumberjackLevel = lumberjackLevel,
+		canHireLumberjack = canHireLumberjack,
+		lumberjackHireCost = lumberjackHireCost,
+		canUpgradeLumberjack = canUpgradeLumberjack,
+		lumberjackUpgradeCost = lumberjackUpgradeCost,
+		lumberjackGoldBonusPercent = lumberjackConfig.getGoldBonusPercent(lumberjackLevel),
+		showLumberjackUpgradePad = canUpgradeLumberjack,
+		goldPerHit = tree.IsInfiniteTree and levelData and levelData.Reward or nil,
 		stats = levelData and {
 			health = levelData.Health,
 			growTime = levelData.GrowTime,

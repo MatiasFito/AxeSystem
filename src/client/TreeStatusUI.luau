@@ -451,6 +451,18 @@ local function handleHitFeedback(payload)
 		return
 	end
 
+	if payload.kind == "infinitreeHit" then
+		if card then
+			pulseCard(card, POSITIVE_COLOR)
+		end
+
+		showToast(
+			string.format("+%s Gold from %s", currencyFormatter.formatGold(payload.reward), treeName),
+			POSITIVE_COLOR
+		)
+		return
+	end
+
 	if card then
 		pulseCard(card, WARNING_COLOR)
 	end

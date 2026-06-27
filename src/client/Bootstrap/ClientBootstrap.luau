@@ -3,6 +3,7 @@ local ClientBootstrap = {}
 local controllerDefinitions = {
 	"AutoSwingUI",
 	"BlacksmithZoneController",
+	"LumberjackUpgradePadController",
 	"SwingSpeedPad",
 	"TopGoldLabel",
 	"TreeStatusUI",

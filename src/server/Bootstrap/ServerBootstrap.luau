@@ -12,6 +12,10 @@ local serviceDefinitions = {
 		moduleName = "BlacksmithService",
 	},
 	{
+		name = "LumberjackService",
+		moduleName = "LumberjackService",
+	},
+	{
 		name = "OrbOfRegretService",
 		moduleName = "OrbOfRegretService",
 	},
@@ -55,9 +59,20 @@ local serviceStartOrder = {
 		end,
 	},
 	{
+		name = "LumberjackService",
+		start = function(services)
+			services.LumberjackService.start(services.PlayerData, services.TreePlotService, services.TreeService)
+		end,
+	},
+	{
 		name = "OrbOfRegretService",
 		start = function(services)
-			services.OrbOfRegretService.start(services.PlayerData, services.AxeService, services.TreeService)
+			services.OrbOfRegretService.start(
+				services.PlayerData,
+				services.AxeService,
+				services.TreeService,
+				services.LumberjackService
+			)
 		end,
 	},
 }
@@ -100,9 +115,11 @@ local function onPlayerAdded(services, player)
 	services.PlayerData.loadPlayer(player)
 	syncPlayerAxe(services, player)
 	services.TreeService.onPlayerAdded(player)
+	services.LumberjackService.onPlayerAdded(player)
 end
 
 local function onPlayerRemoving(services, player)
+	services.LumberjackService.onPlayerRemoving(player)
 	services.TreeService.onPlayerRemoving(player)
 	services.PlayerData.removePlayer(player)
 end

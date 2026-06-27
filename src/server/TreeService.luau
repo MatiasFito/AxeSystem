@@ -52,6 +52,8 @@ local playerData = nil
 local treePlotService = nil
 local treePlotMaterializer = nil
 local treeRuntimeManager = nil
+local treeNetworkBridge = nil
+local treeHitController = nil
 
 local function getServerNow()
 	return Workspace:GetServerTimeNow()
@@ -68,7 +70,7 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	local treeVisualController = nil
 	local treeGrowthController = nil
 	local unlockPromptManager = nil
-	local treeNetworkBridge = treeNetworkBridgeModule.create({
+	treeNetworkBridge = treeNetworkBridgeModule.create({
 		buildStatePayload = function(player, changedPlotIds)
 			return treeStateBuilder.buildStatePayload(playerData, treePlotService, getServerNow, player, changedPlotIds)
 		end,
@@ -190,7 +192,7 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getServerNow = getServerNow,
 		growingState = treeConstants.PlotState.Growing,
 	})
-	local treeHitController = treeHitControllerModule.create({
+	treeHitController = treeHitControllerModule.create({
 		constants = {
 			HitDistance = TREE_HIT_DISTANCE,
 			HitCooldownSeconds = HIT_COOLDOWN_SECONDS,
@@ -284,6 +286,20 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	if axeServiceModule == nil then
 		warn("TreeService started without AxeService")
 	end
+end
+
+function TreeService.pushStateUpdate(player, changedPlotIds)
+	if treeNetworkBridge then
+		treeNetworkBridge.pushStateUpdate(player, changedPlotIds)
+	end
+end
+
+function TreeService.processAutomationHit(player, plotId, hitContext)
+	if not treeHitController then
+		return false
+	end
+
+	return treeHitController.processAutomationHit(player, plotId, hitContext)
 end
 
 function TreeService.onPlayerAdded(player)

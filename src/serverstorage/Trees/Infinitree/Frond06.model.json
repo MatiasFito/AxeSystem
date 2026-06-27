@@ -3,20 +3,19 @@
   "Properties": {
     "Anchored": true,
     "BackSurface": "Studs",
-    "CanCollide": true,
-    "CanQuery": true,
-    "CanTouch": true,
-    "Color": [0.4274509804, 0.2784313725, 0.1764705882],
     "BottomSurface": "Studs",
+    "CanCollide": false,
+    "CanQuery": true,
+    "CanTouch": false,
+    "Color": [0.2274509804, 0.5607843137, 0.2039215686],
     "FrontSurface": "Studs",
     "LeftSurface": "Studs",
     "Material": "Plastic",
-    "Position": [40, 0.5, 0],
+    "Name": "Frond06",
+    "Orientation": [-12, 225, 0],
+    "Position": [-2.2, 14.1, -2.2],
     "RightSurface": "Studs",
-    "Size": [18, 1, 18],
+    "Size": [1, 0.4, 8],
     "TopSurface": "Studs"
-  },
-  "Attributes": {
-    "PlotId": "Plot03"
   }
 }

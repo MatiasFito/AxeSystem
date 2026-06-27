@@ -14,4 +14,12 @@ Next, open `AxeSystem.rbxlx` in Roblox Studio and start the Rojo server:
 rojo serve
 ```
 
+## Tree Plot Authoring
+Tree plots are now generated from a single workspace template instead of being authored as separate `Plot01`, `Plot02`, and similar models.
+
+- Edit `Workspace.TreePlotTemplate` to change the shared look of every plot. The template must keep a `DirtPatch` part and a `TreeSpawn` part.
+- Place one `PlotOrigin` part inside each folder under `Workspace.TreePlotSets`. That origin marks the `DirtPatch` position and rotation for the first generated plot in the set.
+- Plot cloning and placement happen at server startup in `TreePlotService`, using the ordered plot ids from `TreeConfig` and the grid settings in `TreePlotLayoutConfig`.
+- To expand the system later, add more tree entries to `TreeConfig` up to the grid capacity of 30 slots. You should not need to duplicate workspace plot models.
+
 For more help, check out [the Rojo documentation](https://rojo.space/docs).

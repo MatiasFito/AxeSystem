@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local infinitreeConfig = require(sharedFolder:WaitForChild("InfinitreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 
 local orderedTrees = {
@@ -96,6 +97,20 @@ local orderedTrees = {
 			[10] = { Level = 10, Health = 66, GrowTime = 0.5, Reward = 420, UpgradeCost = 3720 },
 		},
 	},
+	{
+		Id = "Infinitree",
+		Name = "Infinitree",
+		Description = "An endlessly upgradeable palm tree that pays Gold every hit.",
+		TemplateName = "Infinitree",
+		PlotId = "InfinitreePlot",
+		PlotOrder = 5,
+		UnlockCost = infinitreeConfig.UNLOCK_COST,
+		ImageId = "",
+		MaxLevel = math.huge,
+		IsInfiniteTree = true,
+		SupportsLumberjack = false,
+		UnlockMode = "Affordable",
+	},
 }
 
 local TreeConfig = {
@@ -112,6 +127,8 @@ local function cloneDefaultPlotState(plotState)
 		Level = plotState.Level,
 		State = plotState.State,
 		GrowingUntil = plotState.GrowingUntil,
+		HasLumberjack = plotState.HasLumberjack,
+		LumberjackLevel = plotState.LumberjackLevel,
 	}
 end
 
@@ -158,6 +175,10 @@ function TreeConfig.getLevelData(treeId, level)
 		return nil
 	end
 
+	if tree.IsInfiniteTree then
+		return infinitreeConfig.getLevelData(level)
+	end
+
 	return tree.Levels[math.floor(level)]
 end
 
@@ -169,6 +190,10 @@ function TreeConfig.getUpgradeLevel(treeId, currentLevel)
 	end
 
 	local nextLevel = math.floor(currentLevel) + 1
+
+	if tree.IsInfiniteTree then
+		return nextLevel
+	end
 
 	if nextLevel > tree.MaxLevel or tree.Levels[nextLevel] == nil then
 		return nil
@@ -182,6 +207,12 @@ function TreeConfig.getUpgradeCost(treeId, currentLevel)
 
 	if not nextLevel then
 		return nil
+	end
+
+	local tree = TreeConfig.getTree(treeId)
+
+	if tree and tree.IsInfiniteTree then
+		return infinitreeConfig.getUpgradeCost(nextLevel)
 	end
 
 	local nextLevelData = TreeConfig.getLevelData(treeId, nextLevel)
@@ -201,6 +232,8 @@ function TreeConfig.getDefaultPlotStates()
 			Level = 0,
 			State = treeConstants.PlotState.Locked,
 			GrowingUntil = nil,
+			HasLumberjack = false,
+			LumberjackLevel = 0,
 		})
 	end
 

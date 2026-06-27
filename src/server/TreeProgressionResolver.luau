@@ -34,6 +34,7 @@ function TreeProgressionResolver.create(deps)
 		end
 
 		local levelData = deps.getLevelData(tree.Id, 1)
+		local supportsLumberjack = tree.SupportsLumberjack ~= false
 
 		if not levelData then
 			return deps.buildFailure(deps.failureReasons.ConfigError)
@@ -45,17 +46,20 @@ function TreeProgressionResolver.create(deps)
 			TreeId = tree.Id,
 			Unlocked = true,
 			Level = 1,
-			State = deps.growingState,
-			GrowingUntil = deps.getServerNow() + levelData.GrowTime,
+			State = levelData.GrowTime > 0 and deps.growingState or deps.grownState,
+			GrowingUntil = levelData.GrowTime > 0 and (deps.getServerNow() + levelData.GrowTime) or nil,
+			HasLumberjack = supportsLumberjack and plotState.HasLumberjack == true,
+			LumberjackLevel = supportsLumberjack and plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0)
+				or 0,
 		})
 
 		deps.playUnlockButtonSuccessTween(player, plotId)
 		deps.materializePlot(player, plotId)
 
-		local nextTree = deps.getTreeByOrder(tree.PlotOrder + 1)
 		local changedPlots = { plotId }
+		local nextTree = deps.getTreeByOrder(tree.PlotOrder + 1)
 
-		if nextTree then
+		if tree.UnlockMode ~= "Affordable" and nextTree then
 			deps.updatePromptForPlot(player, nextTree.PlotId)
 			table.insert(changedPlots, nextTree.PlotId)
 		end
@@ -99,6 +103,7 @@ function TreeProgressionResolver.create(deps)
 		end
 
 		local nextLevelData = deps.getLevelData(tree.Id, nextLevel)
+		local supportsLumberjack = tree.SupportsLumberjack ~= false
 
 		if not nextLevelData then
 			return deps.buildFailure(deps.failureReasons.ConfigError)
@@ -113,6 +118,9 @@ function TreeProgressionResolver.create(deps)
 			Level = nextLevel,
 			State = plotState.State,
 			GrowingUntil = plotState.GrowingUntil,
+			HasLumberjack = supportsLumberjack and plotState.HasLumberjack == true,
+			LumberjackLevel = supportsLumberjack and plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0)
+				or 0,
 		}
 
 		if plotState.State == deps.growingState then
