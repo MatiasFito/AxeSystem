@@ -212,7 +212,7 @@ function TreeConfig.getUpgradeCost(treeId, currentLevel)
 	local tree = TreeConfig.getTree(treeId)
 
 	if tree and tree.IsInfiniteTree then
-		return infinitreeConfig.getUpgradeCost(math.floor(currentLevel))
+		return infinitreeConfig.getUpgradeCost(nextLevel)
 	end
 
 	local nextLevelData = TreeConfig.getLevelData(treeId, nextLevel)
