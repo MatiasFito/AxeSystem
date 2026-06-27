@@ -46,12 +46,28 @@ function TreePlotMaterializer.create(deps)
 		clone.Parent = deps.getOrCreateSetRuntimeFolder(plotRecord.PlotSetId)
 
 		local spawnCFrame = deps.getSpawnCFrame(plotRecord.TreeSpawn)
+		local placementCFrame = tree.IsInfiniteTree and CFrame.new(spawnCFrame.Position) or spawnCFrame
 
 		if clone:IsA("Model") then
-			clone:PivotTo(spawnCFrame)
+			clone:PivotTo(placementCFrame)
 			deps.alignCloneBottomToPlot(clone, plotRecord)
+
+			if tree.IsInfiniteTree then
+				local trunk = clone:FindFirstChild("Trunk", true)
+
+				if trunk and trunk:IsA("BasePart") then
+					clone:PivotTo(
+						clone:GetPivot()
+							+ Vector3.new(
+								spawnCFrame.Position.X - trunk.Position.X,
+								0,
+								spawnCFrame.Position.Z - trunk.Position.Z
+							)
+					)
+				end
+			end
 		elseif clone:IsA("BasePart") then
-			clone.CFrame = spawnCFrame
+			clone.CFrame = placementCFrame
 			deps.alignCloneBottomToPlot(clone, plotRecord)
 		end
 
@@ -89,6 +105,7 @@ function TreePlotMaterializer.create(deps)
 
 		local tree = deps.getTree(plotState.TreeId)
 		local levelData = tree and deps.getLevelData(tree.Id, plotState.Level) or nil
+		local supportsLumberjack = tree and tree.SupportsLumberjack ~= false or false
 
 		if not tree or not levelData then
 			return
@@ -104,8 +121,11 @@ function TreePlotMaterializer.create(deps)
 				Level = plotState.Level,
 				State = deps.grownState,
 				GrowingUntil = nil,
-				HasLumberjack = plotState.HasLumberjack == true,
-				LumberjackLevel = plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0) or 0,
+				HasLumberjack = supportsLumberjack and plotState.HasLumberjack == true,
+				LumberjackLevel = supportsLumberjack and plotState.HasLumberjack and math.max(
+					1,
+					plotState.LumberjackLevel or 0
+				) or 0,
 			}
 
 			deps.setTreePlot(player, plotId, updatedPlotState)
@@ -132,9 +152,11 @@ function TreePlotMaterializer.create(deps)
 				Level = latestPlotState.Level,
 				State = deps.grownState,
 				GrowingUntil = nil,
-				HasLumberjack = latestPlotState.HasLumberjack == true,
-				LumberjackLevel = latestPlotState.HasLumberjack and math.max(1, latestPlotState.LumberjackLevel or 0)
-					or 0,
+				HasLumberjack = supportsLumberjack and latestPlotState.HasLumberjack == true,
+				LumberjackLevel = supportsLumberjack and latestPlotState.HasLumberjack and math.max(
+					1,
+					latestPlotState.LumberjackLevel or 0
+				) or 0,
 			})
 
 			deps.applyTreeScale(runtimePlotState, plotRecord, 1)

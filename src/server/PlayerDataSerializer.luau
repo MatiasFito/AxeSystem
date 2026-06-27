@@ -150,7 +150,8 @@ function PlayerDataSerializer.normalizeTreePlotState(plotId, rawPlotState)
 		wasChanged = true
 	end
 
-	local hasLumberjack = rawPlotState.HasLumberjack == true
+	local supportsLumberjack = tree.SupportsLumberjack ~= false
+	local hasLumberjack = supportsLumberjack and rawPlotState.HasLumberjack == true
 
 	if hasLumberjack ~= rawPlotState.HasLumberjack then
 		wasChanged = true
@@ -175,6 +176,11 @@ function PlayerDataSerializer.normalizeTreePlotState(plotId, rawPlotState)
 
 	if hasLumberjack and lumberjackLevel < 1 then
 		lumberjackLevel = 1
+		wasChanged = true
+	end
+
+	if not supportsLumberjack and lumberjackLevel ~= 0 then
+		lumberjackLevel = 0
 		wasChanged = true
 	end
 

@@ -469,8 +469,15 @@ local function ensureAutomationLoop(player, plotId)
 
 			local plotRecord = treePlotService.getAssignedPlot(player, plotId)
 			local plotState = playerData.getTreePlot(player, plotId)
+			local hireCost = lumberjackConfig.getHireCostByPlotId(plotId)
 
-			if not plotRecord or not plotState or not plotState.Unlocked or plotState.HasLumberjack ~= true then
+			if
+				not plotRecord
+				or not plotState
+				or typeof(hireCost) ~= "number"
+				or not plotState.Unlocked
+				or plotState.HasLumberjack ~= true
+			then
 				break
 			end
 
@@ -495,8 +502,15 @@ local function spawnLumberjack(player, plotId)
 	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
 	local plotState = playerData.getTreePlot(player, plotId)
 	local runtimePlotState = getRuntimePlotState(player, plotId)
+	local hireCost = lumberjackConfig.getHireCostByPlotId(plotId)
 
-	if not plotRecord or not plotState or not plotState.Unlocked or plotState.HasLumberjack ~= true then
+	if
+		not plotRecord
+		or not plotState
+		or typeof(hireCost) ~= "number"
+		or not plotState.Unlocked
+		or plotState.HasLumberjack ~= true
+	then
 		destroyLumberjackModel(runtimePlotState)
 		return
 	end
@@ -530,8 +544,15 @@ local function refreshPlot(player, plotId)
 	local plotRecord = treePlotService.getAssignedPlot(player, plotId)
 	local plotState = playerData.getTreePlot(player, plotId)
 	local runtimePlotState = getRuntimePlotState(player, plotId)
+	local hireCost = lumberjackConfig.getHireCostByPlotId(plotId)
 
 	if not plotRecord or not plotState then
+		hirePromptManager.destroyHireButton(runtimePlotState)
+		destroyLumberjackModel(runtimePlotState)
+		return
+	end
+
+	if typeof(hireCost) ~= "number" then
 		hirePromptManager.destroyHireButton(runtimePlotState)
 		destroyLumberjackModel(runtimePlotState)
 		return

@@ -11,6 +11,10 @@ local function getUpgradeBaseCost(tree)
 		return nil
 	end
 
+	if tree.SupportsLumberjack == false then
+		return nil
+	end
+
 	if tree.UnlockCost == 0 then
 		return lumberjackConstants.DEFAULT_HIRE_COST
 	end

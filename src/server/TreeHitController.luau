@@ -1,3 +1,8 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
+
 local TreeHitController = {}
 
 function TreeHitController.create(deps)
@@ -5,6 +10,27 @@ function TreeHitController.create(deps)
 
 	local function resolveReward(levelData, goldMultiplier)
 		return math.max(0, math.floor(levelData.Reward * goldMultiplier))
+	end
+
+	local function resolveHitCooldownSeconds(hitContext)
+		if typeof(hitContext) == "table" then
+			local requestedCooldown = hitContext.hitCooldownSeconds
+
+			if typeof(requestedCooldown) == "number" and requestedCooldown > 0 then
+				return requestedCooldown
+			end
+
+			local tool = hitContext.tool
+
+			if tool then
+				return math.max(
+					constants.HitCooldownSeconds,
+					swingSpeed.getAutoSwingInterval(tool, swingSpeed.DEFAULT_BASE_SWING_DURATION)
+				)
+			end
+		end
+
+		return constants.HitCooldownSeconds
 	end
 
 	local function processResolvedHit(player, plotId, hitContext)
@@ -21,8 +47,9 @@ function TreeHitController.create(deps)
 
 		local runtimePlotState = deps.getRuntimePlotState(player, plotId)
 		local now = os.clock()
+		local hitCooldownSeconds = resolveHitCooldownSeconds(hitContext)
 
-		if now - runtimePlotState.LastAcceptedHitAt < constants.HitCooldownSeconds then
+		if now - runtimePlotState.LastAcceptedHitAt < hitCooldownSeconds then
 			return false
 		end
 
@@ -30,6 +57,7 @@ function TreeHitController.create(deps)
 
 		local tree = deps.getTreeByPlotId(plotId)
 		local levelData = tree and deps.getLevelData(tree.Id, plotState.Level) or nil
+		local supportsLumberjack = tree and tree.SupportsLumberjack ~= false or false
 
 		if not tree or not levelData then
 			return false
@@ -40,8 +68,31 @@ function TreeHitController.create(deps)
 		end
 
 		local power = math.max(1, math.floor(hitContext.power or 1))
-		local actualDamage = math.min(runtimePlotState.CurrentHealth, power)
 		local effectOrigin = hitContext.effectOrigin or plotRecord.DirtPatch.Position
+
+		if tree.IsInfiniteTree then
+			local reward = resolveReward(levelData, hitContext.goldMultiplier or 1)
+			local currentGold = deps.getGold(player) or 0
+			deps.setGold(player, currentGold + reward)
+			deps.refreshUnlockButtons(player)
+			deps.emitTreeParticles(runtimePlotState.SpawnedTreeModel, 10, effectOrigin)
+			deps.playTreeSound(runtimePlotState.SpawnedTreeModel, constants.HitSoundId, 1.15)
+
+			if hitContext.pushFeedback ~= false then
+				deps.pushHitFeedback(player, {
+					plotId = plotId,
+					treeId = tree.Id,
+					treeName = tree.Name,
+					kind = "infinitreeHit",
+					reward = reward,
+					goldAfter = currentGold + reward,
+				})
+			end
+
+			return true
+		end
+
+		local actualDamage = math.min(runtimePlotState.CurrentHealth, power)
 		runtimePlotState.CurrentHealth -= actualDamage
 		deps.emitTreeParticles(
 			runtimePlotState.SpawnedTreeModel,
@@ -94,8 +145,9 @@ function TreeHitController.create(deps)
 			Level = plotState.Level,
 			State = deps.growingState,
 			GrowingUntil = growingUntil,
-			HasLumberjack = plotState.HasLumberjack == true,
-			LumberjackLevel = plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0) or 0,
+			HasLumberjack = supportsLumberjack and plotState.HasLumberjack == true,
+			LumberjackLevel = supportsLumberjack and plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0)
+				or 0,
 		})
 		deps.updatePromptForPlot(player, plotId)
 
@@ -158,6 +210,7 @@ function TreeHitController.create(deps)
 		processResolvedHit(player, plotId, {
 			power = deps.getToolStatValue(tool, "Power", 1),
 			goldMultiplier = deps.getToolStatValue(tool, "GoldBonus", 1),
+			tool = tool,
 			effectOrigin = rootPart.Position,
 			pushFeedback = true,
 		})

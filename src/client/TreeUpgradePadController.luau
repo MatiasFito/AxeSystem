@@ -86,6 +86,12 @@ local function getPlotModel(plotId)
 		return nil
 	end
 
+	local generatedFolder = plotSetFolder:FindFirstChild(treeConstants.TREE_PLOT_GENERATED_FOLDER_NAME)
+
+	if generatedFolder and generatedFolder:IsA("Folder") then
+		return generatedFolder:FindFirstChild(plotId)
+	end
+
 	return plotSetFolder:FindFirstChild(plotId)
 end
 
