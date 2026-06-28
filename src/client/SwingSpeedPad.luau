@@ -5,11 +5,15 @@ local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
+local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
+local networkFolder = sharedFolder:WaitForChild("Network")
+local remoteResolver = require(networkFolder:WaitForChild("RemoteResolver") :: ModuleScript)
 
 local GUI_NAME = "SwingSpeedPadGui"
 local PART_NAME = "SwingSpeedPad"
 local BUTTON_VALUES = { 1, 2, 3, 4, 5 }
 local PART_WAIT_TIMEOUT = 10
+local REMOTE_WAIT_TIMEOUT = 10
 
 local PAD_COLOR = Color3.fromRGB(34, 29, 24)
 local SURFACE_COLOR = Color3.fromRGB(64, 52, 42)
@@ -30,13 +34,60 @@ local buttons = {}
 local backpackConnection = nil
 local characterAddedConnection = nil
 local characterChildConnection = nil
+local requestSwingSpeedRemote = nil
 
 local function getBackpack()
 	return player:FindFirstChildOfClass("Backpack")
 end
 
+local function clampSelectedSpeed(value)
+	if typeof(value) ~= "number" then
+		return blacksmithConstants.DEFAULT_SWING_SPEED
+	end
+
+	return math.clamp(math.floor(value + 0.5), blacksmithConstants.MIN_SWING_SPEED, blacksmithConstants.MAX_SWING_SPEED)
+end
+
 local function isBaseAxe(tool)
 	return axeConfig.isAxeTool(tool)
+end
+
+local function resolveSwingSpeedRemote()
+	if requestSwingSpeedRemote and requestSwingSpeedRemote.Parent then
+		return requestSwingSpeedRemote
+	end
+
+	local blacksmithFolder = remoteResolver.waitForPath(ReplicatedStorage, {
+		{
+			Name = blacksmithConstants.REMOTE_FOLDER_NAME,
+			ErrorMessage = "Blacksmith remotes folder was not found",
+		},
+		{
+			Name = blacksmithConstants.BLACKSMITH_REMOTE_FOLDER_NAME,
+			ErrorMessage = "Blacksmith remote folder was not found",
+		},
+	}, REMOTE_WAIT_TIMEOUT)
+
+	if not blacksmithFolder then
+		return nil
+	end
+
+	local remotes = remoteResolver.waitForNamedChildren(blacksmithFolder, {
+		blacksmithConstants.REQUEST_SWING_SPEED_REMOTE_NAME,
+	}, REMOTE_WAIT_TIMEOUT, "Blacksmith remote")
+
+	if not remotes then
+		return nil
+	end
+
+	local remote = remotes[blacksmithConstants.REQUEST_SWING_SPEED_REMOTE_NAME]
+
+	if remote and remote:IsA("RemoteEvent") then
+		requestSwingSpeedRemote = remote
+		return requestSwingSpeedRemote
+	end
+
+	return nil
 end
 
 local function setToolSwingSpeed(tool)
@@ -77,9 +128,15 @@ local function updateButtonVisuals()
 end
 
 local function setSelectedSpeed(value)
-	selectedSpeed = value
+	selectedSpeed = clampSelectedSpeed(value)
 	updateButtonVisuals()
 	applySelectedSpeed()
+
+	local remote = resolveSwingSpeedRemote()
+
+	if remote then
+		remote:FireServer(selectedSpeed)
+	end
 end
 
 local function buildButtons(parent)
@@ -258,6 +315,7 @@ function SwingSpeedPad.start()
 	end
 
 	started = true
+	selectedSpeed = clampSelectedSpeed(player:GetAttribute(blacksmithConstants.SWING_SPEED_ATTRIBUTE_NAME))
 	trackedPart = findPadPart()
 
 	if not trackedPart then

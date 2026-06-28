@@ -8,8 +8,49 @@ local TreeHitController = {}
 function TreeHitController.create(deps)
 	local constants = deps.constants
 
+	local function resolveHitCooldownGraceSeconds(hitCooldownSeconds)
+		local configuredGrace = constants.HitCooldownGraceSeconds or 0
+
+		if configuredGrace > 0 then
+			return math.min(configuredGrace, hitCooldownSeconds * 0.5)
+		end
+
+		return math.min(0.03, math.max(0.01, hitCooldownSeconds * 0.12))
+	end
+
 	local function resolveReward(levelData, goldMultiplier)
 		return math.max(0, math.floor(levelData.Reward * goldMultiplier))
+	end
+
+	local function resolveNearestOwnedGrownPlot(player, rootPosition)
+		local assignedPlotSet = deps.getAssignedPlotSet(player)
+
+		if not assignedPlotSet or typeof(rootPosition) ~= "Vector3" then
+			return nil, nil, nil
+		end
+
+		local nearestPlotId = nil
+		local nearestPlotRecord = nil
+		local nearestPlotState = nil
+		local nearestDistance = constants.HitDistance
+
+		for _, candidatePlotId in assignedPlotSet.OrderedPlotIds do
+			local plotRecord = assignedPlotSet.PlotsById[candidatePlotId]
+			local plotState = plotRecord and deps.getTreePlot(player, candidatePlotId) or nil
+
+			if plotRecord and plotState and plotState.State == deps.grownState then
+				local distance = (rootPosition - plotRecord.DirtPatch.Position).Magnitude
+
+				if distance <= nearestDistance then
+					nearestPlotId = candidatePlotId
+					nearestPlotRecord = plotRecord
+					nearestPlotState = plotState
+					nearestDistance = distance
+				end
+			end
+		end
+
+		return nearestPlotId, nearestPlotRecord, nearestPlotState
 	end
 
 	local function resolveHitCooldownSeconds(hitContext)
@@ -23,10 +64,7 @@ function TreeHitController.create(deps)
 			local tool = hitContext.tool
 
 			if tool then
-				return math.max(
-					constants.HitCooldownSeconds,
-					swingSpeed.getAutoSwingInterval(tool, swingSpeed.DEFAULT_BASE_SWING_DURATION)
-				)
+				return swingSpeed.getAutoSwingInterval(tool, swingSpeed.DEFAULT_BASE_SWING_DURATION)
 			end
 		end
 
@@ -48,8 +86,10 @@ function TreeHitController.create(deps)
 		local runtimePlotState = deps.getRuntimePlotState(player, plotId)
 		local now = os.clock()
 		local hitCooldownSeconds = resolveHitCooldownSeconds(hitContext)
+		local hitCooldownGraceSeconds = resolveHitCooldownGraceSeconds(hitCooldownSeconds)
+		local elapsedSinceLastAccept = now - runtimePlotState.LastAcceptedHitAt
 
-		if now - runtimePlotState.LastAcceptedHitAt < hitCooldownSeconds then
+		if elapsedSinceLastAccept + hitCooldownGraceSeconds < hitCooldownSeconds then
 			return false
 		end
 
@@ -146,8 +186,10 @@ function TreeHitController.create(deps)
 			State = deps.growingState,
 			GrowingUntil = growingUntil,
 			HasLumberjack = supportsLumberjack and plotState.HasLumberjack == true,
-			LumberjackLevel = supportsLumberjack and plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0)
-				or 0,
+			LumberjackLevel = supportsLumberjack and plotState.HasLumberjack and math.max(
+				1,
+				plotState.LumberjackLevel or 0
+			) or 0,
 		})
 		deps.updatePromptForPlot(player, plotId)
 
@@ -184,21 +226,30 @@ function TreeHitController.create(deps)
 			return
 		end
 
-		local plotRecord = deps.getAssignedPlot(player, plotId)
-		local plotState = deps.getTreePlot(player, plotId)
-
-		if not plotRecord or not plotState or plotState.State ~= deps.grownState then
-			return
-		end
-
 		local rootPart = deps.getCharacterRootPart(player)
 
 		if not rootPart then
 			return
 		end
 
-		if (rootPart.Position - plotRecord.DirtPatch.Position).Magnitude > constants.HitDistance then
+		local rootPosition = rootPart.Position
+		local plotRecord = deps.getAssignedPlot(player, plotId)
+		local plotState = plotRecord and deps.getTreePlot(player, plotId) or nil
+
+		if not plotRecord or not plotState or plotState.State ~= deps.grownState then
+			plotId, plotRecord, plotState = resolveNearestOwnedGrownPlot(player, rootPosition)
+		end
+
+		if not plotRecord or not plotState or plotState.State ~= deps.grownState then
 			return
+		end
+
+		if (rootPosition - plotRecord.DirtPatch.Position).Magnitude > constants.HitDistance then
+			plotId, plotRecord, plotState = resolveNearestOwnedGrownPlot(player, rootPosition)
+
+			if not plotRecord or not plotState or plotState.State ~= deps.grownState then
+				return
+			end
 		end
 
 		local tool = deps.getEquippedAxeTool(player)
@@ -211,7 +262,7 @@ function TreeHitController.create(deps)
 			power = deps.getToolStatValue(tool, "Power", 1),
 			goldMultiplier = deps.getToolStatValue(tool, "GoldBonus", 1),
 			tool = tool,
-			effectOrigin = rootPart.Position,
+			effectOrigin = rootPosition,
 			pushFeedback = true,
 		})
 	end

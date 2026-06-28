@@ -141,6 +141,7 @@ local function configureTool(tool, tier)
 	local stats = ensureStatsFolder(tool)
 	ensureNumberValue(stats, "Power", tier.Power)
 	ensureNumberValue(stats, "GoldBonus", tier.GoldMultiplier)
+	ensureNumberValue(stats, "SwingSpeed", blacksmithConstants.DEFAULT_SWING_SPEED)
 end
 
 function AxeToolBuilder.canBuildTier(tierId)

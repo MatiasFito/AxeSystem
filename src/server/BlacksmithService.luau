@@ -71,11 +71,13 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 		end,
 		buildStatePayload = blacksmithStateBuilder.buildStatePayload,
 		handleUpgrade = blacksmithUpgradeResolver.handleUpgrade,
+		setPlayerSwingSpeed = axeServiceModule.setPlayerSwingSpeed,
 	})
 
 	blacksmithRemoteHandlersModule.bind({
 		GetStateRemote = blacksmithRemoteRegistry.getOrCreateRemotes().GetStateRemote,
 		RequestUpgradeRemote = blacksmithRemoteRegistry.getOrCreateRemotes().RequestUpgradeRemote,
+		RequestSwingSpeedRemote = blacksmithRemoteRegistry.getOrCreateRemotes().RequestSwingSpeedRemote,
 	}, blacksmithRemoteHandlers)
 end
 

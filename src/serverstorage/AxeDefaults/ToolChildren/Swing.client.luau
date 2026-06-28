@@ -20,8 +20,8 @@ local autoSwingAttributeName = "AutoSwingHeld"
 local soundName = "SwingSound"
 local soundId = "rbxassetid://541909763"
 local soundVolume = 2
-local swingReleasePollInterval = 0.01
-local treeHitRange = 18
+local swingTimingPollInterval = 0.01
+local treeHitRange = treeConstants.HIT_DISTANCE
 local treeHitRemote = nil
 
 local animator = nil
@@ -29,12 +29,12 @@ local swingSound = nil
 local animationTracks = {}
 local activeTrack = nil
 local lastPlayedIndex = nil
-local isSwinging = false
 local manualHoldActive = false
 local autoHoldActive = tool:GetAttribute(autoSwingAttributeName) == true
 local repeatLoopId = 0
 local repeatLoopRunning = false
 local lastRepeatDelay = swingSpeed.DEFAULT_BASE_SWING_DURATION
+local nextSwingAt = 0
 
 local function getCharacter()
 	local parent = tool.Parent
@@ -187,10 +187,11 @@ local function loadAnimationTracks()
 	return #animationTracks > 0
 end
 
-local function stopActiveTrack()
+local function stopActiveTrack(fadeTime)
 	if activeTrack then
-		activeTrack:Stop(0.05)
+		local track = activeTrack
 		activeTrack = nil
+		track:Stop(fadeTime or 0.05)
 	end
 end
 
@@ -215,7 +216,6 @@ end
 local function releaseSwing(track)
 	if activeTrack == track then
 		activeTrack = nil
-		isSwinging = false
 	end
 end
 
@@ -241,11 +241,14 @@ local function refreshRuntimeState()
 end
 
 local function attemptSwing()
-	if isSwinging then
-		return false, lastRepeatDelay
+	local now = os.clock()
+
+	if now < nextSwingAt then
+		return false, nextSwingAt - now
 	end
 
 	if #animationTracks == 0 and not refreshRuntimeState() then
+		nextSwingAt = now + lastRepeatDelay
 		warn("BaseAxe could not load swing animations")
 		return false, lastRepeatDelay
 	end
@@ -253,6 +256,7 @@ local function attemptSwing()
 	local nextIndex = chooseNextTrackIndex()
 
 	if not nextIndex then
+		nextSwingAt = now + lastRepeatDelay
 		warn("BaseAxe has no swing animations available")
 		return false, lastRepeatDelay
 	end
@@ -260,11 +264,13 @@ local function attemptSwing()
 	local nextTrack = animationTracks[nextIndex]
 
 	if not nextTrack then
+		nextSwingAt = now + lastRepeatDelay
 		warn("BaseAxe selected an invalid swing animation track")
 		return false, lastRepeatDelay
 	end
 
-	isSwinging = true
+	stopActiveTrack(0)
+
 	activeTrack = nextTrack
 	lastPlayedIndex = nextIndex
 
@@ -299,6 +305,7 @@ local function attemptSwing()
 	local effectiveDuration = swingSpeed.getEffectiveSwingDuration(baseDuration, desiredSwingSpeed)
 
 	lastRepeatDelay = effectiveDuration
+	nextSwingAt = now + effectiveDuration
 	nextTrack:Play(0.05, 1, playbackSpeed)
 	task.delay(math.max(0.03, math.min(0.12, effectiveDuration * 0.35)), reportTreeHit)
 
@@ -319,17 +326,17 @@ end
 
 local function runRepeatLoop(currentLoopId)
 	while repeatLoopId == currentLoopId and shouldKeepSwinging() and getCharacter() do
-		task.wait(lastRepeatDelay)
+		local waitDuration = math.max(0, nextSwingAt - os.clock())
 
-		while repeatLoopId == currentLoopId and shouldKeepSwinging() and getCharacter() and isSwinging do
-			task.wait(swingReleasePollInterval)
+		if waitDuration > 0 then
+			task.wait(math.min(swingTimingPollInterval, waitDuration))
+		else
+			attemptSwing()
 		end
 
 		if repeatLoopId ~= currentLoopId or not shouldKeepSwinging() or not getCharacter() then
 			break
 		end
-
-		attemptSwing()
 	end
 
 	if repeatLoopId == currentLoopId then
@@ -362,8 +369,8 @@ end
 
 tool.Equipped:Connect(function()
 	stopActiveTrack()
-	isSwinging = false
 	lastRepeatDelay = swingSpeed.DEFAULT_BASE_SWING_DURATION
+	nextSwingAt = 0
 	refreshRuntimeState()
 	syncAutoHoldState()
 end)
@@ -377,10 +384,10 @@ tool.Unequipped:Connect(function()
 	autoHoldActive = false
 	stopRepeatLoop()
 	stopActiveTrack()
-	isSwinging = false
 	animator = nil
 	lastPlayedIndex = nil
 	lastRepeatDelay = swingSpeed.DEFAULT_BASE_SWING_DURATION
+	nextSwingAt = 0
 	table.clear(animationTracks)
 end)
 

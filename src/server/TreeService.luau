@@ -3,6 +3,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
@@ -22,8 +23,9 @@ local treeRuntimeManagerModule = require(script.Parent:WaitForChild("TreeRuntime
 
 local TreeService = {}
 
-local TREE_HIT_DISTANCE = 16
-local HIT_COOLDOWN_SECONDS = 0.18
+local TREE_HIT_DISTANCE = treeConstants.HIT_DISTANCE
+local HIT_COOLDOWN_SECONDS = swingSpeed.MIN_EFFECTIVE_SWING_DURATION
+local HIT_COOLDOWN_GRACE_SECONDS = 0.02
 local TREE_MIN_SCALE = 0.05
 local TREE_DEAD_SCALE = 0.5
 local TREE_GROWTH_STEP_SECONDS = 0.05
@@ -196,11 +198,13 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		constants = {
 			HitDistance = TREE_HIT_DISTANCE,
 			HitCooldownSeconds = HIT_COOLDOWN_SECONDS,
+			HitCooldownGraceSeconds = HIT_COOLDOWN_GRACE_SECONDS,
 			HitSoundId = TREE_HIT_SOUND_ID,
 			DeathSoundId = TREE_DEATH_SOUND_ID,
 			HarvestRespawnDelay = TREE_HARVEST_RESPAWN_DELAY,
 		},
 		isPlayerLoaded = playerData.isLoaded,
+		getAssignedPlotSet = treePlotService.getAssignedPlotSet,
 		getAssignedPlot = treePlotService.getAssignedPlot,
 		getTreePlot = playerData.getTreePlot,
 		getCharacterRootPart = treeInteractionUtils.getCharacterRootPart,

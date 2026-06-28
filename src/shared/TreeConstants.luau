@@ -28,6 +28,7 @@ TreeConstants.REQUEST_UPGRADE_REMOTE_NAME = "RequestTreeUpgrade"
 TreeConstants.REQUEST_LUMBERJACK_UPGRADE_REMOTE_NAME = "RequestLumberjackUpgrade"
 TreeConstants.STATE_UPDATED_REMOTE_NAME = "TreeStateUpdated"
 TreeConstants.HIT_FEEDBACK_REMOTE_NAME = "TreeHitFeedback"
+TreeConstants.HIT_DISTANCE = 16
 
 TreeConstants.PlotState = {
 	Locked = "Locked",
