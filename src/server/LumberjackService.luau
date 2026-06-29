@@ -41,7 +41,6 @@ local PROMPT_BASE_COLOR_READY = Color3.fromRGB(70, 145, 65)
 local PROMPT_BASE_COLOR_LOCKED = Color3.fromRGB(92, 92, 92)
 local PROMPT_TEXT_READY = Color3.fromRGB(70, 145, 65)
 local PROMPT_TEXT_LOCKED = Color3.fromRGB(126, 126, 126)
-local PROMPT_SOUND_ID = "rbxassetid://138273059623491"
 local PROMPT_TWEEN_DURATION = 0.75
 local PROMPT_MIN_THICKNESS = 0.05
 local REFRESH_LOOP_SECONDS = 0.35
@@ -447,6 +446,7 @@ local function buildAutomationHitContext(player, plotId, runtimePlotState, plotR
 		goldMultiplier = goldMultiplier * lumberjackConfig.getGoldBonusMultiplier(lumberjackLevel),
 		effectOrigin = getSwingOrigin(runtimePlotState, plotRecord),
 		pushFeedback = false,
+		source = "lumberjack",
 	}
 end
 
@@ -640,7 +640,6 @@ function LumberjackService.start(playerDataModule, treePlotServiceModule, treeSe
 			BaseColorLocked = PROMPT_BASE_COLOR_LOCKED,
 			TextReady = PROMPT_TEXT_READY,
 			TextLocked = PROMPT_TEXT_LOCKED,
-			SoundId = PROMPT_SOUND_ID,
 			TweenDuration = PROMPT_TWEEN_DURATION,
 			MinThickness = PROMPT_MIN_THICKNESS,
 		},

@@ -4,8 +4,11 @@ local Workspace = game:GetService("Workspace")
 local tool = script.Parent
 local animationsFolder = tool:WaitForChild("Animations")
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local gameFeelConfig = require(sharedFolder:WaitForChild("GameFeelConfig") :: ModuleScript)
 local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
+local utilsFolder = sharedFolder:WaitForChild("Utils")
+local localSoundPlayer = require(utilsFolder:WaitForChild("LocalSoundPlayer") :: ModuleScript)
 
 local randomGenerator = Random.new()
 
@@ -17,15 +20,13 @@ local animationNames = {
 }
 
 local autoSwingAttributeName = "AutoSwingHeld"
-local soundName = "SwingSound"
 local soundId = "rbxassetid://541909763"
-local soundVolume = 2
+local soundKey = "AxeSwingLocal"
 local swingTimingPollInterval = 0.01
 local treeHitRange = treeConstants.HIT_DISTANCE
 local treeHitRemote = nil
 
 local animator = nil
-local swingSound = nil
 local animationTracks = {}
 local activeTrack = nil
 local lastPlayedIndex = nil
@@ -146,22 +147,7 @@ local function ensureAnimator()
 end
 
 local function ensureSwingSound()
-	local handle = tool:FindFirstChild("Handle")
-
-	if not handle or not handle:IsA("BasePart") then
-		return nil
-	end
-
-	local existingSound = handle:FindFirstChild(soundName)
-
-	if existingSound and existingSound:IsA("Sound") then
-		existingSound.SoundId = soundId
-		existingSound.Volume = soundVolume
-		swingSound = existingSound
-		return swingSound
-	end
-
-	return nil
+	return localSoundPlayer.preloadReusable(soundKey, soundId)
 end
 
 local function loadAnimationTracks()
@@ -309,13 +295,8 @@ local function attemptSwing()
 	nextTrack:Play(0.05, 1, playbackSpeed)
 	task.delay(math.max(0.03, math.min(0.12, effectiveDuration * 0.35)), reportTreeHit)
 
-	local sound = swingSound or ensureSwingSound()
-
-	if sound then
-		sound:Stop()
-		sound.TimePosition = 0
-		sound.PlaybackSpeed = playbackSpeed
-		sound:Play()
+	if ensureSwingSound() then
+		localSoundPlayer.playReusable(soundKey, soundId, gameFeelConfig.getAxeSwingSoundVolume(), playbackSpeed)
 	end
 
 	local fallbackDuration = swingSpeed.getSwingFinishDelay(baseDuration, desiredSwingSpeed)
@@ -376,9 +357,7 @@ tool.Equipped:Connect(function()
 end)
 
 tool.Unequipped:Connect(function()
-	if swingSound then
-		swingSound:Stop()
-	end
+	localSoundPlayer.stopReusable(soundKey)
 
 	manualHoldActive = false
 	autoHoldActive = false

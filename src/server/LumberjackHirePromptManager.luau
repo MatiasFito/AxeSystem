@@ -146,14 +146,6 @@ function LumberjackHirePromptManager.create(deps)
 		basePart.CanTouch = false
 		basePart.CanQuery = false
 
-		local sound = Instance.new("Sound")
-		sound.Name = "HireButtonSound"
-		sound.SoundId = constants.SoundId
-		sound.Volume = 1.2
-		sound.RollOffMaxDistance = 50
-		sound.Parent = buttonPart
-		sound:Play()
-
 		local buttonSizeTween = TweenService:Create(
 			buttonPart,
 			TweenInfo.new(constants.TweenDuration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),

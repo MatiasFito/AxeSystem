@@ -6,6 +6,8 @@ local controllerDefinitions = {
 	"LumberjackUpgradePadController",
 	"SwingSpeedPad",
 	"TopGoldLabel",
+	"TreeAudioController",
+	"TreePromptAudioController",
 	"TreeStatusUI",
 	"TreeUpgradePadController",
 }

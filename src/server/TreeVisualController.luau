@@ -1,4 +1,16 @@
+local Workspace = game:GetService("Workspace")
+
 local TreeVisualController = {}
+
+local randomGenerator = Random.new()
+
+local function getTreeVisualPivot(treeInstance)
+	if treeInstance:IsA("Model") then
+		return treeInstance:GetPivot()
+	end
+
+	return treeInstance.CFrame
+end
 
 function TreeVisualController.create(deps)
 	local constants = deps.constants
@@ -78,7 +90,21 @@ function TreeVisualController.create(deps)
 		return attachment
 	end
 
-	local function emitTreeParticles(treeInstance, particleCount, sourcePosition)
+	local function createDetachedEffectAnchor(name, worldCFrame)
+		local anchor = Instance.new("Part")
+		anchor.Name = name
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.CanQuery = false
+		anchor.CanTouch = false
+		anchor.Transparency = 1
+		anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+		anchor.CFrame = worldCFrame
+		anchor.Parent = Workspace
+		return anchor
+	end
+
+	local function emitTreeParticles(treeInstance, particleCount, sourcePosition, options)
 		local effectPart = getTreeEffectPart(treeInstance)
 
 		if not effectPart then
@@ -86,6 +112,18 @@ function TreeVisualController.create(deps)
 		end
 
 		local attachment = createTreeImpactAttachment(effectPart, sourcePosition)
+		local cleanupTarget = attachment
+
+		if typeof(options) == "table" and options.detach == true then
+			local detachedAnchor = createDetachedEffectAnchor("TreeImpactEffectAnchor", attachment.WorldCFrame)
+			local detachedAttachment = Instance.new("Attachment")
+			detachedAttachment.Name = attachment.Name
+			detachedAttachment.CFrame = CFrame.new()
+			detachedAttachment.Parent = detachedAnchor
+			attachment:Destroy()
+			attachment = detachedAttachment
+			cleanupTarget = detachedAnchor
+		end
 
 		local emitter = Instance.new("ParticleEmitter")
 		emitter.Name = "TreeImpactParticles"
@@ -108,36 +146,14 @@ function TreeVisualController.create(deps)
 		emitter:Emit(particleCount)
 
 		task.delay(1, function()
-			if attachment.Parent then
-				attachment:Destroy()
-			end
-		end)
-	end
-
-	local function playTreeSound(treeInstance, soundId, volume)
-		local effectPart = getTreeEffectPart(treeInstance)
-
-		if not effectPart then
-			return
-		end
-
-		local sound = Instance.new("Sound")
-		sound.Name = "TreeEffectSound"
-		sound.SoundId = soundId
-		sound.Volume = volume
-		sound.RollOffMaxDistance = 70
-		sound.Parent = effectPart
-		sound:Play()
-
-		task.delay(4, function()
-			if sound.Parent then
-				sound:Destroy()
+			if cleanupTarget.Parent then
+				cleanupTarget:Destroy()
 			end
 		end)
 	end
 
 	local function captureTreeVisualState(runtimePlotState, treeInstance)
-		local pivot = if treeInstance:IsA("Model") then treeInstance:GetPivot() else treeInstance.CFrame
+		local pivot = getTreeVisualPivot(treeInstance)
 		local partStates = {}
 
 		if treeInstance:IsA("Model") then
@@ -211,6 +227,7 @@ function TreeVisualController.create(deps)
 
 		if shouldAlignBottom ~= false then
 			deps.alignCloneBottomToPlot(treeInstance, plotRecord)
+			visualState.Pivot = getTreeVisualPivot(treeInstance)
 		end
 
 		runtimePlotState.VisualScale = clampedScale
@@ -219,6 +236,49 @@ function TreeVisualController.create(deps)
 
 	local function applyTreeScale(runtimePlotState, plotRecord, scale)
 		return applyTreeVisual(runtimePlotState, plotRecord, scale, nil, 0, true)
+	end
+
+	local function applyTreeShake(runtimePlotState, plotRecord, durationSeconds, maxAngleDegrees)
+		local visualState = runtimePlotState.VisualState
+		local treeInstance = runtimePlotState.SpawnedTreeModel
+		local duration = math.clamp(durationSeconds or 0, 0, 0.1)
+		local maxAngleRadians = math.rad(math.max(0, maxAngleDegrees or 0))
+
+		if not visualState or not treeInstance or not treeInstance.Parent then
+			return false
+		end
+
+		if duration <= 0 or maxAngleRadians <= 0 then
+			return false
+		end
+
+		runtimePlotState.ShakeToken = (runtimePlotState.ShakeToken or 0) + 1
+		local shakeToken = runtimePlotState.ShakeToken
+		local currentScale = runtimePlotState.VisualScale > 0 and runtimePlotState.VisualScale or 1
+		local shakeAngle = maxAngleRadians
+		local basePivot = visualState.Pivot or getTreeVisualPivot(treeInstance)
+
+		if randomGenerator:NextNumber() < 0.5 then
+			shakeAngle *= -1
+		end
+
+		local rotation = if randomGenerator:NextInteger(1, 2) == 1
+			then CFrame.Angles(shakeAngle, 0, 0)
+			else CFrame.Angles(0, 0, shakeAngle)
+
+		if not applyTreeVisual(runtimePlotState, plotRecord, currentScale, basePivot * rotation, 0, true) then
+			return false
+		end
+
+		task.delay(duration, function()
+			if runtimePlotState.ShakeToken ~= shakeToken then
+				return
+			end
+
+			applyTreeVisual(runtimePlotState, plotRecord, currentScale, basePivot, 0, true)
+		end)
+
+		return true
 	end
 
 	local function getGrowthScale(progress)
@@ -238,10 +298,10 @@ function TreeVisualController.create(deps)
 		beginVisualAnimation = beginVisualAnimation,
 		destroySpawnedTree = destroySpawnedTree,
 		emitTreeParticles = emitTreeParticles,
-		playTreeSound = playTreeSound,
 		captureTreeVisualState = captureTreeVisualState,
 		applyTreeVisual = applyTreeVisual,
 		applyTreeScale = applyTreeScale,
+		applyTreeShake = applyTreeShake,
 		getGrowthScale = getGrowthScale,
 		getHarvestScale = getHarvestScale,
 	}

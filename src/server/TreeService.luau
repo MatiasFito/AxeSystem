@@ -3,6 +3,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local gameFeelConfig = require(sharedFolder:WaitForChild("GameFeelConfig") :: ModuleScript)
 local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
@@ -31,8 +32,6 @@ local TREE_DEAD_SCALE = 0.5
 local TREE_GROWTH_STEP_SECONDS = 0.05
 local TREE_READY_BOUNCE_STEP_SECONDS = 0.04
 local TREE_HARVEST_RESPAWN_DELAY = 0.18
-local TREE_HIT_SOUND_ID = "rbxassetid://136507037003210"
-local TREE_DEATH_SOUND_ID = "rbxassetid://7214256592"
 local TREE_IMPACT_PARTICLE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
 local TREE_IMPACT_SURFACE_OFFSET = 0.35
 local TREE_READY_BOUNCE_SCALES = { 1.08, 0.96, 1 }
@@ -45,7 +44,6 @@ local UNLOCK_BUTTON_EDGE_OFFSET = 3.5
 local UNLOCK_BUTTON_SCALE = 1.25
 local UNLOCK_BUTTON_TEXT_READY = Color3.fromRGB(70, 145, 65)
 local UNLOCK_BUTTON_TEXT_LOCKED = Color3.fromRGB(126, 126, 126)
-local UNLOCK_BUTTON_SOUND_ID = "rbxassetid://138273059623491"
 local UNLOCK_BUTTON_TWEEN_DURATION = 0.75
 local UNLOCK_BUTTON_MIN_THICKNESS = 0.05
 
@@ -199,8 +197,14 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 			HitDistance = TREE_HIT_DISTANCE,
 			HitCooldownSeconds = HIT_COOLDOWN_SECONDS,
 			HitCooldownGraceSeconds = HIT_COOLDOWN_GRACE_SECONDS,
-			HitSoundId = TREE_HIT_SOUND_ID,
-			DeathSoundId = TREE_DEATH_SOUND_ID,
+			HitSoundId = gameFeelConfig.TreeHitSoundId,
+			HitSoundVolume = gameFeelConfig.TreeHitSoundVolume,
+			DeathSoundId = gameFeelConfig.TreeDeathSoundId,
+			DeathSoundVolume = gameFeelConfig.TreeDeathSoundVolume,
+			HitParticleCount = gameFeelConfig.TreeHitParticleCount,
+			FellParticleCount = gameFeelConfig.TreeFellParticleCount,
+			ShakeDuration = gameFeelConfig.TreeShakeDuration,
+			ShakeAngleDegrees = gameFeelConfig.TreeShakeAngleDegrees,
 			HarvestRespawnDelay = TREE_HARVEST_RESPAWN_DELAY,
 		},
 		isPlayerLoaded = playerData.isLoaded,
@@ -214,7 +218,7 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getLevelData = treeConfig.getLevelData,
 		getToolStatValue = treeInteractionUtils.getToolStatValue,
 		emitTreeParticles = treeVisualController.emitTreeParticles,
-		playTreeSound = treeVisualController.playTreeSound,
+		applyTreeShake = treeVisualController.applyTreeShake,
 		applyTreeScale = treeVisualController.applyTreeScale,
 		getHarvestScale = treeVisualController.getHarvestScale,
 		getGold = playerData.getGold,
@@ -232,6 +236,7 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 			end
 		end,
 		pushHitFeedback = treeNetworkBridge.pushHitFeedback,
+		pushAudioEvent = treeNetworkBridge.pushAudioEvent,
 		pushStateUpdate = treeNetworkBridge.pushStateUpdate,
 		materializePlot = treePlotMaterializer.materializePlot,
 		getServerNow = getServerNow,
@@ -249,7 +254,6 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 			BaseColorLocked = UNLOCK_BUTTON_BASE_COLOR_LOCKED,
 			TextReady = UNLOCK_BUTTON_TEXT_READY,
 			TextLocked = UNLOCK_BUTTON_TEXT_LOCKED,
-			SoundId = UNLOCK_BUTTON_SOUND_ID,
 			TweenDuration = UNLOCK_BUTTON_TWEEN_DURATION,
 			MinThickness = UNLOCK_BUTTON_MIN_THICKNESS,
 		},

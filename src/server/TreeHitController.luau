@@ -8,6 +8,16 @@ local TreeHitController = {}
 function TreeHitController.create(deps)
 	local constants = deps.constants
 
+	local function pushTreeAudio(player, plotRecord, kind, soundId, volume)
+		deps.pushAudioEvent(player, {
+			kind = kind,
+			soundId = soundId,
+			volume = volume,
+			plotCFrame = plotRecord.DirtPatch.CFrame,
+			plotSize = plotRecord.DirtPatch.Size,
+		})
+	end
+
 	local function resolveHitCooldownGraceSeconds(hitCooldownSeconds)
 		local configuredGrace = constants.HitCooldownGraceSeconds or 0
 
@@ -98,6 +108,7 @@ function TreeHitController.create(deps)
 		local tree = deps.getTreeByPlotId(plotId)
 		local levelData = tree and deps.getLevelData(tree.Id, plotState.Level) or nil
 		local supportsLumberjack = tree and tree.SupportsLumberjack ~= false or false
+		local hitSource = hitContext.source == "lumberjack" and "lumberjack" or "player"
 
 		if not tree or not levelData then
 			return false
@@ -115,8 +126,9 @@ function TreeHitController.create(deps)
 			local currentGold = deps.getGold(player) or 0
 			deps.setGold(player, currentGold + reward)
 			deps.refreshUnlockButtons(player)
-			deps.emitTreeParticles(runtimePlotState.SpawnedTreeModel, 10, effectOrigin)
-			deps.playTreeSound(runtimePlotState.SpawnedTreeModel, constants.HitSoundId, 1.15)
+			deps.emitTreeParticles(runtimePlotState.SpawnedTreeModel, constants.HitParticleCount, effectOrigin)
+			pushTreeAudio(player, plotRecord, "hit", constants.HitSoundId, constants.HitSoundVolume)
+			deps.applyTreeShake(runtimePlotState, plotRecord, constants.ShakeDuration, constants.ShakeAngleDegrees)
 
 			if hitContext.pushFeedback ~= false then
 				deps.pushHitFeedback(player, {
@@ -134,12 +146,16 @@ function TreeHitController.create(deps)
 
 		local actualDamage = math.min(runtimePlotState.CurrentHealth, power)
 		runtimePlotState.CurrentHealth -= actualDamage
-		deps.emitTreeParticles(
-			runtimePlotState.SpawnedTreeModel,
-			runtimePlotState.CurrentHealth > 0 and 10 or 16,
-			effectOrigin
-		)
-		deps.playTreeSound(runtimePlotState.SpawnedTreeModel, constants.HitSoundId, 1.15)
+
+		if runtimePlotState.CurrentHealth > 0 then
+			deps.emitTreeParticles(runtimePlotState.SpawnedTreeModel, constants.HitParticleCount, effectOrigin)
+		else
+			deps.emitTreeParticles(runtimePlotState.SpawnedTreeModel, constants.FellParticleCount, effectOrigin, {
+				detach = true,
+			})
+		end
+
+		pushTreeAudio(player, plotRecord, "hit", constants.HitSoundId, constants.HitSoundVolume)
 
 		if runtimePlotState.CurrentHealth > 0 then
 			deps.applyTreeScale(
@@ -147,6 +163,7 @@ function TreeHitController.create(deps)
 				plotRecord,
 				deps.getHarvestScale(runtimePlotState.CurrentHealth, levelData.Health)
 			)
+			deps.applyTreeShake(runtimePlotState, plotRecord, constants.ShakeDuration, constants.ShakeAngleDegrees)
 
 			if hitContext.pushFeedback ~= false then
 				deps.pushHitFeedback(player, {
@@ -177,7 +194,10 @@ function TreeHitController.create(deps)
 			1,
 			true
 		)
-		deps.playTreeSound(runtimePlotState.SpawnedTreeModel, constants.DeathSoundId, 1.4)
+
+		if hitSource == "player" then
+			pushTreeAudio(player, plotRecord, "death", constants.DeathSoundId, constants.DeathSoundVolume)
+		end
 		deps.setTreePlot(player, plotId, {
 			PlotId = plotState.PlotId,
 			TreeId = plotState.TreeId,
@@ -264,6 +284,7 @@ function TreeHitController.create(deps)
 			tool = tool,
 			effectOrigin = rootPosition,
 			pushFeedback = true,
+			source = "player",
 		})
 	end
 
