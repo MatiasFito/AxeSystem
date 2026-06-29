@@ -8,7 +8,7 @@ local GameFeelConfig = {
 	TreePromptSuccessSoundId = "rbxassetid://138273059623491",
 	TreePromptSuccessSoundVolume = 1.2,
 	TreeHitParticleCount = 20,
-	TreeFellParticleCount = 32,
+	TreeFellParticleCount = 40,
 	TreeShakeDuration = 0.08,
 	TreeShakeAngleDegrees = 7,
 }

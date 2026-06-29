@@ -8,13 +8,31 @@ local TreeHitController = {}
 function TreeHitController.create(deps)
 	local constants = deps.constants
 
+	local function pushTreeEffect(player, plotRecord, payload)
+		payload.plotCFrame = plotRecord.DirtPatch.CFrame
+		payload.plotSize = plotRecord.DirtPatch.Size
+		deps.pushAudioEvent(player, payload)
+	end
+
 	local function pushTreeAudio(player, plotRecord, kind, soundId, volume)
-		deps.pushAudioEvent(player, {
+		pushTreeEffect(player, plotRecord, {
+			effectType = "audio",
 			kind = kind,
 			soundId = soundId,
 			volume = volume,
-			plotCFrame = plotRecord.DirtPatch.CFrame,
-			plotSize = plotRecord.DirtPatch.Size,
+		})
+	end
+
+	local function pushTreeParticles(player, plotRecord, particleCount, particleCFrame)
+		if particleCount <= 0 or particleCFrame == nil then
+			return
+		end
+
+		pushTreeEffect(player, plotRecord, {
+			effectType = "particles",
+			particleCount = particleCount,
+			particleCFrame = particleCFrame,
+			particleTexture = constants.ImpactParticleTexture,
 		})
 	end
 
@@ -150,9 +168,12 @@ function TreeHitController.create(deps)
 		if runtimePlotState.CurrentHealth > 0 then
 			deps.emitTreeParticles(runtimePlotState.SpawnedTreeModel, constants.HitParticleCount, effectOrigin)
 		else
-			deps.emitTreeParticles(runtimePlotState.SpawnedTreeModel, constants.FellParticleCount, effectOrigin, {
-				detach = true,
-			})
+			pushTreeParticles(
+				player,
+				plotRecord,
+				constants.FellParticleCount,
+				deps.getTreeImpactWorldCFrame(runtimePlotState.SpawnedTreeModel, effectOrigin)
+			)
 		end
 
 		pushTreeAudio(player, plotRecord, "hit", constants.HitSoundId, constants.HitSoundVolume)

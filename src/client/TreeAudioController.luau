@@ -63,6 +63,14 @@ local function playLocalTreeSound(payload)
 	localSoundPlayer.playOneShot(soundKey, payload.soundId, payload.volume, 1, CLEANUP_DELAY_SECONDS)
 end
 
+local function handleTreeAudio(payload)
+	if typeof(payload) ~= "table" or payload.effectType == "particles" then
+		return
+	end
+
+	playLocalTreeSound(payload)
+end
+
 local function resolveRemotes()
 	local treesFolder = remoteResolver.waitForPath(ReplicatedStorage, {
 		{
@@ -104,7 +112,7 @@ function TreeAudioController.start()
 		return
 	end
 
-	treeAudioRemote.OnClientEvent:Connect(playLocalTreeSound)
+	treeAudioRemote.OnClientEvent:Connect(handleTreeAudio)
 end
 
 return TreeAudioController

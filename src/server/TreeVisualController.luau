@@ -1,3 +1,4 @@
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local TreeVisualController = {}
@@ -90,6 +91,23 @@ function TreeVisualController.create(deps)
 		return attachment
 	end
 
+	local function getTreeImpactWorldCFrame(treeInstance, sourcePosition)
+		local effectPart = getTreeEffectPart(treeInstance)
+
+		if not effectPart then
+			return nil
+		end
+
+		local impactPosition, outwardDirection = getTreeImpactData(effectPart, sourcePosition)
+		local upVector = Vector3.yAxis
+
+		if math.abs(outwardDirection:Dot(upVector)) >= 0.98 then
+			upVector = effectPart.CFrame.RightVector
+		end
+
+		return CFrame.lookAt(impactPosition, impactPosition + outwardDirection, upVector)
+	end
+
 	local function createDetachedEffectAnchor(name, worldCFrame)
 		local anchor = Instance.new("Part")
 		anchor.Name = name
@@ -111,10 +129,11 @@ function TreeVisualController.create(deps)
 			return
 		end
 
+		local shouldDetach = typeof(options) == "table" and options.detach == true
 		local attachment = createTreeImpactAttachment(effectPart, sourcePosition)
 		local cleanupTarget = attachment
 
-		if typeof(options) == "table" and options.detach == true then
+		if shouldDetach then
 			local detachedAnchor = createDetachedEffectAnchor("TreeImpactEffectAnchor", attachment.WorldCFrame)
 			local detachedAttachment = Instance.new("Attachment")
 			detachedAttachment.Name = attachment.Name
@@ -143,7 +162,18 @@ function TreeVisualController.create(deps)
 		emitter.LockedToPart = false
 		emitter.Acceleration = Vector3.new(0, -16, 0)
 		emitter.Parent = attachment
-		emitter:Emit(particleCount)
+
+		if shouldDetach then
+			task.spawn(function()
+				RunService.Heartbeat:Wait()
+
+				if emitter.Parent then
+					emitter:Emit(particleCount)
+				end
+			end)
+		else
+			emitter:Emit(particleCount)
+		end
 
 		task.delay(1, function()
 			if cleanupTarget.Parent then
@@ -298,6 +328,7 @@ function TreeVisualController.create(deps)
 		beginVisualAnimation = beginVisualAnimation,
 		destroySpawnedTree = destroySpawnedTree,
 		emitTreeParticles = emitTreeParticles,
+		getTreeImpactWorldCFrame = getTreeImpactWorldCFrame,
 		captureTreeVisualState = captureTreeVisualState,
 		applyTreeVisual = applyTreeVisual,
 		applyTreeScale = applyTreeScale,

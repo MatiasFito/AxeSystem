@@ -7,6 +7,7 @@ local controllerDefinitions = {
 	"SwingSpeedPad",
 	"TopGoldLabel",
 	"TreeAudioController",
+	"TreeParticlesController",
 	"TreePromptAudioController",
 	"TreeStatusUI",
 	"TreeUpgradePadController",
