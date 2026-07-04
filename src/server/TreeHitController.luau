@@ -148,17 +148,6 @@ function TreeHitController.create(deps)
 			pushTreeAudio(player, plotRecord, "hit", constants.HitSoundId, constants.HitSoundVolume)
 			deps.applyTreeShake(runtimePlotState, plotRecord, constants.ShakeDuration, constants.ShakeAngleDegrees)
 
-			if hitContext.pushFeedback ~= false then
-				deps.pushHitFeedback(player, {
-					plotId = plotId,
-					treeId = tree.Id,
-					treeName = tree.Name,
-					kind = "infinitreeHit",
-					reward = reward,
-					goldAfter = currentGold + reward,
-				})
-			end
-
 			return true
 		end
 
@@ -185,18 +174,6 @@ function TreeHitController.create(deps)
 				deps.getHarvestScale(runtimePlotState.CurrentHealth, levelData.Health)
 			)
 			deps.applyTreeShake(runtimePlotState, plotRecord, constants.ShakeDuration, constants.ShakeAngleDegrees)
-
-			if hitContext.pushFeedback ~= false then
-				deps.pushHitFeedback(player, {
-					plotId = plotId,
-					treeId = tree.Id,
-					treeName = tree.Name,
-					kind = "hit",
-					damage = actualDamage,
-					currentHealth = runtimePlotState.CurrentHealth,
-					maxHealth = levelData.Health,
-				})
-			end
 
 			return true
 		end
@@ -233,21 +210,6 @@ function TreeHitController.create(deps)
 			) or 0,
 		})
 		deps.updatePromptForPlot(player, plotId)
-
-		if hitContext.pushFeedback ~= false then
-			deps.pushHitFeedback(player, {
-				plotId = plotId,
-				treeId = tree.Id,
-				treeName = tree.Name,
-				kind = "felled",
-				damage = actualDamage,
-				currentHealth = 0,
-				maxHealth = levelData.Health,
-				reward = reward,
-				goldAfter = currentGold + reward,
-				regrowDuration = levelData.GrowTime,
-			})
-		end
 
 		deps.pushStateUpdate(player, { plotId })
 
@@ -304,7 +266,6 @@ function TreeHitController.create(deps)
 			goldMultiplier = deps.getToolStatValue(tool, "GoldBonus", 1),
 			tool = tool,
 			effectOrigin = rootPosition,
-			pushFeedback = true,
 			source = "player",
 		})
 	end

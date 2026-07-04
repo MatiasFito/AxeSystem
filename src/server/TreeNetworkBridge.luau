@@ -43,10 +43,6 @@ function TreeNetworkBridge.create(deps)
 				ClassName = "RemoteEvent",
 			},
 			{
-				Name = treeConstants.HIT_FEEDBACK_REMOTE_NAME,
-				ClassName = "RemoteEvent",
-			},
-			{
 				Name = treeConstants.AUDIO_REMOTE_NAME,
 				ClassName = "RemoteEvent",
 			},
@@ -57,7 +53,6 @@ function TreeNetworkBridge.create(deps)
 			RequestTreeHitRemote = instances[treeConstants.REQUEST_HIT_REMOTE_NAME] :: RemoteEvent,
 			RequestTreeUpgradeRemote = instances[treeConstants.REQUEST_UPGRADE_REMOTE_NAME] :: RemoteEvent,
 			StateUpdatedRemote = instances[treeConstants.STATE_UPDATED_REMOTE_NAME] :: RemoteEvent,
-			HitFeedbackRemote = instances[treeConstants.HIT_FEEDBACK_REMOTE_NAME] :: RemoteEvent,
 			AudioRemote = instances[treeConstants.AUDIO_REMOTE_NAME] :: RemoteEvent,
 		}
 
@@ -76,10 +71,6 @@ function TreeNetworkBridge.create(deps)
 		end
 	end
 
-	local function pushHitFeedback(player, payload)
-		getOrCreateRemotes().HitFeedbackRemote:FireClient(player, payload)
-	end
-
 	local function pushAudioEvent(player, payload)
 		getOrCreateRemotes().AudioRemote:FireClient(player, payload)
 	end
@@ -88,7 +79,6 @@ function TreeNetworkBridge.create(deps)
 		getOrCreateRemotes = getOrCreateRemotes,
 		buildStatePayload = buildStatePayload,
 		pushStateUpdate = pushStateUpdate,
-		pushHitFeedback = pushHitFeedback,
 		pushAudioEvent = pushAudioEvent,
 	}
 end

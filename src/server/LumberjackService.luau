@@ -445,7 +445,6 @@ local function buildAutomationHitContext(player, plotId, runtimePlotState, plotR
 		power = tier and tier.Power or 1,
 		goldMultiplier = goldMultiplier * lumberjackConfig.getGoldBonusMultiplier(lumberjackLevel),
 		effectOrigin = getSwingOrigin(runtimePlotState, plotRecord),
-		pushFeedback = false,
 		source = "lumberjack",
 	}
 end

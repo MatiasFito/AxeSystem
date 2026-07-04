@@ -9,7 +9,6 @@ local controllerDefinitions = {
 	"TreeAudioController",
 	"TreeParticlesController",
 	"TreePromptAudioController",
-	"TreeStatusUI",
 	"TreeUpgradePadController",
 }
 

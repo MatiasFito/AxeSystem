@@ -237,7 +237,6 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 				unlockPromptManager.updatePromptForPlot(player, plotId)
 			end
 		end,
-		pushHitFeedback = treeNetworkBridge.pushHitFeedback,
 		pushAudioEvent = treeNetworkBridge.pushAudioEvent,
 		pushStateUpdate = treeNetworkBridge.pushStateUpdate,
 		materializePlot = treePlotMaterializer.materializePlot,
