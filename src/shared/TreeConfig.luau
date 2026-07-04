@@ -1,117 +1,207 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
-local infinitreeConfig = require(sharedFolder:WaitForChild("InfinitreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 
-local orderedTrees = {
-	{
-		Id = "OakTree",
-		Name = "Oak Tree",
-		Description = "A sturdy beginner tree with steady payouts.",
-		TemplateName = "OakTree",
-		PlotId = "Plot01",
-		PlotOrder = 1,
-		UnlockCost = 0,
-		ImageId = "",
-		MaxLevel = 10,
-		Levels = {
-			[1] = { Level = 1, Health = 25, GrowTime = 1, Reward = 15, UpgradeCost = 0 },
-			[2] = { Level = 2, Health = 22, GrowTime = 0.82, Reward = 20, UpgradeCost = 75 },
-			[3] = { Level = 3, Health = 20, GrowTime = 0.72, Reward = 26, UpgradeCost = 140 },
-			[4] = { Level = 4, Health = 18, GrowTime = 0.65, Reward = 33, UpgradeCost = 220 },
-			[5] = { Level = 5, Health = 16, GrowTime = 0.6, Reward = 41, UpgradeCost = 310 },
-			[6] = { Level = 6, Health = 15, GrowTime = 0.57, Reward = 50, UpgradeCost = 410 },
-			[7] = { Level = 7, Health = 14, GrowTime = 0.54, Reward = 60, UpgradeCost = 520 },
-			[8] = { Level = 8, Health = 13, GrowTime = 0.52, Reward = 71, UpgradeCost = 640 },
-			[9] = { Level = 9, Health = 12, GrowTime = 0.51, Reward = 83, UpgradeCost = 770 },
-			[10] = { Level = 10, Health = 11, GrowTime = 0.5, Reward = 96, UpgradeCost = 910 },
-		},
+local progressionProfile = {
+	MaxLevel = 10,
+	MinGrowTime = 0.5,
+	HealthCheckpoints = {
+		{ Order = 1, Value = 25 },
+		{ Order = 5, Value = 50 },
+		{ Order = 10, Value = 85 },
+		{ Order = 15, Value = 135 },
+		{ Order = 20, Value = 195 },
+		{ Order = 25, Value = 270 },
+		{ Order = 30, Value = 360 },
 	},
-	{
-		Id = "PineTree",
-		Name = "Pine Tree",
-		Description = "A faster-growing tree that rewards stronger axes.",
-		TemplateName = "PineTree",
-		PlotId = "Plot02",
-		PlotOrder = 2,
-		UnlockCost = 225,
-		ImageId = "",
-		MaxLevel = 10,
-		Levels = {
-			[1] = { Level = 1, Health = 50, GrowTime = 2, Reward = 32, UpgradeCost = 0 },
-			[2] = { Level = 2, Health = 45, GrowTime = 1.45, Reward = 42, UpgradeCost = 160 },
-			[3] = { Level = 3, Health = 41, GrowTime = 1.12, Reward = 53, UpgradeCost = 275 },
-			[4] = { Level = 4, Health = 37, GrowTime = 0.92, Reward = 66, UpgradeCost = 420 },
-			[5] = { Level = 5, Health = 34, GrowTime = 0.8, Reward = 80, UpgradeCost = 600 },
-			[6] = { Level = 6, Health = 31, GrowTime = 0.72, Reward = 95, UpgradeCost = 820 },
-			[7] = { Level = 7, Health = 29, GrowTime = 0.65, Reward = 111, UpgradeCost = 1080 },
-			[8] = { Level = 8, Health = 27, GrowTime = 0.59, Reward = 128, UpgradeCost = 1380 },
-			[9] = { Level = 9, Health = 25, GrowTime = 0.54, Reward = 146, UpgradeCost = 1720 },
-			[10] = { Level = 10, Health = 23, GrowTime = 0.5, Reward = 165, UpgradeCost = 2100 },
-		},
+	RewardCheckpoints = {
+		{ Order = 1, Value = 15 },
+		{ Order = 5, Value = 35 },
+		{ Order = 10, Value = 80 },
+		{ Order = 15, Value = 160 },
+		{ Order = 20, Value = 300 },
+		{ Order = 25, Value = 525 },
+		{ Order = 30, Value = 900 },
 	},
-	{
-		Id = "BirchTree",
-		Name = "Birch Tree",
-		Description = "A premium tree line with strong gold returns.",
-		TemplateName = "BirchTree",
-		PlotId = "Plot03",
-		PlotOrder = 3,
-		UnlockCost = 650,
-		ImageId = "",
-		MaxLevel = 10,
-		Levels = {
-			[1] = { Level = 1, Health = 90, GrowTime = 3, Reward = 75, UpgradeCost = 0 },
-			[2] = { Level = 2, Health = 82, GrowTime = 2.1, Reward = 92, UpgradeCost = 300 },
-			[3] = { Level = 3, Health = 75, GrowTime = 1.55, Reward = 111, UpgradeCost = 480 },
-			[4] = { Level = 4, Health = 69, GrowTime = 1.18, Reward = 132, UpgradeCost = 700 },
-			[5] = { Level = 5, Health = 63, GrowTime = 0.95, Reward = 155, UpgradeCost = 960 },
-			[6] = { Level = 6, Health = 58, GrowTime = 0.8, Reward = 180, UpgradeCost = 1260 },
-			[7] = { Level = 7, Health = 54, GrowTime = 0.7, Reward = 207, UpgradeCost = 1600 },
-			[8] = { Level = 8, Health = 50, GrowTime = 0.62, Reward = 236, UpgradeCost = 1980 },
-			[9] = { Level = 9, Health = 46, GrowTime = 0.55, Reward = 267, UpgradeCost = 2400 },
-			[10] = { Level = 10, Health = 43, GrowTime = 0.5, Reward = 300, UpgradeCost = 2860 },
-		},
+	GrowTimeCheckpoints = {
+		{ Order = 1, Value = 1 },
+		{ Order = 5, Value = 1.2 },
+		{ Order = 10, Value = 1.55 },
+		{ Order = 15, Value = 1.95 },
+		{ Order = 20, Value = 2.35 },
+		{ Order = 25, Value = 2.75 },
+		{ Order = 30, Value = 3.15 },
 	},
-	{
-		Id = "MapleTree",
-		Name = "Maple Tree",
-		Description = "A dense late-game tree with high payouts and longer regrowth.",
-		TemplateName = "MapleTree",
-		PlotId = "Plot04",
-		PlotOrder = 4,
-		UnlockCost = 1400,
-		ImageId = "",
-		MaxLevel = 10,
-		Levels = {
-			[1] = { Level = 1, Health = 130, GrowTime = 4, Reward = 120, UpgradeCost = 0 },
-			[2] = { Level = 2, Health = 120, GrowTime = 2.75, Reward = 145, UpgradeCost = 520 },
-			[3] = { Level = 3, Health = 111, GrowTime = 1.95, Reward = 172, UpgradeCost = 780 },
-			[4] = { Level = 4, Health = 103, GrowTime = 1.42, Reward = 201, UpgradeCost = 1080 },
-			[5] = { Level = 5, Health = 95, GrowTime = 1.08, Reward = 232, UpgradeCost = 1420 },
-			[6] = { Level = 6, Health = 88, GrowTime = 0.87, Reward = 265, UpgradeCost = 1800 },
-			[7] = { Level = 7, Health = 82, GrowTime = 0.73, Reward = 300, UpgradeCost = 2220 },
-			[8] = { Level = 8, Health = 76, GrowTime = 0.64, Reward = 337, UpgradeCost = 2680 },
-			[9] = { Level = 9, Health = 71, GrowTime = 0.56, Reward = 376, UpgradeCost = 3180 },
-			[10] = { Level = 10, Health = 66, GrowTime = 0.5, Reward = 420, UpgradeCost = 3720 },
-		},
+	UnlockHarvestCheckpoints = {
+		{ Order = 2, Value = 7.5 },
+		{ Order = 10, Value = 9 },
+		{ Order = 20, Value = 11.5 },
+		{ Order = 30, Value = 14 },
 	},
-	{
-		Id = "Infinitree",
-		Name = "Infinitree",
-		Description = "An endlessly upgradeable palm tree that pays Gold every hit.",
-		TemplateName = "Infinitree",
-		PlotId = "InfinitreePlot",
-		PlotOrder = 5,
-		UnlockCost = infinitreeConfig.UNLOCK_COST,
-		ImageId = "",
-		MaxLevel = math.huge,
-		IsInfiniteTree = true,
-		SupportsLumberjack = false,
-		UnlockMode = "Affordable",
+	UpgradePaybackCheckpoints = {
+		{ Level = 2, Value = 4 },
+		{ Level = 4, Value = 6.8 },
+		{ Level = 7, Value = 10.4 },
+		{ Level = 10, Value = 14 },
 	},
+	LevelHealthMultipliers = { 1, 0.92, 0.85, 0.79, 0.74, 0.69, 0.65, 0.61, 0.58, 0.55 },
+	LevelRewardMultipliers = { 1, 1.25, 1.55, 1.9, 2.3, 2.75, 3.25, 3.8, 4.4, 5 },
+	LevelGrowTimeMultipliers = { 1, 0.84, 0.72, 0.64, 0.58, 0.54, 0.52, 0.51, 0.5, 0.5 },
 }
+
+local orderedTreeTemplateNames = {
+	"OakTree",
+	"BirchTree",
+	"AcaciaTree",
+	"PineTree",
+	"PalmTree",
+	"MapleTree",
+	"CherryBlossomTree",
+	"BaobabTree",
+	"WillowTree",
+	"RedwoodTree",
+	"CottonCandyTree",
+	"AlienTree",
+	"MarbleTree",
+	"LollypopTree",
+	"MagmaTree",
+	"CrystalTree",
+	"GoldTree",
+	"MushroomTree",
+	"CactusTree",
+	"CandyCaneTree",
+	"BubblegumTree",
+	"ObsidianTree",
+	"CyberTree",
+	"IceTree",
+	"BambooTree",
+	"CloudTree",
+	"AutumnTree",
+	"VoidTree",
+	"BonsaiTree",
+	"RainbowTree",
+}
+
+local function roundToNearest(value, step)
+	return math.floor((value / step) + 0.5) * step
+end
+
+local function roundCurrency(value)
+	local absoluteValue = math.abs(value)
+	local step = 1
+
+	if absoluteValue >= 20000 then
+		step = 100
+	elseif absoluteValue >= 5000 then
+		step = 50
+	elseif absoluteValue >= 1000 then
+		step = 25
+	elseif absoluteValue >= 100 then
+		step = 10
+	elseif absoluteValue >= 25 then
+		step = 5
+	end
+
+	return math.max(0, roundToNearest(value, step))
+end
+
+local function roundStat(value)
+	return math.max(1, math.floor(value + 0.5))
+end
+
+local function roundGrowTime(value)
+	return math.max(progressionProfile.MinGrowTime, math.floor((value * 100) + 0.5) / 100)
+end
+
+local function interpolateCheckpoints(checkpoints, positionKey, positionValue)
+	local firstCheckpoint = checkpoints[1]
+
+	if positionValue <= firstCheckpoint[positionKey] then
+		return firstCheckpoint.Value
+	end
+
+	for index = 2, #checkpoints do
+		local previousCheckpoint = checkpoints[index - 1]
+		local nextCheckpoint = checkpoints[index]
+
+		if positionValue <= nextCheckpoint[positionKey] then
+			local range = nextCheckpoint[positionKey] - previousCheckpoint[positionKey]
+			local alpha = range > 0 and ((positionValue - previousCheckpoint[positionKey]) / range) or 0
+			return previousCheckpoint.Value + ((nextCheckpoint.Value - previousCheckpoint.Value) * alpha)
+		end
+	end
+
+	return checkpoints[#checkpoints].Value
+end
+
+local function formatTreeName(templateName)
+	return templateName:gsub("(%l)(%u)", "%1 %2")
+end
+
+local function buildDescription(plotOrder)
+	if plotOrder <= 6 then
+		return "An early progression tree with quick access and steady payouts."
+	end
+
+	if plotOrder <= 20 then
+		return "A mid-path tree that keeps the chopping economy moving."
+	end
+
+	return "A late-path tree with stronger payouts and longer investment loops."
+end
+
+local function buildLevels(plotOrder)
+	local levels = {}
+	local baseHealth = interpolateCheckpoints(progressionProfile.HealthCheckpoints, "Order", plotOrder)
+	local baseReward = interpolateCheckpoints(progressionProfile.RewardCheckpoints, "Order", plotOrder)
+	local baseGrowTime = interpolateCheckpoints(progressionProfile.GrowTimeCheckpoints, "Order", plotOrder)
+
+	for level = 1, progressionProfile.MaxLevel do
+		local reward = roundCurrency(baseReward * progressionProfile.LevelRewardMultipliers[level])
+		levels[level] = {
+			Level = level,
+			Health = roundStat(baseHealth * progressionProfile.LevelHealthMultipliers[level]),
+			GrowTime = roundGrowTime(baseGrowTime * progressionProfile.LevelGrowTimeMultipliers[level]),
+			Reward = reward,
+			UpgradeCost = level == 1 and 0 or roundCurrency(
+				reward * interpolateCheckpoints(progressionProfile.UpgradePaybackCheckpoints, "Level", level)
+			),
+		}
+	end
+
+	return levels
+end
+
+local function buildTreeDefinition(templateName, plotOrder)
+	local levels = buildLevels(plotOrder)
+	return {
+		Id = templateName,
+		Name = formatTreeName(templateName),
+		Description = buildDescription(plotOrder),
+		TemplateName = templateName,
+		PlotId = string.format("Plot%02d", plotOrder),
+		PlotOrder = plotOrder,
+		UnlockCost = plotOrder == 1 and 0 or roundCurrency(
+			levels[1].Reward * interpolateCheckpoints(progressionProfile.UnlockHarvestCheckpoints, "Order", plotOrder)
+		),
+		ImageId = "",
+		MaxLevel = progressionProfile.MaxLevel,
+		Levels = levels,
+	}
+end
+
+local function buildOrderedTrees()
+	local generatedTrees = {}
+
+	for plotOrder, templateName in orderedTreeTemplateNames do
+		generatedTrees[plotOrder] = buildTreeDefinition(templateName, plotOrder)
+	end
+
+	return generatedTrees
+end
+
+local orderedTrees = buildOrderedTrees()
 
 local TreeConfig = {
 	Order = {},
@@ -175,10 +265,6 @@ function TreeConfig.getLevelData(treeId, level)
 		return nil
 	end
 
-	if tree.IsInfiniteTree then
-		return infinitreeConfig.getLevelData(level)
-	end
-
 	return tree.Levels[math.floor(level)]
 end
 
@@ -190,10 +276,6 @@ function TreeConfig.getUpgradeLevel(treeId, currentLevel)
 	end
 
 	local nextLevel = math.floor(currentLevel) + 1
-
-	if tree.IsInfiniteTree then
-		return nextLevel
-	end
 
 	if nextLevel > tree.MaxLevel or tree.Levels[nextLevel] == nil then
 		return nil
@@ -207,12 +289,6 @@ function TreeConfig.getUpgradeCost(treeId, currentLevel)
 
 	if not nextLevel then
 		return nil
-	end
-
-	local tree = TreeConfig.getTree(treeId)
-
-	if tree and tree.IsInfiniteTree then
-		return infinitreeConfig.getUpgradeCost(nextLevel)
 	end
 
 	local nextLevelData = TreeConfig.getLevelData(treeId, nextLevel)
