@@ -28,10 +28,6 @@
         "$path": "src/serverstorage/AxeOverrides"
       },
 
-      "AxeTemplates": {
-        "$path": "src/serverstorage/AxeTemplates"
-      },
-
       "NpcTemplates": {
         "$path": "src/serverstorage/NpcTemplates"
       }
