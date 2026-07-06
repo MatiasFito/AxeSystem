@@ -137,7 +137,18 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getTree = treeConfig.getTree,
 		getLevelData = treeConfig.getLevelData,
 		getTreeTemplatesFolder = function()
-			return ServerStorage:FindFirstChild(treeConstants.TREE_TEMPLATE_FOLDER_NAME)
+			local templatesFolder = ServerStorage:FindFirstChild(treeConstants.TREE_TEMPLATE_FOLDER_NAME)
+
+			if not templatesFolder then
+				error(
+					string.format(
+						"Validated Studio asset 'ServerStorage/%s' is missing at runtime",
+						treeConstants.TREE_TEMPLATE_FOLDER_NAME
+					)
+				)
+			end
+
+			return templatesFolder
 		end,
 		getOrCreateSetRuntimeFolder = treeRuntimeManager.getOrCreateSetRuntimeFolder,
 		getSpawnCFrame = treeSpatialUtils.getSpawnCFrame,

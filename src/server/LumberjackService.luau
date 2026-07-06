@@ -241,7 +241,12 @@ local function getLumberjackTemplate()
 	local npcFolder = ServerStorage:FindFirstChild(lumberjackConstants.NPC_TEMPLATE_FOLDER_NAME)
 
 	if not npcFolder then
-		return nil
+		error(
+			string.format(
+				"Validated Studio asset 'ServerStorage/%s' is missing at runtime",
+				lumberjackConstants.NPC_TEMPLATE_FOLDER_NAME
+			)
+		)
 	end
 
 	local template = npcFolder:FindFirstChild(lumberjackConstants.NPC_TEMPLATE_NAME)
@@ -250,21 +255,42 @@ local function getLumberjackTemplate()
 		return template
 	end
 
-	return nil
+	error(
+		string.format(
+			"Validated lumberjack template 'ServerStorage/%s/%s' is missing or invalid at runtime",
+			lumberjackConstants.NPC_TEMPLATE_FOLDER_NAME,
+			lumberjackConstants.NPC_TEMPLATE_NAME
+		)
+	)
 end
 
 local function getCosmeticAxeTemplate(tierId)
 	local tier = axeConfig.getTier(tierId) or axeConfig.getDefaultTier()
 	local axeTemplates = ServerStorage:FindFirstChild(blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME)
 
-	if not axeTemplates or not tier then
+	if not tier then
 		return nil, nil
+	end
+
+	if not axeTemplates then
+		error(
+			string.format(
+				"Validated Studio asset 'ServerStorage/%s' is missing at runtime",
+				blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME
+			)
+		)
 	end
 
 	local toolTemplate = axeTemplates:FindFirstChild(tier.ToolTemplateName)
 
 	if not toolTemplate or not toolTemplate:IsA("Tool") then
-		return nil, nil
+		error(
+			string.format(
+				"Validated axe template 'ServerStorage/%s/%s' is missing or invalid at runtime",
+				blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME,
+				tier.ToolTemplateName
+			)
+		)
 	end
 
 	local handle = toolTemplate:FindFirstChild("Handle")
@@ -273,7 +299,13 @@ local function getCosmeticAxeTemplate(tierId)
 		return tier, handle
 	end
 
-	return tier, nil
+	error(
+		string.format(
+			"Validated axe template handle 'ServerStorage/%s/%s/Handle' is missing or invalid at runtime",
+			blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME,
+			tier.ToolTemplateName
+		)
+	)
 end
 
 local function getPlotAnchorPosition(plotRecord)

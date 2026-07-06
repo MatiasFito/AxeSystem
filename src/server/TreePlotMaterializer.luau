@@ -16,15 +16,28 @@ function TreePlotMaterializer.create(deps)
 		local levelData = tree and deps.getLevelData(tree.Id, plotState.Level) or nil
 		local templatesFolder = deps.getTreeTemplatesFolder()
 
-		if not tree or not levelData or not templatesFolder then
+		if not tree or not levelData then
 			return false
 		end
 
 		local template = templatesFolder:FindFirstChild(tree.TemplateName)
 
 		if not template then
-			warn(string.format("Missing tree template '%s'", tree.TemplateName))
-			return false
+			error(
+				string.format(
+					"Validated tree template 'ServerStorage/Trees/%s' is missing at runtime",
+					tree.TemplateName
+				)
+			)
+		end
+
+		if not template:IsA("Model") and not template:IsA("BasePart") then
+			error(
+				string.format(
+					"Validated tree template 'ServerStorage/Trees/%s' is not a Model or BasePart at runtime",
+					tree.TemplateName
+				)
+			)
 		end
 
 		deps.destroySpawnedTree(runtimePlotState)

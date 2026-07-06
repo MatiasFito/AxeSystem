@@ -2,6 +2,8 @@ local Players = game:GetService("Players")
 
 local ServerBootstrap = {}
 
+local studioAssetValidatorModuleName = "StudioAssetValidator"
+
 local serviceDefinitions = {
 	{
 		name = "AxeService",
@@ -126,6 +128,9 @@ end
 
 function ServerBootstrap.start(serverRoot)
 	local services = loadServices(serverRoot)
+	local studioAssetValidator = require(serverRoot:WaitForChild(studioAssetValidatorModuleName) :: ModuleScript)
+
+	studioAssetValidator.validateOrThrow()
 
 	startServices(services)
 

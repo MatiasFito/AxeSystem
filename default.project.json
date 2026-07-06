@@ -18,19 +18,7 @@
     },
 
     "ServerStorage": {
-      "$ignoreUnknownInstances": true,
-
-      "AxeDefaults": {
-        "$path": "src/serverstorage/AxeDefaults"
-      },
-
-      "AxeOverrides": {
-        "$path": "src/serverstorage/AxeOverrides"
-      },
-
-      "NpcTemplates": {
-        "$path": "src/serverstorage/NpcTemplates"
-      }
+      "$ignoreUnknownInstances": true
     },
 
     "StarterPlayer": {

@@ -12,12 +12,22 @@ local OVERRIDES_FOLDER_NAME = "AxeOverrides"
 local DEFAULT_TOOL_CHILDREN_FOLDER_NAME = "ToolChildren"
 local DEFAULT_HANDLE_CHILDREN_FOLDER_NAME = "HandleChildren"
 
+local function requireStudioAsset(name)
+	local asset = ServerStorage:FindFirstChild(name)
+
+	if not asset then
+		error(string.format("Validated Studio asset 'ServerStorage/%s' is missing at runtime", name))
+	end
+
+	return asset
+end
+
 local function getTemplatesFolder()
-	return ServerStorage:WaitForChild(blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME)
+	return requireStudioAsset(blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME)
 end
 
 local function getDefaultsFolder()
-	return ServerStorage:WaitForChild(DEFAULTS_FOLDER_NAME)
+	return requireStudioAsset(DEFAULTS_FOLDER_NAME)
 end
 
 local function getOverridesFolder()
