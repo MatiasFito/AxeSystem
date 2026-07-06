@@ -8,11 +8,13 @@ local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
 local lumberjackConfig = require(sharedFolder:WaitForChild("LumberjackConfig") :: ModuleScript)
 local lumberjackConstants = require(sharedFolder:WaitForChild("LumberjackConstants") :: ModuleScript)
+local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 local networkFolder = sharedFolder:WaitForChild("Network")
 local remoteRegistry = require(networkFolder:WaitForChild("RemoteRegistry") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
+local axeToolBuilder = require(script.Parent:WaitForChild("AxeToolBuilder") :: ModuleScript)
 local lumberjackHirePromptManagerModule =
 	require(script.Parent:WaitForChild("LumberjackHirePromptManager") :: ModuleScript)
 local lumberjackProgressionResolverModule =
@@ -264,44 +266,22 @@ local function getLumberjackTemplate()
 	)
 end
 
-local function getCosmeticAxeTemplate(tierId)
+local function getCosmeticAxeTool(tierId)
 	local tier = axeConfig.getTier(tierId) or axeConfig.getDefaultTier()
-	local axeTemplates = ServerStorage:FindFirstChild(blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME)
 
 	if not tier then
 		return nil, nil
 	end
 
-	if not axeTemplates then
-		error(
-			string.format(
-				"Validated Studio asset 'ServerStorage/%s' is missing at runtime",
-				blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME
-			)
-		)
-	end
+	local success, tool = axeToolBuilder.createCosmeticToolForTier(tier.Id)
 
-	local toolTemplate = axeTemplates:FindFirstChild(tier.ToolTemplateName)
-
-	if not toolTemplate or not toolTemplate:IsA("Tool") then
-		error(
-			string.format(
-				"Validated axe template 'ServerStorage/%s/%s' is missing or invalid at runtime",
-				blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME,
-				tier.ToolTemplateName
-			)
-		)
-	end
-
-	local handle = toolTemplate:FindFirstChild("Handle")
-
-	if handle and handle:IsA("BasePart") then
-		return tier, handle
+	if success and tool and tool:IsA("Tool") then
+		return tier, tool
 	end
 
 	error(
 		string.format(
-			"Validated axe template handle 'ServerStorage/%s/%s/Handle' is missing or invalid at runtime",
+			"Validated axe template 'ServerStorage/%s/%s' could not be built for lumberjack cosmetics",
 			blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME,
 			tier.ToolTemplateName
 		)
@@ -359,26 +339,37 @@ local function attachCosmeticAxe(player, runtimePlotState)
 	end
 
 	local tierId = playerData.getAxeTierId(player)
-	local tier, axeHandleTemplate = getCosmeticAxeTemplate(tierId)
+	local tier, cosmeticTool = getCosmeticAxeTool(tierId)
 
-	if not tier or not axeHandleTemplate then
+	if not tier or not cosmeticTool then
 		return
 	end
 
-	local handle = axeHandleTemplate:Clone()
-	handle.Name = lumberjackConstants.COSMETIC_AXE_NAME
-	handle.Anchored = false
-	handle.CanCollide = false
-	handle.CanTouch = false
-	handle.CanQuery = false
-	handle.Massless = true
-	handle.CollisionGroup = lumberjackConstants.COLLISION_GROUP_NAME
+	cosmeticTool.Name = lumberjackConstants.COSMETIC_AXE_NAME
+	local handle = cosmeticTool:FindFirstChild("Handle")
+
+	if not handle or not handle:IsA("BasePart") then
+		cosmeticTool:Destroy()
+		return
+	end
+
+	for _, descendant in cosmeticTool:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = false
+			descendant.CanCollide = false
+			descendant.CanTouch = false
+			descendant.CanQuery = false
+			descendant.Massless = true
+			descendant.CollisionGroup = lumberjackConstants.COLLISION_GROUP_NAME
+		end
+	end
+
 	if gripAttachment and gripAttachment:IsA("Attachment") then
 		handle.CFrame = rightHand.CFrame * gripAttachment.CFrame * AXE_WELD_OFFSET
 	else
 		handle.CFrame = rightHand.CFrame * AXE_WELD_OFFSET
 	end
-	handle.Parent = model
+	cosmeticTool.Parent = model
 
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = rightHand
@@ -467,16 +458,43 @@ local function getSwingOrigin(runtimePlotState, plotRecord)
 	return plotRecord.DirtPatch.Position
 end
 
+local function getPlayerSwingMultiplier(player)
+	if not player then
+		return blacksmithConstants.DEFAULT_SWING_SPEED
+	end
+
+	local selectedSpeed = player:GetAttribute(blacksmithConstants.SWING_SPEED_ATTRIBUTE_NAME)
+
+	if typeof(selectedSpeed) ~= "number" then
+		return blacksmithConstants.DEFAULT_SWING_SPEED
+	end
+
+	return math.clamp(
+		math.floor(selectedSpeed + 0.5),
+		blacksmithConstants.MIN_SWING_SPEED,
+		blacksmithConstants.MAX_SWING_SPEED
+	)
+end
+
+local function getLumberjackSwingInterval(player)
+	return swingSpeed.getEffectiveSwingDuration(
+		swingSpeed.DEFAULT_BASE_SWING_DURATION,
+		getPlayerSwingMultiplier(player)
+	)
+end
+
 local function buildAutomationHitContext(player, plotId, runtimePlotState, plotRecord)
 	local plotState = playerData.getTreePlot(player, plotId)
 	local tier = axeConfig.getTier(playerData.getAxeTierId(player)) or axeConfig.getDefaultTier()
 	local lumberjackLevel = plotState and plotState.LumberjackLevel or 0
 	local goldMultiplier = tier and tier.GoldMultiplier or 1
+	local swingInterval = getLumberjackSwingInterval(player)
 
 	return {
 		power = tier and tier.Power or 1,
 		goldMultiplier = goldMultiplier * lumberjackConfig.getGoldBonusMultiplier(lumberjackLevel),
 		effectOrigin = getSwingOrigin(runtimePlotState, plotRecord),
+		hitCooldownSeconds = swingInterval,
 		source = "lumberjack",
 	}
 end
@@ -513,13 +531,15 @@ local function ensureAutomationLoop(player, plotId)
 			end
 
 			if plotState.State == treeConstants.PlotState.Grown then
+				local swingInterval = getLumberjackSwingInterval(player)
+
 				playSwingAnimation(runtimePlotState)
 				treeService.processAutomationHit(
 					player,
 					plotId,
 					buildAutomationHitContext(player, plotId, runtimePlotState, plotRecord)
 				)
-				task.wait(lumberjackConfig.getSwingInterval())
+				task.wait(swingInterval)
 			else
 				task.wait(IDLE_LOOP_SECONDS)
 			end

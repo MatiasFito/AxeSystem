@@ -101,6 +101,7 @@ function TreeRuntimeManager.create(deps)
 
 		for _, runtimePlotState in runtimeState.Plots do
 			deps.clearScheduledReady(runtimePlotState)
+			deps.destroyUnlockButton(runtimePlotState)
 			deps.destroySpawnedTree(runtimePlotState)
 		end
 

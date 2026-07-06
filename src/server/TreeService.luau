@@ -84,6 +84,11 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 				treeGrowthController.clearScheduledReady(runtimePlotState)
 			end
 		end,
+		destroyUnlockButton = function(runtimePlotState)
+			if unlockPromptManager then
+				unlockPromptManager.destroyUnlockButton(runtimePlotState)
+			end
+		end,
 		destroySpawnedTree = function(runtimePlotState)
 			if treeVisualController then
 				treeVisualController.destroySpawnedTree(runtimePlotState)

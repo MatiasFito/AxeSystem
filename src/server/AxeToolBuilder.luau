@@ -172,4 +172,16 @@ function AxeToolBuilder.createToolForTier(tierId)
 	return true, tool
 end
 
+function AxeToolBuilder.createCosmeticToolForTier(tierId)
+	local tier, template, reason = getTierAndTemplate(tierId)
+
+	if not tier or not template then
+		return false, reason
+	end
+
+	local tool = template:Clone()
+	applyBehaviorAssets(tool, tier)
+	return true, tool
+end
+
 return AxeToolBuilder

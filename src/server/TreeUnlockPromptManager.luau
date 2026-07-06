@@ -25,6 +25,12 @@ function TreeUnlockPromptManager.create(deps)
 	end
 
 	local function createUnlockButtonModel(plotRecord)
+		local existingModel = plotRecord.Model:FindFirstChild(string.format("%sUnlockButton", plotRecord.PlotId))
+
+		if existingModel and existingModel:IsA("Model") then
+			existingModel:Destroy()
+		end
+
 		local model = Instance.new("Model")
 		model.Name = string.format("%sUnlockButton", plotRecord.PlotId)
 
@@ -165,9 +171,25 @@ function TreeUnlockPromptManager.create(deps)
 		billboardTween:Play()
 
 		local tweenToken = runtimePlotState.UnlockTweenToken
+		task.delay(constants.TweenDuration + 0.05, function()
+			if runtimePlotState.UnlockTweenToken ~= tweenToken then
+				return
+			end
+
+			if billboardGui:IsA("BillboardGui") then
+				billboardGui.Enabled = false
+			end
+
+			destroyUnlockButton(runtimePlotState)
+		end)
+
 		buttonSizeTween.Completed:Connect(function()
 			if runtimePlotState.UnlockTweenToken ~= tweenToken then
 				return
+			end
+
+			if billboardGui:IsA("BillboardGui") then
+				billboardGui.Enabled = false
 			end
 
 			destroyUnlockButton(runtimePlotState)
