@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local Workspace = game:GetService("Workspace")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
@@ -37,6 +38,32 @@ end
 
 local function requireChild(parent, name, expectedClassName, errors, context)
 	local child = parent:FindFirstChild(name)
+
+	if not child then
+		pushError(errors, string.format("Missing %s '%s' under %s", expectedClassName, name, context))
+		return nil
+	end
+
+	if not child:IsA(expectedClassName) then
+		pushError(
+			errors,
+			string.format(
+				"Expected %s '%s' under %s to be a %s, got %s",
+				expectedClassName,
+				name,
+				context,
+				expectedClassName,
+				child.ClassName
+			)
+		)
+		return nil
+	end
+
+	return child
+end
+
+local function requireDescendant(parent, name, expectedClassName, errors, context)
+	local child = parent:FindFirstChild(name, true)
 
 	if not child then
 		pushError(errors, string.format("Missing %s '%s' under %s", expectedClassName, name, context))
@@ -240,6 +267,101 @@ local function validateTrees(errors)
 	end
 end
 
+local function validateTreePlotTemplate(errors)
+	requireChild(ServerStorage, treeConstants.TREE_PLOT_TEMPLATE_NAME, "Model", errors, "ServerStorage")
+end
+
+local function isAllowedPlotSetName(name)
+	for index = 1, 6 do
+		if name == string.format("PlotSet%02d", index) then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function validateTreePlotSets(errors)
+	local plotSetsFolder = requireFolder(Workspace, treeConstants.TREE_PLOT_SETS_FOLDER_NAME, errors, "Workspace")
+
+	if not plotSetsFolder then
+		return
+	end
+
+	local validPlotSetCount = 0
+
+	for _, child in plotSetsFolder:GetChildren() do
+		local childPath = string.format("Workspace/%s/%s", treeConstants.TREE_PLOT_SETS_FOLDER_NAME, child.Name)
+
+		if not child:IsA("Folder") then
+			pushError(errors, string.format("Expected %s to be a Folder, got %s", childPath, child.ClassName))
+		elseif not isAllowedPlotSetName(child.Name) then
+			pushError(
+				errors,
+				string.format("Unexpected plot set folder '%s'; expected PlotSet01 through PlotSet06", childPath)
+			)
+		else
+			validPlotSetCount += 1
+			requireChild(child, treeConstants.PLOT_SET_ORIGIN_NAME, "Part", errors, childPath)
+		end
+	end
+
+	if validPlotSetCount == 0 then
+		pushError(
+			errors,
+			string.format(
+				"Expected Workspace/%s to contain at least one plot set folder named PlotSet01 through PlotSet06",
+				treeConstants.TREE_PLOT_SETS_FOLDER_NAME
+			)
+		)
+	elseif validPlotSetCount > 6 then
+		pushError(
+			errors,
+			string.format(
+				"Expected Workspace/%s to contain at most 6 plot set folders, found %d",
+				treeConstants.TREE_PLOT_SETS_FOLDER_NAME,
+				validPlotSetCount
+			)
+		)
+	end
+end
+
+local function validateBlacksmithSection(errors)
+	local template = requireChild(
+		ServerStorage,
+		blacksmithConstants.BLACKSMITH_SECTION_TEMPLATE_NAME,
+		"Model",
+		errors,
+		"ServerStorage"
+	)
+
+	if not template then
+		return
+	end
+
+	requireDescendant(
+		template,
+		blacksmithConstants.BLACKSMITH_PART_NAME,
+		"BasePart",
+		errors,
+		string.format("ServerStorage/%s", blacksmithConstants.BLACKSMITH_SECTION_TEMPLATE_NAME)
+	)
+	requireDescendant(
+		template,
+		blacksmithConstants.BLACKSMITH_FLOOR_NAME,
+		"BasePart",
+		errors,
+		string.format("ServerStorage/%s", blacksmithConstants.BLACKSMITH_SECTION_TEMPLATE_NAME)
+	)
+	requireDescendant(
+		template,
+		blacksmithConstants.BLACKSMITH_NPC_NAME,
+		"Model",
+		errors,
+		string.format("ServerStorage/%s", blacksmithConstants.BLACKSMITH_SECTION_TEMPLATE_NAME)
+	)
+end
+
 local function validateNpcTemplates(errors)
 	local npcFolder =
 		requireFolder(ServerStorage, lumberjackConstants.NPC_TEMPLATE_FOLDER_NAME, errors, "ServerStorage")
@@ -303,7 +425,10 @@ function StudioAssetValidator.validateOrThrow()
 	validateAxeTemplates(errors)
 	validateAxeDefaults(errors)
 	validateAxeOverrides(errors)
+	validateBlacksmithSection(errors)
 	validateTrees(errors)
+	validateTreePlotSets(errors)
+	validateTreePlotTemplate(errors)
 	validateNpcTemplates(errors)
 
 	if #errors > 0 then

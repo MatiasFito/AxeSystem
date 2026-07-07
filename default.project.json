@@ -31,7 +31,9 @@
 
     "Workspace": {
       "$ignoreUnknownInstances": true,
-      "$path": "src/workspace"
+      "SwingSpeedPad": {
+        "$path": "src/workspace/SwingSpeedPad.model.json"
+      }
     }
   }
 }

@@ -39,6 +39,7 @@ function BlacksmithStateBuilder.create(deps)
 
 		return deps.buildSuccess({
 			gold = gold,
+			plotSetId = deps.getAssignedPlotSetId(player),
 			currentTierId = currentTierId,
 			currentAxe = buildAxeSnapshot(currentTier, false),
 			nextTierId = nextTier and nextTier.Id or nil,

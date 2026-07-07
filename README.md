@@ -15,11 +15,24 @@ rojo serve
 ```
 
 ## Tree Plot Authoring
-Tree plots are now generated from a single workspace template instead of being authored as separate `Plot01`, `Plot02`, and similar models.
+Tree plots are now generated from a single shared template instead of being authored as separate `Plot01`, `Plot02`, and similar models.
 
-- Edit `Workspace.TreePlotTemplate` to change the shared look of every plot. The template must keep a `DirtPatch` part and a `TreeSpawn` part.
-- Place one `PlotOrigin` part inside each folder under `Workspace.TreePlotSets`. That origin marks the `DirtPatch` position and rotation for the first generated plot in the set.
+- Edit `ServerStorage.TreePlotTemplate` in Roblox Studio to change the shared look of every plot. The template must keep a `DirtPatch` part and a `TreeSpawn` part.
+- Author `Workspace.TreePlotSets` directly in Roblox Studio. Rojo does not sync that folder.
+- Create between 1 and 6 folders named `PlotSet01` through `PlotSet06` under `Workspace.TreePlotSets`.
+- Place one `PlotOrigin` part inside each plot set folder. That origin marks the `DirtPatch` position and rotation for the first generated plot in the set.
 - Plot cloning and placement happen at server startup in `TreePlotService`, using the ordered plot ids from `TreeConfig` and the grid settings in `TreePlotLayoutConfig`.
+- `TreePlotTemplate` is Studio-owned and is not synced by Rojo.
+- `Workspace.SwingSpeedPad` remains Rojo-synced from source.
 - To expand the system later, add more tree entries to `TreeConfig` up to the grid capacity of 30 slots. You should not need to duplicate workspace plot models.
+
+## Blacksmith Section Authoring
+The blacksmith section is now authored once in Studio and spawned under every PlotSet at server startup.
+
+- Keep a `BlacksmithSection` model in `ServerStorage`.
+- The template must include a `BasePart` named `AxeUpgrades`, a `BasePart` named `BlacksmithFloor`, and a `Model` named `Blacksmith`.
+- The server clones one section directly under each `Workspace.TreePlotSets.<PlotSetId>` folder.
+- Placement uses `Plot03` in that PlotSet and moves the section 10 studs forward from that plot's facing direction.
+- Only the player assigned to that PlotSet can activate and use that section.
 
 For more help, check out [the Rojo documentation](https://rojo.space/docs).

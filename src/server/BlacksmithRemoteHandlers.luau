@@ -2,7 +2,7 @@ local BlacksmithRemoteHandlers = {}
 
 function BlacksmithRemoteHandlers.create(deps)
 	local function handleGetState(player)
-		if not deps.isShopAvailable() then
+		if not deps.isShopAvailable(player) then
 			return deps.buildShopUnavailableFailure()
 		end
 

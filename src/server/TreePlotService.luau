@@ -1,4 +1,5 @@
 local Workspace = game:GetService("Workspace")
+local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
@@ -19,7 +20,7 @@ local function getPlotSetsFolder()
 end
 
 local function getPlotTemplateModel()
-	return Workspace:FindFirstChild(treeConstants.TREE_PLOT_TEMPLATE_NAME)
+	return ServerStorage:FindFirstChild(treeConstants.TREE_PLOT_TEMPLATE_NAME)
 end
 
 local function getOrderedPlotIds()
@@ -96,7 +97,7 @@ end
 
 local function validatePlotTemplateModel(plotTemplateModel)
 	if not plotTemplateModel or not plotTemplateModel:IsA("Model") then
-		return nil, string.format("Workspace is missing a Model named '%s'", treeConstants.TREE_PLOT_TEMPLATE_NAME)
+		return nil, string.format("ServerStorage is missing a Model named '%s'", treeConstants.TREE_PLOT_TEMPLATE_NAME)
 	end
 
 	local dirtPatch = resolvePlotChild(plotTemplateModel, treeConstants.DIRT_PATCH_NAME)
@@ -362,6 +363,28 @@ function TreePlotService.getAssignedPlotSet(player)
 	end
 
 	return plotSetsById[plotSetId]
+end
+
+function TreePlotService.getPlotSet(plotSetId)
+	if typeof(plotSetId) ~= "string" or plotSetId == "" then
+		return nil
+	end
+
+	return plotSetsById[plotSetId]
+end
+
+function TreePlotService.getPlotSets()
+	local plotSets = {}
+
+	for _, plotSetId in orderedPlotSetIds do
+		local plotSet = plotSetsById[plotSetId]
+
+		if plotSet then
+			table.insert(plotSets, plotSet)
+		end
+	end
+
+	return plotSets
 end
 
 function TreePlotService.getAssignedPlotSetId(player)

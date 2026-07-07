@@ -9,12 +9,13 @@ function BlacksmithUpgradeResolver.create(deps)
 		end
 
 		local state = statePayload.state
+		local blacksmithPart = deps.getBlacksmithPart(player)
 
-		if not deps.isShopAvailable() then
+		if not blacksmithPart then
 			return deps.buildFailure(deps.failureReasons.ShopUnavailable, state)
 		end
 
-		if not deps.isCharacterInZone(player.Character) then
+		if not deps.isCharacterInZone(player.Character, blacksmithPart) then
 			return deps.buildFailure(deps.failureReasons.NotInRange, state)
 		end
 

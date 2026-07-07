@@ -4,6 +4,7 @@ local controllerDefinitions = {
 	"AutoSwingUI",
 	"BlacksmithZoneController",
 	"LumberjackUpgradePadController",
+	"OwnedPromptVisibilityController",
 	"SwingSpeedPad",
 	"TopGoldLabel",
 	"TreeAudioController",

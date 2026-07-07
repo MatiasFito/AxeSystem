@@ -335,18 +335,21 @@ function TreeService.onPlayerAdded(player)
 	local plotSet, errorMessage = treePlotService.assignPlayer(player)
 
 	if not plotSet then
+		player:SetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE, nil)
 		warn(string.format("Failed to assign tree plot set to %s: %s", player.Name, tostring(errorMessage)))
 		return false
 	end
 
 	treeRuntimeManager.cleanupPlayerRuntime(player)
 	treeRuntimeManager.setPlotSetId(player, plotSet.Id)
+	player:SetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE, plotSet.Id)
 	return treePlotMaterializer.refreshAllAssignedPlots(player)
 end
 
 function TreeService.onPlayerRemoving(player)
 	treeRuntimeManager.cleanupPlayerRuntime(player)
 	treePlotService.releasePlayer(player)
+	player:SetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE, nil)
 end
 
 function TreeService.onPlayerDataReset(player)
@@ -355,7 +358,9 @@ function TreeService.onPlayerDataReset(player)
 	end
 
 	treeRuntimeManager.cleanupPlayerRuntime(player)
-	treeRuntimeManager.setPlotSetId(player, treePlotService.getAssignedPlotSetId(player))
+	local plotSetId = treePlotService.getAssignedPlotSetId(player)
+	treeRuntimeManager.setPlotSetId(player, plotSetId)
+	player:SetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE, plotSetId)
 	return treePlotMaterializer.refreshAllAssignedPlots(player)
 end
 
