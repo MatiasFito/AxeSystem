@@ -12,12 +12,10 @@ local PANEL_COLOR = Color3.fromRGB(42, 31, 24)
 local PANEL_HIGHLIGHT = Color3.fromRGB(84, 58, 43)
 local BORDER_COLOR = Color3.fromRGB(228, 211, 187)
 local LABEL_COLOR = Color3.fromRGB(248, 242, 230)
-local SUBTLE_COLOR = Color3.fromRGB(216, 201, 183)
 local CARD_COLOR = Color3.fromRGB(68, 49, 38)
 local BUTTON_COLOR = Color3.fromRGB(167, 96, 49)
 local BUTTON_DISABLED_COLOR = Color3.fromRGB(157, 62, 62)
 local CLOSE_BUTTON_COLOR = Color3.fromRGB(198, 58, 58)
-local ERROR_COLOR = Color3.fromRGB(255, 196, 196)
 local UPGRADE_ARROW_IMAGE = "rbxassetid://16844557963"
 local SIDE_CARD_POSITION = UDim2.new(0.26, 0, 0, 88)
 local CENTER_CARD_POSITION = UDim2.new(0.5, 0, 0, 88)
@@ -37,7 +35,6 @@ local currentPowerLabel = nil
 local nextPowerLabel = nil
 local currentGoldBonusLabel = nil
 local nextGoldBonusLabel = nil
-local statusLabel = nil
 local upgradeButton = nil
 local closeButton = nil
 local currentNextTierId = nil
@@ -58,15 +55,6 @@ end
 local function formatGoldBonus(multiplier)
 	local percentage = math.max(0, math.floor(((multiplier or 1) - 1) * 100 + 0.5))
 	return tostring(percentage)
-end
-
-local function setStatus(message, isError)
-	if not statusLabel then
-		return
-	end
-
-	statusLabel.Text = message or ""
-	statusLabel.TextColor3 = isError and ERROR_COLOR or SUBTLE_COLOR
 end
 
 local function updateButtonVisualState(enabled)
@@ -237,17 +225,6 @@ local function ensureGui()
 	upgradeArrowImageLabel.ScaleType = Enum.ScaleType.Fit
 	upgradeArrowImageLabel.Parent = rootFrame
 
-	statusLabel = Instance.new("TextLabel")
-	statusLabel.Name = "Status"
-	statusLabel.BackgroundTransparency = 1
-	statusLabel.Position = UDim2.fromOffset(36, 340)
-	statusLabel.Size = UDim2.new(1, -72, 0, 44)
-	statusLabel.Font = Enum.Font.GothamBold
-	statusLabel.TextScaled = true
-	statusLabel.TextWrapped = true
-	statusLabel.TextXAlignment = Enum.TextXAlignment.Center
-	statusLabel.Parent = rootFrame
-
 	upgradeButton = Instance.new("TextButton")
 	upgradeButton.Name = "UpgradeButton"
 	upgradeButton.AnchorPoint = Vector2.new(0.5, 1)
@@ -299,7 +276,6 @@ function BlacksmithUI.close()
 	ensureGui()
 	screenGui.Enabled = false
 	BlacksmithUI.setBusy(false)
-	setStatus("", false)
 end
 
 function BlacksmithUI.renderState(state)
@@ -323,12 +299,6 @@ function BlacksmithUI.renderState(state)
 		buttonBaseText = string.format("%s Gold", tostring(nextAxe.cost))
 		currentNextTierId = state.nextTierId
 		canAttemptUpgrade = state.canUpgrade == true
-
-		if canAttemptUpgrade then
-			setStatus("", false)
-		else
-			setStatus(blacksmithConstants.getFailureMessage(blacksmithConstants.FailureReason.InsufficientGold), false)
-		end
 	else
 		currentAxeFrame.Position = CENTER_CARD_POSITION
 		nextAxeFrame.Visible = false
@@ -339,7 +309,6 @@ function BlacksmithUI.renderState(state)
 		buttonBaseText = "Maxed"
 		currentNextTierId = nil
 		canAttemptUpgrade = false
-		setStatus("", false)
 	end
 
 	BlacksmithUI.setBusy(false)
@@ -347,7 +316,7 @@ end
 
 function BlacksmithUI.showFailure(reason)
 	ensureGui()
-	setStatus(blacksmithConstants.getFailureMessage(reason), true)
+	warn(blacksmithConstants.getFailureMessage(reason))
 	BlacksmithUI.setBusy(false)
 end
 
