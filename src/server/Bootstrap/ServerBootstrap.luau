@@ -18,6 +18,10 @@ local serviceDefinitions = {
 		moduleName = "LumberjackService",
 	},
 	{
+		name = "RebirthService",
+		moduleName = "RebirthService",
+	},
+	{
 		name = "OrbOfRegretService",
 		moduleName = "OrbOfRegretService",
 	},
@@ -64,6 +68,12 @@ local serviceStartOrder = {
 		name = "LumberjackService",
 		start = function(services)
 			services.LumberjackService.start(services.PlayerData, services.TreePlotService, services.TreeService)
+		end,
+	},
+	{
+		name = "RebirthService",
+		start = function(services)
+			services.RebirthService.start(services.PlayerData, services.TreeService, services.LumberjackService)
 		end,
 	},
 	{

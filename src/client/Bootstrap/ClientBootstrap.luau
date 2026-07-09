@@ -5,6 +5,7 @@ local controllerDefinitions = {
 	"BlacksmithZoneController",
 	"LumberjackUpgradePadController",
 	"OwnedPromptVisibilityController",
+	"RebirthController",
 	"TopGoldLabel",
 	"TreeAudioController",
 	"TreeParticlesController",

@@ -19,6 +19,7 @@ local function syncLeaderstats(player, state)
 	end
 
 	playerLeaderstats.syncGold(player, state.Gold)
+	playerLeaderstats.syncRebirths(player, state.Rebirths or 0)
 end
 
 function PlayerData.start()
@@ -83,6 +84,36 @@ function PlayerData.getTreePlot(player, plotId)
 	end
 
 	return playerDataSerializer.cloneTreePlotState(plotState)
+end
+
+function PlayerData.getRebirths(player)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return nil
+	end
+
+	return state.Rebirths
+end
+
+function PlayerData.getAmber(player)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return nil
+	end
+
+	return state.Amber
+end
+
+function PlayerData.getAmberUpgrades(player)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return nil
+	end
+
+	return playerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades)
 end
 
 function PlayerData.setGold(player, gold)
@@ -153,6 +184,29 @@ function PlayerData.resetPlayerData(player)
 	syncLeaderstats(player, state)
 
 	return true, state
+end
+
+function PlayerData.applyRebirth(player, awardedAmber)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return false
+	end
+
+	local previousState = playerDataSerializer.cloneState(state)
+	local rebirthState = playerDataSerializer.buildRebirthResetState(state, awardedAmber)
+	playerStates[player] = rebirthState
+	syncLeaderstats(player, rebirthState)
+
+	local saveSuccess = PlayerData.savePlayer(player)
+
+	if not saveSuccess then
+		playerStates[player] = previousState
+		syncLeaderstats(player, previousState)
+		return false
+	end
+
+	return true, playerDataSerializer.cloneState(playerStates[player])
 end
 
 function PlayerData.loadPlayer(player)

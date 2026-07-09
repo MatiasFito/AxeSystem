@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
+local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 
@@ -13,6 +14,22 @@ local function isFiniteNumber(value)
 end
 
 function PlayerDataSerializer.normalizeGold(value)
+	if not isFiniteNumber(value) then
+		return 0
+	end
+
+	return math.max(0, math.floor(value))
+end
+
+function PlayerDataSerializer.normalizeAmber(value)
+	if not isFiniteNumber(value) then
+		return 0
+	end
+
+	return math.max(0, math.floor(value))
+end
+
+function PlayerDataSerializer.normalizeRebirths(value)
 	if not isFiniteNumber(value) then
 		return 0
 	end
@@ -49,6 +66,25 @@ function PlayerDataSerializer.cloneTreePlots(treePlots)
 	end
 
 	return clonedTreePlots
+end
+
+function PlayerDataSerializer.cloneAmberUpgrades(amberUpgrades)
+	return rebirthConfig.cloneAmberUpgrades(amberUpgrades)
+end
+
+function PlayerDataSerializer.cloneState(state)
+	return {
+		SchemaVersion = state.SchemaVersion,
+		Gold = state.Gold,
+		AxeTierId = state.AxeTierId,
+		TreePlots = PlayerDataSerializer.cloneTreePlots(state.TreePlots),
+		Rebirths = state.Rebirths,
+		Amber = state.Amber,
+		AmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades),
+		LastUpdatedAt = state.LastUpdatedAt,
+		IsLoaded = state.IsLoaded,
+		IsDirty = state.IsDirty,
+	}
 end
 
 local function buildDefaultTreePlots()
@@ -233,6 +269,28 @@ function PlayerDataSerializer.buildDefaultState()
 		Gold = 0,
 		AxeTierId = blacksmithConstants.DEFAULT_AXE_TIER_ID,
 		TreePlots = buildDefaultTreePlots(),
+		Rebirths = 0,
+		Amber = 0,
+		AmberUpgrades = rebirthConfig.createDefaultAmberUpgrades(),
+		LastUpdatedAt = os.time(),
+		IsLoaded = true,
+		IsDirty = true,
+	}
+end
+
+function PlayerDataSerializer.buildRebirthResetState(previousState, awardedAmber)
+	local normalizedPreviousState = typeof(previousState) == "table" and previousState
+		or PlayerDataSerializer.buildDefaultState()
+
+	return {
+		SchemaVersion = treeConstants.CURRENT_SCHEMA_VERSION,
+		Gold = 0,
+		AxeTierId = PlayerDataSerializer.ensureValidTierId(normalizedPreviousState.AxeTierId),
+		TreePlots = buildDefaultTreePlots(),
+		Rebirths = PlayerDataSerializer.normalizeRebirths(normalizedPreviousState.Rebirths) + 1,
+		Amber = PlayerDataSerializer.normalizeAmber(normalizedPreviousState.Amber)
+			+ PlayerDataSerializer.normalizeAmber(awardedAmber),
+		AmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(normalizedPreviousState.AmberUpgrades),
 		LastUpdatedAt = os.time(),
 		IsLoaded = true,
 		IsDirty = true,
@@ -271,6 +329,9 @@ local function migrateLegacyData(rawData)
 		Gold = PlayerDataSerializer.normalizeGold(rawGold),
 		AxeTierId = PlayerDataSerializer.ensureValidTierId(resolvedTierId),
 		TreePlots = buildDefaultTreePlots(),
+		Rebirths = 0,
+		Amber = 0,
+		AmberUpgrades = rebirthConfig.createDefaultAmberUpgrades(),
 		LastUpdatedAt = os.time(),
 		IsLoaded = true,
 		IsDirty = true,
@@ -281,6 +342,9 @@ local function normalizeCurrentData(rawData)
 	local normalizedGold = PlayerDataSerializer.normalizeGold(rawData.Gold)
 	local normalizedTierId = PlayerDataSerializer.ensureValidTierId(rawData.AxeTierId)
 	local normalizedTreePlots, treePlotsWereChanged = PlayerDataSerializer.normalizeTreePlots(rawData.TreePlots)
+	local normalizedRebirths = PlayerDataSerializer.normalizeRebirths(rawData.Rebirths)
+	local normalizedAmber = PlayerDataSerializer.normalizeAmber(rawData.Amber)
+	local normalizedAmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(rawData.AmberUpgrades)
 	local lastUpdatedAt = rawData.LastUpdatedAt
 	local wasChanged = false
 
@@ -294,6 +358,25 @@ local function normalizeCurrentData(rawData)
 
 	if treePlotsWereChanged then
 		wasChanged = true
+	end
+
+	if normalizedRebirths ~= rawData.Rebirths then
+		wasChanged = true
+	end
+
+	if normalizedAmber ~= rawData.Amber then
+		wasChanged = true
+	end
+
+	if typeof(rawData.AmberUpgrades) ~= "table" then
+		wasChanged = true
+	else
+		for _, key in ipairs(rebirthConfig.getUpgradeKeys()) do
+			if normalizedAmberUpgrades[key] ~= rawData.AmberUpgrades[key] then
+				wasChanged = true
+				break
+			end
+		end
 	end
 
 	if not isFiniteNumber(lastUpdatedAt) then
@@ -310,6 +393,9 @@ local function normalizeCurrentData(rawData)
 		Gold = normalizedGold,
 		AxeTierId = normalizedTierId,
 		TreePlots = normalizedTreePlots,
+		Rebirths = normalizedRebirths,
+		Amber = normalizedAmber,
+		AmberUpgrades = normalizedAmberUpgrades,
 		LastUpdatedAt = lastUpdatedAt,
 		IsLoaded = true,
 		IsDirty = wasChanged,
@@ -338,6 +424,9 @@ function PlayerDataSerializer.serializeState(state)
 		Gold = state.Gold,
 		AxeTierId = state.AxeTierId,
 		TreePlots = PlayerDataSerializer.cloneTreePlots(state.TreePlots),
+		Rebirths = PlayerDataSerializer.normalizeRebirths(state.Rebirths),
+		Amber = PlayerDataSerializer.normalizeAmber(state.Amber),
+		AmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades),
 		LastUpdatedAt = state.LastUpdatedAt,
 	}
 end

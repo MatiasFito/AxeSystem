@@ -1,5 +1,23 @@
 local PlayerLeaderstats = {}
 
+local function ensureIntValue(parent, valueName)
+	local value = parent:FindFirstChild(valueName)
+
+	if value and value:IsA("IntValue") then
+		return value
+	end
+
+	if value then
+		value:Destroy()
+	end
+
+	value = Instance.new("IntValue")
+	value.Name = valueName
+	value.Parent = parent
+
+	return value
+end
+
 local function ensureLeaderstats(player)
 	local leaderstats = player:FindFirstChild("leaderstats")
 
@@ -9,26 +27,22 @@ local function ensureLeaderstats(player)
 		leaderstats.Parent = player
 	end
 
-	local goldValue = leaderstats:FindFirstChild("Gold")
+	ensureIntValue(leaderstats, "Gold")
+	ensureIntValue(leaderstats, "Rebirths")
 
-	if goldValue and goldValue:IsA("IntValue") then
-		return goldValue
-	end
-
-	if goldValue then
-		goldValue:Destroy()
-	end
-
-	goldValue = Instance.new("IntValue")
-	goldValue.Name = "Gold"
-	goldValue.Parent = leaderstats
-
-	return goldValue
+	return leaderstats
 end
 
 function PlayerLeaderstats.syncGold(player, gold)
-	local goldValue = ensureLeaderstats(player)
+	local leaderstats = ensureLeaderstats(player)
+	local goldValue = ensureIntValue(leaderstats, "Gold")
 	goldValue.Value = gold
+end
+
+function PlayerLeaderstats.syncRebirths(player, rebirths)
+	local leaderstats = ensureLeaderstats(player)
+	local rebirthValue = ensureIntValue(leaderstats, "Rebirths")
+	rebirthValue.Value = rebirths
 end
 
 return PlayerLeaderstats
