@@ -215,23 +215,6 @@ function TreePlotCard.render(card, plot, options)
 		return
 	end
 
-	if plot.isInfiniteTree then
-		card.FooterLabel.Text = string.format("Gold/Hit %s", currencyFormatter.formatGold(plot.goldPerHit or 0))
-
-		if plot.state == treeConstants.PlotState.Growing then
-			local maxGrowTime = math.max(0.01, levelStats.growTime or 0.01)
-			local remaining = math.max(0, (plot.growingUntil or 0) - estimatedServerTime)
-			local progress = math.clamp(1 - (remaining / maxGrowTime), 0, 1)
-			card.DetailLabel.Text = string.format("Preparing  %s", formatSeconds(remaining))
-			card.MeterFill.Size = UDim2.fromScale(progress, 1)
-			return
-		end
-
-		card.DetailLabel.Text = "Ready to farm"
-		card.MeterFill.Size = UDim2.fromScale(baseProgress, 1)
-		return
-	end
-
 	card.FooterLabel.Text = string.format(
 		"HP %s  Reward %s%s",
 		currencyFormatter.formatGold(levelStats.health),

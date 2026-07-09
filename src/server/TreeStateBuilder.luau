@@ -57,7 +57,7 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 
 	if plotState.Unlocked and plotState.Level > 0 then
 		levelData = treeConfig.getLevelData(tree.Id, plotState.Level)
-		isMaxLevel = (not tree.IsInfiniteTree) and plotState.Level >= tree.MaxLevel
+		isMaxLevel = plotState.Level >= tree.MaxLevel
 		upgradeCost = treeConfig.getUpgradeCost(tree.Id, plotState.Level)
 		canUpgrade = upgradeCost ~= nil
 	end
@@ -73,7 +73,6 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 		isUnlockable = not plotState.Unlocked
 			and TreeStateBuilder.isPlotUnlockable(playerData.getTreePlots(player) or {}, plotId),
 		unlockCost = tree.UnlockCost,
-		isInfiniteTree = tree.IsInfiniteTree == true,
 		canUpgrade = canUpgrade,
 		upgradeCost = upgradeCost,
 		isMaxLevel = isMaxLevel,
@@ -85,7 +84,6 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 		lumberjackUpgradeCost = lumberjackUpgradeCost,
 		lumberjackGoldBonusPercent = lumberjackConfig.getGoldBonusPercent(lumberjackLevel),
 		showLumberjackUpgradePad = canUpgradeLumberjack,
-		goldPerHit = tree.IsInfiniteTree and levelData and levelData.Reward or nil,
 		stats = levelData and {
 			health = levelData.Health,
 			growTime = levelData.GrowTime,

@@ -59,28 +59,12 @@ function TreePlotMaterializer.create(deps)
 		clone.Parent = deps.getOrCreateSetRuntimeFolder(plotRecord.PlotSetId)
 
 		local spawnCFrame = deps.getSpawnCFrame(plotRecord.TreeSpawn)
-		local placementCFrame = tree.IsInfiniteTree and CFrame.new(spawnCFrame.Position) or spawnCFrame
 
 		if clone:IsA("Model") then
-			clone:PivotTo(placementCFrame)
+			clone:PivotTo(spawnCFrame)
 			deps.alignCloneBottomToPlot(clone, plotRecord)
-
-			if tree.IsInfiniteTree then
-				local trunk = clone:FindFirstChild("Trunk", true)
-
-				if trunk and trunk:IsA("BasePart") then
-					clone:PivotTo(
-						clone:GetPivot()
-							+ Vector3.new(
-								spawnCFrame.Position.X - trunk.Position.X,
-								0,
-								spawnCFrame.Position.Z - trunk.Position.Z
-							)
-					)
-				end
-			end
 		elseif clone:IsA("BasePart") then
-			clone.CFrame = placementCFrame
+			clone.CFrame = spawnCFrame
 			deps.alignCloneBottomToPlot(clone, plotRecord)
 		end
 

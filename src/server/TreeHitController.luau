@@ -139,18 +139,6 @@ function TreeHitController.create(deps)
 		local power = math.max(1, math.floor(hitContext.power or 1))
 		local effectOrigin = hitContext.effectOrigin or plotRecord.DirtPatch.Position
 
-		if tree.IsInfiniteTree then
-			local reward = resolveReward(levelData, hitContext.goldMultiplier or 1)
-			local currentGold = deps.getGold(player) or 0
-			deps.setGold(player, currentGold + reward)
-			deps.refreshUnlockButtons(player)
-			deps.emitTreeParticles(runtimePlotState.SpawnedTreeModel, constants.HitParticleCount, effectOrigin)
-			pushTreeAudio(player, plotRecord, "hit", constants.HitSoundId, constants.HitSoundVolume)
-			deps.applyTreeShake(runtimePlotState, plotRecord, constants.ShakeDuration, constants.ShakeAngleDegrees)
-
-			return true
-		end
-
 		local actualDamage = math.min(runtimePlotState.CurrentHealth, power)
 		runtimePlotState.CurrentHealth -= actualDamage
 
