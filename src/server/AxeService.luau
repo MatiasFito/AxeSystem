@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
-local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
+local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 local axeToolBuilder = require(script.Parent:WaitForChild("AxeToolBuilder") :: ModuleScript)
 local axeInventoryPolicyModule = require(script.Parent:WaitForChild("AxeInventoryPolicy") :: ModuleScript)
 
@@ -50,19 +50,11 @@ local function ensureNumberValue(parent, name, value)
 end
 
 local function sanitizeSwingSpeed(multiplier)
-	if typeof(multiplier) ~= "number" then
-		return blacksmithConstants.DEFAULT_SWING_SPEED
-	end
-
-	return math.clamp(
-		math.floor(multiplier + 0.5),
-		blacksmithConstants.MIN_SWING_SPEED,
-		blacksmithConstants.MAX_SWING_SPEED
-	)
+	return swingSpeed.sanitizeSelectedMultiplier(multiplier)
 end
 
 local function getPlayerSwingSpeed(player)
-	return sanitizeSwingSpeed(player and player:GetAttribute(blacksmithConstants.SWING_SPEED_ATTRIBUTE_NAME) or nil)
+	return sanitizeSwingSpeed(player and player:GetAttribute(swingSpeed.PLAYER_ATTRIBUTE_NAME) or nil)
 end
 
 local function setToolSwingSpeed(tool, multiplier)
@@ -79,7 +71,7 @@ local function applyPlayerSwingSpeed(player, multiplier)
 	local sanitizedMultiplier = sanitizeSwingSpeed(multiplier)
 
 	if player then
-		player:SetAttribute(blacksmithConstants.SWING_SPEED_ATTRIBUTE_NAME, sanitizedMultiplier)
+		player:SetAttribute(swingSpeed.PLAYER_ATTRIBUTE_NAME, sanitizedMultiplier)
 	end
 
 	local containers = {

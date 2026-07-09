@@ -4,6 +4,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
+local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 
 local AxeToolBuilder = {}
 
@@ -151,7 +152,7 @@ local function configureTool(tool, tier)
 	local stats = ensureStatsFolder(tool)
 	ensureNumberValue(stats, "Power", tier.Power)
 	ensureNumberValue(stats, "GoldBonus", tier.GoldMultiplier)
-	ensureNumberValue(stats, "SwingSpeed", blacksmithConstants.DEFAULT_SWING_SPEED)
+	ensureNumberValue(stats, "SwingSpeed", swingSpeed.DEFAULT_MULTIPLIER)
 end
 
 function AxeToolBuilder.canBuildTier(tierId)

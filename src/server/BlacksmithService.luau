@@ -87,13 +87,12 @@ function BlacksmithService.start(playerDataModule, axeServiceModule, treePlotSer
 		end,
 		buildStatePayload = blacksmithStateBuilder.buildStatePayload,
 		handleUpgrade = blacksmithUpgradeResolver.handleUpgrade,
-		setPlayerSwingSpeed = axeServiceModule.setPlayerSwingSpeed,
 	})
+	local blacksmithRemotes = blacksmithRemoteRegistry.getOrCreateRemotes()
 
 	blacksmithRemoteHandlersModule.bind({
-		GetStateRemote = blacksmithRemoteRegistry.getOrCreateRemotes().GetStateRemote,
-		RequestUpgradeRemote = blacksmithRemoteRegistry.getOrCreateRemotes().RequestUpgradeRemote,
-		RequestSwingSpeedRemote = blacksmithRemoteRegistry.getOrCreateRemotes().RequestSwingSpeedRemote,
+		GetStateRemote = blacksmithRemotes.GetStateRemote,
+		RequestUpgradeRemote = blacksmithRemotes.RequestUpgradeRemote,
 	}, blacksmithRemoteHandlers)
 end
 

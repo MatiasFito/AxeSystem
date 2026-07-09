@@ -27,16 +27,11 @@ function BlacksmithRemoteRegistry.getOrCreateRemotes()
 			Name = blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME,
 			ClassName = "RemoteFunction",
 		},
-		{
-			Name = blacksmithConstants.REQUEST_SWING_SPEED_REMOTE_NAME,
-			ClassName = "RemoteEvent",
-		},
 	})
 
 	return {
 		GetStateRemote = instances[blacksmithConstants.GET_STATE_REMOTE_NAME] :: RemoteFunction,
 		RequestUpgradeRemote = instances[blacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME] :: RemoteFunction,
-		RequestSwingSpeedRemote = instances[blacksmithConstants.REQUEST_SWING_SPEED_REMOTE_NAME] :: RemoteEvent,
 	}
 end
 

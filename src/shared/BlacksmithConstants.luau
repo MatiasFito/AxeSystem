@@ -15,16 +15,11 @@ BlacksmithConstants.BLACKSMITH_TARGET_PLOT_ID = "Plot03"
 BlacksmithConstants.BLACKSMITH_FORWARD_OFFSET = 15
 BlacksmithConstants.IS_AXE_TOOL_ATTRIBUTE = "IsAxeTool"
 BlacksmithConstants.AXE_TIER_ID_ATTRIBUTE = "AxeTierId"
-BlacksmithConstants.SWING_SPEED_ATTRIBUTE_NAME = "SelectedSwingSpeed"
-BlacksmithConstants.DEFAULT_SWING_SPEED = 1
-BlacksmithConstants.MIN_SWING_SPEED = 1
-BlacksmithConstants.MAX_SWING_SPEED = 5
 
 BlacksmithConstants.REMOTE_FOLDER_NAME = "Remotes"
 BlacksmithConstants.BLACKSMITH_REMOTE_FOLDER_NAME = "Blacksmith"
 BlacksmithConstants.GET_STATE_REMOTE_NAME = "GetBlacksmithState"
 BlacksmithConstants.REQUEST_UPGRADE_REMOTE_NAME = "RequestAxeUpgrade"
-BlacksmithConstants.REQUEST_SWING_SPEED_REMOTE_NAME = "RequestSwingSpeed"
 
 BlacksmithConstants.FailureReason = {
 	NotInRange = "notInRange",

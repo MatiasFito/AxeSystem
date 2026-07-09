@@ -1,6 +1,9 @@
 local SwingSpeed = {}
 
+SwingSpeed.PLAYER_ATTRIBUTE_NAME = "SelectedSwingSpeed"
 SwingSpeed.DEFAULT_MULTIPLIER = 1
+SwingSpeed.MIN_SELECTED_MULTIPLIER = 1
+SwingSpeed.MAX_SELECTED_MULTIPLIER = 5
 SwingSpeed.DEFAULT_BASE_SWING_DURATION = 0.5
 SwingSpeed.MIN_EFFECTIVE_SWING_DURATION = 0.1
 SwingSpeed.FINISH_BUFFER = 0.05
@@ -11,6 +14,18 @@ local function sanitizeMultiplier(multiplier)
 	end
 
 	return multiplier
+end
+
+function SwingSpeed.sanitizeSelectedMultiplier(multiplier)
+	if typeof(multiplier) ~= "number" then
+		return SwingSpeed.DEFAULT_MULTIPLIER
+	end
+
+	return math.clamp(
+		math.floor(multiplier + 0.5),
+		SwingSpeed.MIN_SELECTED_MULTIPLIER,
+		SwingSpeed.MAX_SELECTED_MULTIPLIER
+	)
 end
 
 function SwingSpeed.getToolSwingSpeed(tool)

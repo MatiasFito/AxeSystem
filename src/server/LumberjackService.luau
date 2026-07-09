@@ -460,20 +460,12 @@ end
 
 local function getPlayerSwingMultiplier(player)
 	if not player then
-		return blacksmithConstants.DEFAULT_SWING_SPEED
+		return swingSpeed.DEFAULT_MULTIPLIER
 	end
 
-	local selectedSpeed = player:GetAttribute(blacksmithConstants.SWING_SPEED_ATTRIBUTE_NAME)
+	local selectedSpeed = player:GetAttribute(swingSpeed.PLAYER_ATTRIBUTE_NAME)
 
-	if typeof(selectedSpeed) ~= "number" then
-		return blacksmithConstants.DEFAULT_SWING_SPEED
-	end
-
-	return math.clamp(
-		math.floor(selectedSpeed + 0.5),
-		blacksmithConstants.MIN_SWING_SPEED,
-		blacksmithConstants.MAX_SWING_SPEED
-	)
+	return swingSpeed.sanitizeSelectedMultiplier(selectedSpeed)
 end
 
 local function getLumberjackSwingInterval(player)
