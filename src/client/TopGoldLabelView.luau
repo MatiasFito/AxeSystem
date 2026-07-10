@@ -5,7 +5,8 @@ local utilsFolder = sharedFolder:WaitForChild("Utils")
 local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
 
 local GUI_NAME = "TopGoldLabelGui"
-local PILL_WIDTH_SCALE = 0.22
+local GOLD_PILL_WIDTH_SCALE = 0.28
+local AMBER_PILL_WIDTH_SCALE = 0.14
 local LABEL_HEIGHT = 56
 local TOP_PADDING = 6
 local INNER_HORIZONTAL_PADDING = 16
@@ -25,8 +26,8 @@ local TEXT_COLOR = Color3.fromRGB(245, 214, 118)
 local AMBER_STROKE_COLOR = Color3.fromRGB(238, 165, 68)
 local AMBER_HIGHLIGHT_COLOR = Color3.fromRGB(255, 196, 96)
 local AMBER_TEXT_COLOR = Color3.fromRGB(255, 216, 132)
-local GOLD_CENTER_X = 0.38
-local AMBER_CENTER_X = 0.62
+local GOLD_CENTER_X = 0.36
+local AMBER_CENTER_X = 0.59
 
 local TopGoldLabelView = {}
 
@@ -47,7 +48,7 @@ local function formatGold(amount)
 end
 
 local function formatAmber(amount)
-	return string.format("Amber %s", currencyFormatter.formatGold(amount))
+	return string.format("🔶 %s", currencyFormatter.formatGold(amount))
 end
 
 local function renderGold(amount)
@@ -66,12 +67,12 @@ local function renderAmber(amount)
 	end
 end
 
-local function createPill(screenGuiParent, centerX, strokeColor, highlightColor, textColor)
+local function createPill(screenGuiParent, centerX, widthScale, strokeColor, highlightColor, textColor)
 	local shadowFrame = Instance.new("Frame")
 	shadowFrame.Name = "Shadow"
 	shadowFrame.AnchorPoint = Vector2.new(0.5, 0)
 	shadowFrame.Position = UDim2.new(centerX, 0, 0, TOP_PADDING + 4)
-	shadowFrame.Size = UDim2.new(PILL_WIDTH_SCALE, 0, 0, LABEL_HEIGHT)
+	shadowFrame.Size = UDim2.new(widthScale, 0, 0, LABEL_HEIGHT)
 	shadowFrame.BackgroundColor3 = SHADOW_COLOR
 	shadowFrame.BackgroundTransparency = 0.45
 	shadowFrame.BorderSizePixel = 0
@@ -86,7 +87,7 @@ local function createPill(screenGuiParent, centerX, strokeColor, highlightColor,
 	frame.Name = "Root"
 	frame.AnchorPoint = Vector2.new(0.5, 0)
 	frame.Position = UDim2.new(centerX, 0, 0, TOP_PADDING)
-	frame.Size = UDim2.new(PILL_WIDTH_SCALE, 0, 0, LABEL_HEIGHT)
+	frame.Size = UDim2.new(widthScale, 0, 0, LABEL_HEIGHT)
 	frame.BackgroundColor3 = BACKGROUND_COLOR
 	frame.BorderSizePixel = 0
 	frame.ZIndex = 1
@@ -163,9 +164,16 @@ local function ensureGui(player)
 	screenGui.Parent = playerGui
 
 	local goldRootFrame = nil
-	goldRootFrame, amountLabel = createPill(screenGui, GOLD_CENTER_X, STROKE_COLOR, HIGHLIGHT_COLOR, TEXT_COLOR)
-	amberRootFrame, amberAmountLabel =
-		createPill(screenGui, AMBER_CENTER_X, AMBER_STROKE_COLOR, AMBER_HIGHLIGHT_COLOR, AMBER_TEXT_COLOR)
+	goldRootFrame, amountLabel =
+		createPill(screenGui, GOLD_CENTER_X, GOLD_PILL_WIDTH_SCALE, STROKE_COLOR, HIGHLIGHT_COLOR, TEXT_COLOR)
+	amberRootFrame, amberAmountLabel = createPill(
+		screenGui,
+		AMBER_CENTER_X,
+		AMBER_PILL_WIDTH_SCALE,
+		AMBER_STROKE_COLOR,
+		AMBER_HIGHLIGHT_COLOR,
+		AMBER_TEXT_COLOR
+	)
 
 	amberButton = Instance.new("TextButton")
 	amberButton.Name = "Button"

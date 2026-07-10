@@ -20,8 +20,6 @@ local started = false
 local screenGui = nil
 local rootFrame = nil
 local actionButton = nil
-local amberFrame = nil
-local amberLabel = nil
 local statusLabel = nil
 local modalOverlay = nil
 local modalMessageLabel = nil
@@ -73,9 +71,6 @@ local function updateButtonState()
 	actionButton.AutoButtonColor = isEnabled
 	actionButton.BackgroundColor3 = isEnabled and BUTTON_READY_COLOR or BUTTON_DISABLED_COLOR
 	actionButton.Text = isBusy and "Processing..." or "Rebirth"
-	if amberLabel then
-		amberLabel.Text = string.format("🔶 %s", formatAmount(previewState.amber))
-	end
 	statusLabel.Text = buildStatusText(previewState)
 end
 
@@ -193,42 +188,15 @@ local function ensureGui()
 	rootGradient.Rotation = 90
 	rootGradient.Parent = rootFrame
 
-	amberFrame = Instance.new("Frame")
-	amberFrame.Name = "AmberFrame"
-	amberFrame.AnchorPoint = Vector2.new(0, 0.5)
-	amberFrame.Position = UDim2.fromOffset(16, CONTENT_CENTER_Y)
-	amberFrame.Size = UDim2.fromOffset(136, 48)
-	amberFrame.BackgroundColor3 = PANEL_HIGHLIGHT
-	amberFrame.BorderSizePixel = 0
-	amberFrame.Parent = rootFrame
-
-	local amberCorner = Instance.new("UICorner")
-	amberCorner.CornerRadius = UDim.new(0, 14)
-	amberCorner.Parent = amberFrame
-
-	local amberStroke = Instance.new("UIStroke")
-	amberStroke.Color = PANEL_STROKE
-	amberStroke.Thickness = 1.5
-	amberStroke.Parent = amberFrame
-
-	amberLabel = Instance.new("TextLabel")
-	amberLabel.Name = "AmberLabel"
-	amberLabel.BackgroundTransparency = 1
-	amberLabel.Size = UDim2.fromScale(1, 1)
-	amberLabel.Font = Enum.Font.GothamBold
-	amberLabel.TextColor3 = LABEL_COLOR
-	amberLabel.TextScaled = true
-	amberLabel.Parent = amberFrame
-
 	actionButton = createButton(
 		rootFrame,
 		"RebirthButton",
-		UDim2.fromOffset(176, 48),
-		UDim2.new(1, -16, 0, CONTENT_CENTER_Y),
+		UDim2.fromOffset(220, 48),
+		UDim2.new(0.5, -110, 0, CONTENT_CENTER_Y),
 		BUTTON_DISABLED_COLOR,
 		"Rebirth"
 	)
-	actionButton.AnchorPoint = Vector2.new(1, 0.5)
+	actionButton.AnchorPoint = Vector2.new(0, 0.5)
 
 	statusLabel = Instance.new("TextLabel")
 	statusLabel.Name = "StatusLabel"
