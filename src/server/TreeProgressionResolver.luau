@@ -16,8 +16,13 @@ function TreeProgressionResolver.create(deps)
 		local allPlots = deps.getTreePlots(player) or {}
 		local tree = deps.getTreeByPlotId(plotId)
 		local gold = deps.getGold(player) or 0
+		local unlockCost = tree and deps.getUnlockCost(player, tree) or nil
 
 		if not plotState or not tree then
+			return deps.buildFailure(deps.failureReasons.ConfigError)
+		end
+
+		if typeof(unlockCost) ~= "number" then
 			return deps.buildFailure(deps.failureReasons.ConfigError)
 		end
 
@@ -29,7 +34,7 @@ function TreeProgressionResolver.create(deps)
 			return deps.buildFailure(deps.failureReasons.NotUnlockable)
 		end
 
-		if gold < tree.UnlockCost then
+		if gold < unlockCost then
 			return deps.buildFailure(deps.failureReasons.InsufficientGold)
 		end
 
@@ -40,17 +45,21 @@ function TreeProgressionResolver.create(deps)
 			return deps.buildFailure(deps.failureReasons.ConfigError)
 		end
 
-		deps.setGold(player, gold - tree.UnlockCost)
+		local growTime = deps.getEffectiveGrowTime(player, levelData.GrowTime)
+
+		deps.setGold(player, gold - unlockCost)
 		deps.setTreePlot(player, plotId, {
 			PlotId = plotId,
 			TreeId = tree.Id,
 			Unlocked = true,
 			Level = 1,
-			State = levelData.GrowTime > 0 and deps.growingState or deps.grownState,
-			GrowingUntil = levelData.GrowTime > 0 and (deps.getServerNow() + levelData.GrowTime) or nil,
+			State = growTime > 0 and deps.growingState or deps.grownState,
+			GrowingUntil = growTime > 0 and (deps.getServerNow() + growTime) or nil,
 			HasLumberjack = supportsLumberjack and plotState.HasLumberjack == true,
-			LumberjackLevel = supportsLumberjack and plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0)
-				or 0,
+			LumberjackLevel = supportsLumberjack and plotState.HasLumberjack and math.max(
+				1,
+				plotState.LumberjackLevel or 0
+			) or 0,
 		})
 
 		deps.playUnlockButtonSuccessTween(player, plotId)
@@ -119,12 +128,15 @@ function TreeProgressionResolver.create(deps)
 			State = plotState.State,
 			GrowingUntil = plotState.GrowingUntil,
 			HasLumberjack = supportsLumberjack and plotState.HasLumberjack == true,
-			LumberjackLevel = supportsLumberjack and plotState.HasLumberjack and math.max(1, plotState.LumberjackLevel or 0)
-				or 0,
+			LumberjackLevel = supportsLumberjack and plotState.HasLumberjack and math.max(
+				1,
+				plotState.LumberjackLevel or 0
+			) or 0,
 		}
 
 		if plotState.State == deps.growingState then
-			updatedPlotState.GrowingUntil = deps.getServerNow() + nextLevelData.GrowTime
+			updatedPlotState.GrowingUntil = deps.getServerNow()
+				+ deps.getEffectiveGrowTime(player, nextLevelData.GrowTime)
 		end
 
 		deps.setTreePlot(player, plotId, updatedPlotState)

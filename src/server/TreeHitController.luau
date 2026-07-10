@@ -136,7 +136,14 @@ function TreeHitController.create(deps)
 			runtimePlotState.CurrentHealth = levelData.Health
 		end
 
-		local power = math.max(1, math.floor(hitContext.power or 1))
+		local axeDamageLevel = deps.getAmberUpgradeLevel(player, "AxeDamage") or 0
+		local goldUpgradeLevel = deps.getAmberUpgradeLevel(player, "GoldMultiplier") or 0
+		local power = math.max(
+			1,
+			math.floor(
+				(math.max(1, math.floor(hitContext.power or 1)) * deps.getAxeDamageMultiplier(axeDamageLevel)) + 0.5
+			)
+		)
 		local effectOrigin = hitContext.effectOrigin or plotRecord.DirtPatch.Position
 
 		local actualDamage = math.min(runtimePlotState.CurrentHealth, power)
@@ -166,9 +173,15 @@ function TreeHitController.create(deps)
 			return true
 		end
 
-		local reward = resolveReward(levelData, hitContext.goldMultiplier or 1)
+		local reward = math.max(
+			0,
+			math.floor(
+				(resolveReward(levelData, hitContext.goldMultiplier or 1) * deps.getGoldMultiplier(goldUpgradeLevel))
+					+ 0.5
+			)
+		)
 		local currentGold = deps.getGold(player) or 0
-		local growingUntil = deps.getServerNow() + levelData.GrowTime
+		local growingUntil = deps.getServerNow() + deps.getEffectiveGrowTime(player, levelData.GrowTime)
 		deps.setGold(player, currentGold + reward)
 		deps.refreshUnlockButtons(player)
 		runtimePlotState.CurrentHealth = 0

@@ -28,7 +28,7 @@ function LumberjackProgressionResolver.create(deps)
 
 		local plotState = deps.getTreePlot(player, plotId)
 		local gold = deps.getGold(player) or 0
-		local hireCost = deps.getHireCostByPlotId(plotId)
+		local hireCost = deps.getHireCost(player, plotId)
 
 		if not plotState or not plotState.Unlocked then
 			return deps.buildFailure(deps.failureReasons.PlotNotFound)
@@ -80,7 +80,7 @@ function LumberjackProgressionResolver.create(deps)
 		end
 
 		local currentLevel = math.max(1, plotState.LumberjackLevel or 0)
-		local upgradeCost = deps.getUpgradeCostByPlotId(plotId, currentLevel)
+		local upgradeCost = deps.getUpgradeCost(player, plotId, currentLevel)
 
 		if typeof(upgradeCost) ~= "number" then
 			return deps.buildFailure(deps.failureReasons.ConfigError)

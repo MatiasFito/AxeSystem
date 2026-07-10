@@ -57,6 +57,7 @@ function RebirthService.getState(player)
 
 	return serviceResult.success({
 		amber = playerData.getAmber(player) or 0,
+		amberGainLevel = playerData.getAmberUpgradeLevel(player, "AmberGain") or 0,
 		rebirths = playerData.getRebirths(player) or 0,
 		minimumPlotOrder = rebirthConfig.MINIMUM_PLOT_ORDER,
 	})
@@ -82,7 +83,8 @@ function RebirthService.requestRebirth(player)
 		)
 	end
 
-	local awardedAmber = rebirthConfig.calculateBaseAmberReward(maxUnlockedPlotOrder)
+	local amberGainLevel = playerData.getAmberUpgradeLevel(player, "AmberGain") or 0
+	local awardedAmber = rebirthConfig.calculateAmberReward(maxUnlockedPlotOrder, amberGainLevel)
 	local rebirthSuccess, updatedState = playerData.applyRebirth(player, awardedAmber)
 
 	if not rebirthSuccess or not updatedState then

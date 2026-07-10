@@ -8,6 +8,7 @@ local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
 local lumberjackConfig = require(sharedFolder:WaitForChild("LumberjackConfig") :: ModuleScript)
 local lumberjackConstants = require(sharedFolder:WaitForChild("LumberjackConstants") :: ModuleScript)
+local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
 local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 local networkFolder = sharedFolder:WaitForChild("Network")
@@ -237,6 +238,30 @@ local function pushStateUpdate(player, changedPlotIds)
 	if treeService then
 		treeService.pushStateUpdate(player, changedPlotIds)
 	end
+end
+
+local function getAmberUpgradeLevel(player, upgradeKey)
+	if not playerData or not playerData.getAmberUpgradeLevel then
+		return 0
+	end
+
+	return playerData.getAmberUpgradeLevel(player, upgradeKey) or 0
+end
+
+local function getDiscountedCost(player, baseCost)
+	if typeof(baseCost) ~= "number" then
+		return nil
+	end
+
+	return rebirthConfig.getReducedCost(baseCost, getAmberUpgradeLevel(player, "CostReduction"))
+end
+
+local function getHireCost(player, plotId)
+	return getDiscountedCost(player, lumberjackConfig.getHireCostByPlotId(plotId))
+end
+
+local function getUpgradeCost(player, plotId, currentLevel)
+	return getDiscountedCost(player, lumberjackConfig.getUpgradeCostByPlotId(plotId, currentLevel))
 end
 
 local function getLumberjackTemplate()
@@ -696,7 +721,7 @@ function LumberjackService.start(playerDataModule, treePlotServiceModule, treeSe
 		getGold = playerData.getGold,
 		getRuntimePlotState = getRuntimePlotState,
 		getTouchingPlayer = treeInteractionUtils.getTouchingPlayer,
-		getHireCostByPlotId = lumberjackConfig.getHireCostByPlotId,
+		getHireCost = getHireCost,
 		attemptHire = function(player, plotId)
 			progressionResolver.attemptHire(player, plotId)
 		end,
@@ -707,8 +732,8 @@ function LumberjackService.start(playerDataModule, treePlotServiceModule, treeSe
 		getAssignedPlot = treePlotService.getAssignedPlot,
 		getTreePlot = playerData.getTreePlot,
 		getGold = playerData.getGold,
-		getHireCostByPlotId = lumberjackConfig.getHireCostByPlotId,
-		getUpgradeCostByPlotId = lumberjackConfig.getUpgradeCostByPlotId,
+		getHireCost = getHireCost,
+		getUpgradeCost = getUpgradeCost,
 		setGold = playerData.setGold,
 		setTreePlot = playerData.setTreePlot,
 		playHireSuccessTween = function(player, plotId)

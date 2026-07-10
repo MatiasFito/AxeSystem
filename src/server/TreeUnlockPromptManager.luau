@@ -245,7 +245,8 @@ function TreeUnlockPromptManager.create(deps)
 				end)
 			end
 
-			local canAfford = (deps.getGold(player) or 0) >= tree.UnlockCost
+			local unlockCost = deps.getUnlockCost(player, tree)
+			local canAfford = typeof(unlockCost) == "number" and (deps.getGold(player) or 0) >= unlockCost
 			updateUnlockButtonVisuals(buttonModel, tree, canAfford)
 			return
 		end

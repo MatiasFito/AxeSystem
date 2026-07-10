@@ -10,6 +10,10 @@ local serviceDefinitions = {
 		moduleName = "AxeService",
 	},
 	{
+		name = "AmberShopService",
+		moduleName = "AmberShopService",
+	},
+	{
 		name = "BlacksmithService",
 		moduleName = "BlacksmithService",
 	},
@@ -50,6 +54,12 @@ local serviceStartOrder = {
 		name = "TreePlotService",
 		start = function(services)
 			services.TreePlotService.start()
+		end,
+	},
+	{
+		name = "AmberShopService",
+		start = function(services)
+			services.AmberShopService.start(services.PlayerData)
 		end,
 	},
 	{

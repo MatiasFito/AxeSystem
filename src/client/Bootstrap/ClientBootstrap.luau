@@ -1,6 +1,7 @@
 local ClientBootstrap = {}
 
 local controllerDefinitions = {
+	"AmberShopController",
 	"AutoSwingUI",
 	"BlacksmithZoneController",
 	"LumberjackUpgradePadController",

@@ -1,3 +1,7 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local amberShopConstants = require(sharedFolder:WaitForChild("AmberShopConstants") :: ModuleScript)
 local playerDataSerializer = require(script.Parent:WaitForChild("PlayerDataSerializer") :: ModuleScript)
 local playerLeaderstats = require(script.Parent:WaitForChild("PlayerLeaderstats") :: ModuleScript)
 local dataStoreRegistry = require(script.Parent:WaitForChild("DataStoreRegistry"))
@@ -20,6 +24,11 @@ local function syncLeaderstats(player, state)
 
 	playerLeaderstats.syncGold(player, state.Gold)
 	playerLeaderstats.syncRebirths(player, state.Rebirths or 0)
+	player:SetAttribute(amberShopConstants.PLAYER_AMBER_ATTRIBUTE_NAME, state.Amber or 0)
+	player:SetAttribute(
+		amberShopConstants.PLAYER_AMBER_GAIN_LEVEL_ATTRIBUTE_NAME,
+		(state.AmberUpgrades and state.AmberUpgrades.AmberGain) or 0
+	)
 end
 
 function PlayerData.start()
@@ -116,6 +125,16 @@ function PlayerData.getAmberUpgrades(player)
 	return playerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades)
 end
 
+function PlayerData.getAmberUpgradeLevel(player, upgradeKey)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return nil
+	end
+
+	return playerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades)[upgradeKey]
+end
+
 function PlayerData.setGold(player, gold)
 	local state = playerStates[player]
 
@@ -124,6 +143,19 @@ function PlayerData.setGold(player, gold)
 	end
 
 	state.Gold = playerDataSerializer.normalizeGold(gold)
+	state.IsDirty = true
+	syncLeaderstats(player, state)
+	return true
+end
+
+function PlayerData.setAmber(player, amber)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return false
+	end
+
+	state.Amber = playerDataSerializer.normalizeAmber(amber)
 	state.IsDirty = true
 	syncLeaderstats(player, state)
 	return true
@@ -167,6 +199,37 @@ function PlayerData.setTreePlots(player, treePlots)
 	end
 
 	state.TreePlots = playerDataSerializer.normalizeTreePlots(treePlots)
+	state.IsDirty = true
+	return true
+end
+
+function PlayerData.setAmberUpgrades(player, amberUpgrades)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return false
+	end
+
+	state.AmberUpgrades = playerDataSerializer.cloneAmberUpgrades(amberUpgrades)
+	state.IsDirty = true
+	return true
+end
+
+function PlayerData.setAmberUpgradeLevel(player, upgradeKey, level)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded or typeof(upgradeKey) ~= "string" then
+		return false
+	end
+
+	local amberUpgrades = playerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades)
+
+	if amberUpgrades[upgradeKey] == nil then
+		return false
+	end
+
+	amberUpgrades[upgradeKey] = math.max(0, math.floor(tonumber(level) or 0))
+	state.AmberUpgrades = playerDataSerializer.cloneAmberUpgrades(amberUpgrades)
 	state.IsDirty = true
 	return true
 end
@@ -253,6 +316,8 @@ end
 
 function PlayerData.removePlayer(player)
 	PlayerData.savePlayer(player)
+	player:SetAttribute(amberShopConstants.PLAYER_AMBER_ATTRIBUTE_NAME, nil)
+	player:SetAttribute(amberShopConstants.PLAYER_AMBER_GAIN_LEVEL_ATTRIBUTE_NAME, nil)
 	playerStates[player] = nil
 end
 

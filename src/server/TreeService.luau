@@ -4,6 +4,7 @@ local Workspace = game:GetService("Workspace")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local gameFeelConfig = require(sharedFolder:WaitForChild("GameFeelConfig") :: ModuleScript)
+local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
 local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
@@ -57,6 +58,33 @@ local treeHitController = nil
 
 local function getServerNow()
 	return Workspace:GetServerTimeNow()
+end
+
+local function getAmberUpgradeLevel(player, upgradeKey)
+	if not playerData or not playerData.getAmberUpgradeLevel then
+		return 0
+	end
+
+	return playerData.getAmberUpgradeLevel(player, upgradeKey) or 0
+end
+
+local function getEffectiveGrowTime(player, baseGrowTime)
+	if typeof(baseGrowTime) ~= "number" then
+		return 0
+	end
+
+	return math.max(
+		0,
+		baseGrowTime * rebirthConfig.getRegrowthTimeMultiplier(getAmberUpgradeLevel(player, "RegrowthTime"))
+	)
+end
+
+local function getUnlockCost(player, tree)
+	if not tree or typeof(tree.UnlockCost) ~= "number" then
+		return nil
+	end
+
+	return rebirthConfig.getReducedCost(tree.UnlockCost, getAmberUpgradeLevel(player, "CostReduction"))
 end
 
 function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceModule)
@@ -181,6 +209,8 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getLevelData = treeConfig.getLevelData,
 		getUpgradeLevel = treeConfig.getUpgradeLevel,
 		getUpgradeCost = treeConfig.getUpgradeCost,
+		getUnlockCost = getUnlockCost,
+		getEffectiveGrowTime = getEffectiveGrowTime,
 		setGold = playerData.setGold,
 		setTreePlot = playerData.setTreePlot,
 		playUnlockButtonSuccessTween = function(player, plotId)
@@ -234,6 +264,10 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getTreeByPlotId = treeConfig.getTreeByPlotId,
 		getLevelData = treeConfig.getLevelData,
 		getToolStatValue = treeInteractionUtils.getToolStatValue,
+		getAmberUpgradeLevel = getAmberUpgradeLevel,
+		getAxeDamageMultiplier = rebirthConfig.getAxeDamageMultiplier,
+		getGoldMultiplier = rebirthConfig.getGoldMultiplier,
+		getEffectiveGrowTime = getEffectiveGrowTime,
 		emitTreeParticles = treeVisualController.emitTreeParticles,
 		getTreeImpactWorldCFrame = treeVisualController.getTreeImpactWorldCFrame,
 		applyTreeShake = treeVisualController.applyTreeShake,
@@ -283,6 +317,7 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getTreePlots = playerData.getTreePlots,
 		getGold = playerData.getGold,
 		getTreeByPlotId = treeConfig.getTreeByPlotId,
+		getUnlockCost = getUnlockCost,
 		getRuntimePlotState = treeRuntimeManager.getRuntimePlotState,
 		getTouchingPlayer = treeInteractionUtils.getTouchingPlayer,
 		attemptUnlock = treeProgressionResolver.attemptUnlock,

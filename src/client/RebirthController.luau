@@ -1,8 +1,11 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local player = Players.LocalPlayer
 local rebirthUI = require(script.Parent:WaitForChild("RebirthUI") :: ModuleScript)
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local amberShopConstants = require(sharedFolder:WaitForChild("AmberShopConstants") :: ModuleScript)
 local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
 local rebirthConstants = require(sharedFolder:WaitForChild("RebirthConstants") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
@@ -20,6 +23,7 @@ local getRebirthStateRemote = nil
 local requestRebirthRemote = nil
 local plotStatesById = {}
 local amberAmount = 0
+local amberGainLevel = 0
 
 local function getMaxUnlockedPlotOrder()
 	local maxUnlockedPlotOrder = 0
@@ -44,7 +48,7 @@ local function buildPreviewState(extraFields)
 		isEligible = maxUnlockedPlotOrder >= minimumPlotOrder,
 		minimumPlotOrder = minimumPlotOrder,
 		maxUnlockedPlotOrder = maxUnlockedPlotOrder,
-		estimatedAmber = rebirthConfig.calculateBaseAmberReward(maxUnlockedPlotOrder),
+		estimatedAmber = rebirthConfig.calculateAmberReward(maxUnlockedPlotOrder, amberGainLevel),
 		amber = amberAmount,
 	}
 
@@ -59,6 +63,16 @@ end
 
 local function applyPreviewState(extraFields)
 	rebirthUI.setEligibility(buildPreviewState(extraFields))
+end
+
+local function applyAmberAttribute()
+	amberAmount = tonumber(player:GetAttribute(amberShopConstants.PLAYER_AMBER_ATTRIBUTE_NAME)) or 0
+	applyPreviewState()
+end
+
+local function applyAmberGainLevelAttribute()
+	amberGainLevel = tonumber(player:GetAttribute(amberShopConstants.PLAYER_AMBER_GAIN_LEVEL_ATTRIBUTE_NAME)) or 0
+	applyPreviewState()
 end
 
 local function applyTreeState(state)
@@ -97,6 +111,7 @@ local function requestInitialRebirthState()
 
 	if success and payload and payload.success and payload.state then
 		amberAmount = tonumber(payload.state.amber) or 0
+		amberGainLevel = tonumber(payload.state.amberGainLevel) or amberGainLevel
 		applyPreviewState()
 	end
 end
@@ -209,6 +224,12 @@ function RebirthController.start()
 	rebirthUI.setOpenHandler(handleOpenRequested)
 	rebirthUI.setConfirmHandler(handleConfirmRequested)
 	applyPreviewState()
+	applyAmberAttribute()
+	applyAmberGainLevelAttribute()
+	player:GetAttributeChangedSignal(amberShopConstants.PLAYER_AMBER_ATTRIBUTE_NAME):Connect(applyAmberAttribute)
+	player
+		:GetAttributeChangedSignal(amberShopConstants.PLAYER_AMBER_GAIN_LEVEL_ATTRIBUTE_NAME)
+		:Connect(applyAmberGainLevelAttribute)
 
 	if not resolveTreeRemotes() or not resolveRebirthRemote() then
 		rebirthUI.showFailure(rebirthConstants.getFailureMessage(rebirthConstants.FailureReason.ConfigError))

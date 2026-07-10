@@ -96,6 +96,29 @@ local progressionProfile = {
 	},
 }
 
+local upgradeMetadata = {
+	RegrowthTime = {
+		DisplayName = "Golden Fertilizer",
+		Description = "Reduces tree regrowth time globally.",
+	},
+	AxeDamage = {
+		DisplayName = "Heavy Edge",
+		Description = "Permanently increases base axe damage.",
+	},
+	CostReduction = {
+		DisplayName = "Bargain Instinct",
+		Description = "Reduces tree and lumberjack purchase costs.",
+	},
+	GoldMultiplier = {
+		DisplayName = "Golden Touch",
+		Description = "Increases gold gained from all felling.",
+	},
+	AmberGain = {
+		DisplayName = "Amber Resonance",
+		Description = "Increases Amber gained from rebirth.",
+	},
+}
+
 local upgradeKeys = {
 	"RegrowthTime",
 	"AxeDamage",
@@ -162,10 +185,42 @@ local function normalizeUpgradeLevel(level)
 	return math.clamp(math.floor(level), 0, progressionProfile.MaxUpgradeLevel)
 end
 
+local function roundPercent(value)
+	return math.max(0, math.floor(value + 0.5))
+end
+
+local function getUpgradeProfile(upgradeKey)
+	if typeof(upgradeKey) ~= "string" then
+		return nil
+	end
+
+	return progressionProfile[upgradeKey]
+end
+
+local function getUpgradeEffect(upgradeKey, level)
+	local profile = getUpgradeProfile(upgradeKey)
+
+	if not profile then
+		return nil
+	end
+
+	local normalizedLevel = normalizeUpgradeLevel(level)
+
+	if normalizedLevel < 1 then
+		return 1
+	end
+
+	return interpolateCheckpoints(profile.EffectCheckpoints, normalizedLevel)
+end
+
 RebirthConfig.AmberProgression = copyProgressionTable()
 
 function RebirthConfig.getUpgradeKeys()
 	return table.clone(upgradeKeys)
+end
+
+function RebirthConfig.getMaxUpgradeLevel()
+	return progressionProfile.MaxUpgradeLevel
 end
 
 function RebirthConfig.createDefaultAmberUpgrades()
@@ -192,6 +247,18 @@ function RebirthConfig.cloneAmberUpgrades(amberUpgrades)
 	return normalizedUpgrades
 end
 
+function RebirthConfig.getUpgradeLevel(amberUpgrades, upgradeKey)
+	if typeof(amberUpgrades) ~= "table" then
+		return 0
+	end
+
+	if not getUpgradeProfile(upgradeKey) then
+		return 0
+	end
+
+	return normalizeUpgradeLevel(amberUpgrades[upgradeKey])
+end
+
 function RebirthConfig.calculateBaseAmberReward(maxPlotUnlocked)
 	if typeof(maxPlotUnlocked) ~= "number" then
 		return 0
@@ -207,14 +274,122 @@ function RebirthConfig.calculateBaseAmberReward(maxPlotUnlocked)
 end
 
 function RebirthConfig.getAmberGainMultiplier(level)
-	local normalizedLevel = normalizeUpgradeLevel(level)
+	return RebirthConfig.getUpgradeEffect("AmberGain", level) or 1
+end
 
-	if normalizedLevel < 1 then
-		return 1
+function RebirthConfig.getRegrowthTimeMultiplier(level)
+	return RebirthConfig.getUpgradeEffect("RegrowthTime", level) or 1
+end
+
+function RebirthConfig.getAxeDamageMultiplier(level)
+	return RebirthConfig.getUpgradeEffect("AxeDamage", level) or 1
+end
+
+function RebirthConfig.getCostReductionMultiplier(level)
+	return RebirthConfig.getUpgradeEffect("CostReduction", level) or 1
+end
+
+function RebirthConfig.getGoldMultiplier(level)
+	return RebirthConfig.getUpgradeEffect("GoldMultiplier", level) or 1
+end
+
+function RebirthConfig.getUpgradeEffect(upgradeKey, level)
+	return getUpgradeEffect(upgradeKey, level)
+end
+
+function RebirthConfig.getUpgradeCostForNextLevel(upgradeKey, currentLevel)
+	local profile = getUpgradeProfile(upgradeKey)
+
+	if not profile then
+		return nil
 	end
 
-	return interpolateCheckpoints(progressionProfile.AmberGain.EffectCheckpoints, normalizedLevel)
+	local normalizedLevel = normalizeUpgradeLevel(currentLevel)
+
+	if normalizedLevel >= progressionProfile.MaxUpgradeLevel then
+		return nil
+	end
+
+	return math.max(0, math.floor(interpolateCheckpoints(profile.CostCheckpoints, normalizedLevel + 1) + 0.5))
 end
+
+function RebirthConfig.getReducedCost(baseCost, costReductionLevel)
+	if typeof(baseCost) ~= "number" then
+		return nil
+	end
+
+	return math.max(0, math.floor((baseCost * RebirthConfig.getCostReductionMultiplier(costReductionLevel)) + 0.5))
+end
+
+function RebirthConfig.getUpgradeMetadata(upgradeKey)
+	local metadata = upgradeMetadata[upgradeKey]
+
+	if not metadata then
+		return nil
+	end
+
+	return {
+		DisplayName = metadata.DisplayName,
+		Description = metadata.Description,
+	}
+end
+
+function RebirthConfig.getUpgradeBenefitText(upgradeKey, value)
+	if typeof(value) ~= "number" then
+		return ""
+	end
+
+	if upgradeKey == "RegrowthTime" then
+		return string.format("-%d%% Time", roundPercent((1 - value) * 100))
+	end
+
+	if upgradeKey == "AxeDamage" then
+		return string.format("+%d%% DMG", roundPercent((value - 1) * 100))
+	end
+
+	if upgradeKey == "CostReduction" then
+		return string.format("-%d%% Cost", roundPercent((1 - value) * 100))
+	end
+
+	if upgradeKey == "GoldMultiplier" then
+		return string.format("+%d%% Gold", roundPercent((value - 1) * 100))
+	end
+
+	if upgradeKey == "AmberGain" then
+		return string.format("+%d%% Amber", roundPercent((value - 1) * 100))
+	end
+
+	return tostring(value)
+end
+
+function RebirthConfig.getUpgradeStats(upgradeName, currentLevel)
+	if not getUpgradeProfile(upgradeName) then
+		return nil
+	end
+
+	local normalizedLevel = normalizeUpgradeLevel(currentLevel)
+	local maxLevel = progressionProfile.MaxUpgradeLevel
+	local isMaxLevel = normalizedLevel >= maxLevel
+	local metadata = RebirthConfig.getUpgradeMetadata(upgradeName)
+	local currentValue = RebirthConfig.getUpgradeEffect(upgradeName, normalizedLevel) or 1
+	local nextValue = not isMaxLevel and RebirthConfig.getUpgradeEffect(upgradeName, normalizedLevel + 1) or nil
+
+	return {
+		upgradeName = upgradeName,
+		displayName = metadata and metadata.DisplayName or upgradeName,
+		description = metadata and metadata.Description or "",
+		currentLevel = normalizedLevel,
+		maxLevel = maxLevel,
+		isMaxLevel = isMaxLevel,
+		costToNextLevel = RebirthConfig.getUpgradeCostForNextLevel(upgradeName, normalizedLevel),
+		currentValue = currentValue,
+		nextValue = nextValue,
+		currentText = RebirthConfig.getUpgradeBenefitText(upgradeName, currentValue),
+		nextText = nextValue and RebirthConfig.getUpgradeBenefitText(upgradeName, nextValue) or nil,
+	}
+end
+
+RebirthConfig.GetUpgradeStats = RebirthConfig.getUpgradeStats
 
 function RebirthConfig.calculateAmberReward(maxPlotUnlocked, amberGainLevel)
 	local baseReward = RebirthConfig.calculateBaseAmberReward(maxPlotUnlocked)

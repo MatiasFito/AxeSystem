@@ -199,7 +199,7 @@ function LumberjackHirePromptManager.create(deps)
 			return
 		end
 
-		local hireCost = deps.getHireCostByPlotId(plotId)
+		local hireCost = deps.getHireCost(player, plotId)
 
 		if typeof(hireCost) ~= "number" then
 			destroyHireButton(runtimePlotState)
