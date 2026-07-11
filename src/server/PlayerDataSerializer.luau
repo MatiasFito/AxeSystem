@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
+local lumberjackConstants = require(sharedFolder:WaitForChild("LumberjackConstants") :: ModuleScript)
 local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
@@ -197,7 +198,7 @@ function PlayerDataSerializer.normalizeTreePlotState(plotId, rawPlotState)
 
 	if hasLumberjack then
 		if isFiniteNumber(rawPlotState.LumberjackLevel) then
-			lumberjackLevel = math.max(0, math.floor(rawPlotState.LumberjackLevel))
+			lumberjackLevel = math.clamp(math.floor(rawPlotState.LumberjackLevel), 0, lumberjackConstants.MAX_LEVEL)
 
 			if lumberjackLevel ~= rawPlotState.LumberjackLevel then
 				wasChanged = true

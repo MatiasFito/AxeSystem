@@ -26,6 +26,7 @@ local LABEL_COLOR = Color3.fromRGB(246, 241, 232)
 local SUBTLE_COLOR = Color3.fromRGB(214, 201, 182)
 local GREEN_COLOR = Color3.fromRGB(101, 197, 95)
 local RED_COLOR = Color3.fromRGB(196, 84, 84)
+local MAX_COLOR = Color3.fromRGB(91, 102, 88)
 
 local started = false
 local rootGui = nil
@@ -265,6 +266,18 @@ local function renderPad(plotId)
 	padUi.TitleLabel.Text = string.format("%s Lumberjack  Lv.%d", plotState.treeName, plotState.lumberjackLevel or 0)
 	padUi.BonusLabel.Text = string.format("Auto Bonus  +%d%%", plotState.lumberjackGoldBonusPercent or 0)
 	padUi.DetailLabel.Text = "Uses your current axe power and gold bonus"
+
+	if plotState.lumberjackIsMaxLevel or plotState.lumberjackUpgradeCost == nil then
+		padUi.DetailLabel.Text = string.format(
+			"Max level reached  Lv.%d / %d",
+			plotState.lumberjackLevel or 0,
+			lumberjackConstants.MAX_LEVEL
+		)
+		padUi.UpgradeButton.Text = "MAX"
+		padUi.UpgradeButton.BackgroundColor3 = MAX_COLOR
+		padUi.UpgradeButton.Active = false
+		return
+	end
 
 	local canAfford = goldAmount >= (plotState.lumberjackUpgradeCost or math.huge)
 	padUi.UpgradeButton.Text =

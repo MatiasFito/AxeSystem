@@ -4,8 +4,8 @@ local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 
 local progressionProfile = {
-	MaxLevel = 10,
-	MinGrowTime = 0.5,
+	MaxLevel = 15,
+	MinGrowTime = 0.125,
 	HealthCheckpoints = {
 		{ Order = 1, Value = 25 },
 		{ Order = 5, Value = 50 },
@@ -44,10 +44,12 @@ local progressionProfile = {
 		{ Level = 4, Value = 6.8 },
 		{ Level = 7, Value = 10.4 },
 		{ Level = 10, Value = 14 },
+		{ Level = 12, Value = 15.2 },
+		{ Level = 15, Value = 17.8 },
 	},
-	LevelHealthMultipliers = { 1, 0.92, 0.85, 0.79, 0.74, 0.69, 0.65, 0.61, 0.58, 0.55 },
-	LevelRewardMultipliers = { 1, 1.25, 1.55, 1.9, 2.3, 2.75, 3.25, 3.8, 4.4, 5 },
-	LevelGrowTimeMultipliers = { 1, 0.84, 0.72, 0.64, 0.58, 0.54, 0.52, 0.51, 0.5, 0.5 },
+	LevelHealthMultipliers = { 1, 0.92, 0.85, 0.79, 0.74, 0.69, 0.65, 0.61, 0.58, 0.55, 0.49, 0.44, 0.4, 0.37, 0.34 },
+	LevelRewardMultipliers = { 1, 1.25, 1.55, 1.9, 2.3, 2.75, 3.25, 3.8, 4.4, 5, 6, 7.15, 8.45, 9.9, 11.5 },
+	LevelGrowTimeMultipliers = { 1, 0.84, 0.72, 0.64, 0.58, 0.54, 0.52, 0.51, 0.5, 0.5, 0.4, 0.31, 0.24, 0.18, 0.14 },
 }
 
 local orderedTreeTemplateNames = {

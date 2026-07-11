@@ -1,6 +1,7 @@
 local LumberjackConstants = {}
 
 LumberjackConstants.DEFAULT_HIRE_COST = 200
+LumberjackConstants.MAX_LEVEL = 15
 LumberjackConstants.GOLD_BONUS_PER_LEVEL = 0.1
 LumberjackConstants.DEFAULT_SWING_INTERVAL = 0.18
 LumberjackConstants.COLLISION_GROUP_NAME = "Lumberjacks"

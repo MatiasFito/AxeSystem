@@ -1,6 +1,6 @@
 local TreeConstants = {}
 
-TreeConstants.CURRENT_SCHEMA_VERSION = 4
+TreeConstants.CURRENT_SCHEMA_VERSION = 5
 
 TreeConstants.TREE_TEMPLATE_FOLDER_NAME = "Trees"
 TreeConstants.TREE_PLOT_SETS_FOLDER_NAME = "TreePlotSets"

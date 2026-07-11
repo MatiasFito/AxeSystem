@@ -34,7 +34,13 @@ function LumberjackConfig.getUpgradeCostByPlotId(plotId, currentLevel)
 		return nil
 	end
 
-	local nextLevel = math.max(1, math.floor(currentLevel) + 1)
+	local normalizedLevel = math.max(1, math.floor(currentLevel))
+
+	if normalizedLevel >= lumberjackConstants.MAX_LEVEL then
+		return nil
+	end
+
+	local nextLevel = normalizedLevel + 1
 	return baseCost * nextLevel
 end
 

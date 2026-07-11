@@ -1,3 +1,8 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local lumberjackConstants = require(sharedFolder:WaitForChild("LumberjackConstants") :: ModuleScript)
+
 local LumberjackProgressionResolver = {}
 
 local function clonePlotState(plotState)
@@ -80,6 +85,11 @@ function LumberjackProgressionResolver.create(deps)
 		end
 
 		local currentLevel = math.max(1, plotState.LumberjackLevel or 0)
+
+		if currentLevel >= lumberjackConstants.MAX_LEVEL then
+			return deps.buildFailure(deps.failureReasons.AlreadyMaxed)
+		end
+
 		local upgradeCost = deps.getUpgradeCost(player, plotId, currentLevel)
 
 		if typeof(upgradeCost) ~= "number" then

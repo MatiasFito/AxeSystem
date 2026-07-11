@@ -35,4 +35,16 @@ The blacksmith section is now authored once in Studio and spawned under every Pl
 - Placement uses `Plot03` in that PlotSet and moves the section 10 studs forward from that plot's facing direction.
 - Only the player assigned to that PlotSet can activate and use that section.
 
+## Progression Verification
+Use this checklist after changing tree or lumberjack progression values.
+
+1. Start the experience in Studio with a fresh profile or reset tree plot state for the test player.
+2. Unlock a tree plot, confirm the first grow timer starts immediately, and verify late-level trees can now drop to a 0.125 second grow floor.
+3. Upgrade one tree from level 10 through level 15 and confirm each upgrade increases reward, lowers health, and shortens regrowth relative to the previous level.
+4. Confirm the tree upgrade pad shows `MAX` at level 15 and no further tree upgrade cost is offered.
+5. Hire a lumberjack on a supported plot and upgrade it from level 1 through level 15.
+6. Confirm each lumberjack level still adds exactly +10% gold bonus and the pad shows `MAX` at level 15.
+7. Attempt one more lumberjack upgrade at level 15 and confirm no gold is spent and the server rejects the request.
+8. Load a profile with a lumberjack level above 15, if available, and confirm it normalizes down to level 15 without removing the hire.
+
 For more help, check out [the Rojo documentation](https://rojo.space/docs).

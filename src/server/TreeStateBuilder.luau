@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local lumberjackConfig = require(sharedFolder:WaitForChild("LumberjackConfig") :: ModuleScript)
+local lumberjackConstants = require(sharedFolder:WaitForChild("LumberjackConstants") :: ModuleScript)
 local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
@@ -66,6 +67,7 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 	local supportsLumberjack = tree.SupportsLumberjack ~= false
 	local hasLumberjack = supportsLumberjack and plotState.HasLumberjack == true
 	local lumberjackLevel = hasLumberjack and math.max(1, plotState.LumberjackLevel or 0) or 0
+	local lumberjackIsMaxLevel = hasLumberjack and lumberjackLevel >= lumberjackConstants.MAX_LEVEL
 	local unlockCost = getDiscountedCost(playerData, player, tree.UnlockCost)
 	local lumberjackHireCost = supportsLumberjack
 			and getDiscountedCost(playerData, player, lumberjackConfig.getHireCostByPlotId(plotId))
@@ -74,7 +76,10 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 			and getDiscountedCost(playerData, player, lumberjackConfig.getUpgradeCostByPlotId(plotId, lumberjackLevel))
 		or nil
 	local canHireLumberjack = supportsLumberjack and plotState.Unlocked and not hasLumberjack
-	local canUpgradeLumberjack = supportsLumberjack and plotState.Unlocked and hasLumberjack
+	local canUpgradeLumberjack = supportsLumberjack
+		and plotState.Unlocked
+		and hasLumberjack
+		and not lumberjackIsMaxLevel
 
 	if plotState.Unlocked and plotState.Level > 0 then
 		levelData = treeConfig.getLevelData(tree.Id, plotState.Level)
@@ -101,10 +106,11 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 		lumberjackLevel = lumberjackLevel,
 		canHireLumberjack = canHireLumberjack,
 		lumberjackHireCost = lumberjackHireCost,
+		lumberjackIsMaxLevel = lumberjackIsMaxLevel,
 		canUpgradeLumberjack = canUpgradeLumberjack,
 		lumberjackUpgradeCost = lumberjackUpgradeCost,
 		lumberjackGoldBonusPercent = lumberjackConfig.getGoldBonusPercent(lumberjackLevel),
-		showLumberjackUpgradePad = canUpgradeLumberjack,
+		showLumberjackUpgradePad = supportsLumberjack and plotState.Unlocked and hasLumberjack,
 		stats = levelData and {
 			health = levelData.Health,
 			growTime = levelData.GrowTime,
