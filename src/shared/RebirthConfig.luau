@@ -22,6 +22,24 @@ local progressionProfile = {
 			{ Order = 25, Value = 2.20 },
 		},
 	},
+	SwingSpeed = {
+		CostCheckpoints = {
+			{ Order = 1, Value = 2 },
+			{ Order = 5, Value = 15 },
+			{ Order = 10, Value = 50 },
+			{ Order = 15, Value = 150 },
+			{ Order = 20, Value = 400 },
+			{ Order = 25, Value = 1000 },
+		},
+		EffectCheckpoints = {
+			{ Order = 1, Value = 1.20 },
+			{ Order = 5, Value = 1.80 },
+			{ Order = 10, Value = 2.40 },
+			{ Order = 15, Value = 3.00 },
+			{ Order = 20, Value = 3.50 },
+			{ Order = 25, Value = 4.00 },
+		},
+	},
 	RegrowthTime = {
 		CostCheckpoints = {
 			{ Order = 1, Value = 1 },
@@ -119,6 +137,10 @@ local upgradeMetadata = {
 		DisplayName = "Fleet Foot",
 		Description = "Permanently increases player walk speed.",
 	},
+	SwingSpeed = {
+		DisplayName = "Fast Edge",
+		Description = "Permanently increases player swing speed.",
+	},
 	RegrowthTime = {
 		DisplayName = "Golden Fertilizer",
 		Description = "Reduces tree regrowth time globally.",
@@ -143,6 +165,7 @@ local upgradeMetadata = {
 
 local upgradeKeys = {
 	"WalkSpeed",
+	"SwingSpeed",
 	"RegrowthTime",
 	"AxeDamage",
 	"CostReduction",
@@ -304,6 +327,10 @@ function RebirthConfig.getWalkSpeedMultiplier(level)
 	return RebirthConfig.getUpgradeEffect("WalkSpeed", level) or 1
 end
 
+function RebirthConfig.getSwingSpeedMultiplier(level)
+	return RebirthConfig.getUpgradeEffect("SwingSpeed", level) or 1
+end
+
 function RebirthConfig.getRegrowthTimeMultiplier(level)
 	return RebirthConfig.getUpgradeEffect("RegrowthTime", level) or 1
 end
@@ -368,6 +395,10 @@ function RebirthConfig.getUpgradeBenefitText(upgradeKey, value)
 
 	if upgradeKey == "WalkSpeed" then
 		return string.format("+%d%% Speed", roundPercent((value - 1) * 100))
+	end
+
+	if upgradeKey == "SwingSpeed" then
+		return string.format("%d%% Speed", roundPercent(value * 100))
 	end
 
 	if upgradeKey == "RegrowthTime" then

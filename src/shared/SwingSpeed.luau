@@ -1,6 +1,7 @@
 local SwingSpeed = {}
 
 SwingSpeed.PLAYER_ATTRIBUTE_NAME = "SelectedSwingSpeed"
+SwingSpeed.EFFECTIVE_PLAYER_ATTRIBUTE_NAME = "EffectiveSwingSpeed"
 SwingSpeed.DEFAULT_MULTIPLIER = 1
 SwingSpeed.MIN_SELECTED_MULTIPLIER = 1
 SwingSpeed.MAX_SELECTED_MULTIPLIER = 5
@@ -26,6 +27,17 @@ function SwingSpeed.sanitizeSelectedMultiplier(multiplier)
 		SwingSpeed.MIN_SELECTED_MULTIPLIER,
 		SwingSpeed.MAX_SELECTED_MULTIPLIER
 	)
+end
+
+function SwingSpeed.getPlayerSwingSpeedMultiplier(player)
+	local effectiveMultiplier = player and player:GetAttribute(SwingSpeed.EFFECTIVE_PLAYER_ATTRIBUTE_NAME) or nil
+
+	if typeof(effectiveMultiplier) == "number" and effectiveMultiplier > 0 then
+		return effectiveMultiplier
+	end
+
+	local selectedMultiplier = player and player:GetAttribute(SwingSpeed.PLAYER_ATTRIBUTE_NAME) or nil
+	return SwingSpeed.sanitizeSelectedMultiplier(selectedMultiplier)
 end
 
 function SwingSpeed.getToolSwingSpeed(tool)

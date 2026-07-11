@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
+local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
 local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 local axeToolBuilder = require(script.Parent:WaitForChild("AxeToolBuilder") :: ModuleScript)
 local axeInventoryPolicyModule = require(script.Parent:WaitForChild("AxeInventoryPolicy") :: ModuleScript)
@@ -10,6 +11,8 @@ local AxeService = {}
 local axeInventoryPolicy = axeInventoryPolicyModule.create({
 	isAxeTool = axeConfig.isAxeTool,
 })
+local playerData = nil
+local SWING_SPEED_UPGRADE_KEY = "SwingSpeed"
 
 local function ensureStatsFolder(tool)
 	local stats = tool:FindFirstChild("Stats")
@@ -53,8 +56,27 @@ local function sanitizeSwingSpeed(multiplier)
 	return swingSpeed.sanitizeSelectedMultiplier(multiplier)
 end
 
-local function getPlayerSwingSpeed(player)
+local function getSelectedPlayerSwingSpeed(player)
 	return sanitizeSwingSpeed(player and player:GetAttribute(swingSpeed.PLAYER_ATTRIBUTE_NAME) or nil)
+end
+
+local function getAmberSwingSpeedMultiplier(player)
+	if not playerData or not player then
+		return 1
+	end
+
+	local swingSpeedLevel = playerData.getAmberUpgradeLevel(player, SWING_SPEED_UPGRADE_KEY) or 0
+	return rebirthConfig.getSwingSpeedMultiplier(swingSpeedLevel)
+end
+
+local function getEffectivePlayerSwingSpeed(player, selectedMultiplier)
+	local resolvedSelectedMultiplier = selectedMultiplier
+
+	if typeof(resolvedSelectedMultiplier) ~= "number" then
+		resolvedSelectedMultiplier = getSelectedPlayerSwingSpeed(player)
+	end
+
+	return resolvedSelectedMultiplier * getAmberSwingSpeedMultiplier(player)
 end
 
 local function setToolSwingSpeed(tool, multiplier)
@@ -68,10 +90,21 @@ local function setToolSwingSpeed(tool, multiplier)
 end
 
 local function applyPlayerSwingSpeed(player, multiplier)
-	local sanitizedMultiplier = sanitizeSwingSpeed(multiplier)
+	local selectedMultiplier = multiplier
+
+	if typeof(selectedMultiplier) == "number" then
+		selectedMultiplier = sanitizeSwingSpeed(selectedMultiplier)
+	elseif player then
+		selectedMultiplier = getSelectedPlayerSwingSpeed(player)
+	else
+		selectedMultiplier = swingSpeed.DEFAULT_MULTIPLIER
+	end
+
+	local effectiveMultiplier = getEffectivePlayerSwingSpeed(player, selectedMultiplier)
 
 	if player then
-		player:SetAttribute(swingSpeed.PLAYER_ATTRIBUTE_NAME, sanitizedMultiplier)
+		player:SetAttribute(swingSpeed.PLAYER_ATTRIBUTE_NAME, selectedMultiplier)
+		player:SetAttribute(swingSpeed.EFFECTIVE_PLAYER_ATTRIBUTE_NAME, effectiveMultiplier)
 	end
 
 	local containers = {
@@ -82,12 +115,16 @@ local function applyPlayerSwingSpeed(player, multiplier)
 	for _, container in containers do
 		if container then
 			for _, child in container:GetChildren() do
-				setToolSwingSpeed(child, sanitizedMultiplier)
+				setToolSwingSpeed(child, effectiveMultiplier)
 			end
 		end
 	end
 
-	return sanitizedMultiplier
+	return effectiveMultiplier
+end
+
+function AxeService.start(playerDataModule)
+	playerData = playerDataModule
 end
 
 function AxeService.isAxeTool(tool)
@@ -103,11 +140,15 @@ function AxeService.removePlayerAxes(player)
 end
 
 function AxeService.getPlayerSwingSpeed(player)
-	return getPlayerSwingSpeed(player)
+	return getEffectivePlayerSwingSpeed(player)
 end
 
 function AxeService.setPlayerSwingSpeed(player, multiplier)
 	return applyPlayerSwingSpeed(player, multiplier)
+end
+
+function AxeService.applyToPlayer(player)
+	return applyPlayerSwingSpeed(player)
 end
 
 function AxeService.grantAxe(player, tierId, equipTool)
@@ -118,7 +159,7 @@ function AxeService.grantAxe(player, tierId, equipTool)
 	end
 
 	local tool = toolOrReason
-	setToolSwingSpeed(tool, getPlayerSwingSpeed(player))
+	setToolSwingSpeed(tool, getEffectivePlayerSwingSpeed(player))
 	return axeInventoryPolicy.grantTool(player, tool, equipTool)
 end
 

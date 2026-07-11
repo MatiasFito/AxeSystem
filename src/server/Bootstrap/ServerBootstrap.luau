@@ -52,6 +52,12 @@ local serviceStartOrder = {
 		end,
 	},
 	{
+		name = "AxeService",
+		start = function(services)
+			services.AxeService.start(services.PlayerData)
+		end,
+	},
+	{
 		name = "TreePlotService",
 		start = function(services)
 			services.TreePlotService.start()
@@ -60,7 +66,7 @@ local serviceStartOrder = {
 	{
 		name = "AmberShopService",
 		start = function(services)
-			services.AmberShopService.start(services.PlayerData)
+			services.AmberShopService.start(services.PlayerData, services.AxeService)
 		end,
 	},
 	{
@@ -130,6 +136,10 @@ local function syncPlayerAxe(services, player)
 	end
 end
 
+local function syncPlayerSwingSpeed(services, player)
+	services.AxeService.applyToPlayer(player)
+end
+
 local function syncPlayerWalkSpeed(services, player, character)
 	services.WalkSpeedController.applyToCharacter(services.PlayerData, player, character)
 end
@@ -138,11 +148,13 @@ local function onPlayerAdded(services, player)
 	player.CharacterAdded:Connect(function(character)
 		task.defer(syncPlayerWalkSpeed, services, player, character)
 		task.defer(syncPlayerAxe, services, player)
+		task.defer(syncPlayerSwingSpeed, services, player)
 	end)
 
 	services.PlayerData.loadPlayer(player)
 	services.WalkSpeedController.applyToCurrentCharacter(services.PlayerData, player)
 	syncPlayerAxe(services, player)
+	syncPlayerSwingSpeed(services, player)
 	services.TreeService.onPlayerAdded(player)
 	services.LumberjackService.onPlayerAdded(player)
 end

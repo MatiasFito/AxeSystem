@@ -16,6 +16,7 @@ local AmberShopService = {}
 local started = false
 local playerData = nil
 local purchaseResolver = nil
+local axeService = nil
 
 local function buildState(player)
 	return amberShopStateBuilder.buildState(playerData, player)
@@ -40,13 +41,14 @@ function AmberShopService.buyUpgrade(player, upgradeName)
 	return purchaseResolver.handlePurchase(player, upgradeName)
 end
 
-function AmberShopService.start(playerDataModule)
+function AmberShopService.start(playerDataModule, axeServiceModule)
 	if started then
 		return
 	end
 
 	started = true
 	playerData = playerDataModule
+	axeService = axeServiceModule
 	purchaseResolver = amberShopPurchaseResolverModule.create({
 		failureReasons = amberShopConstants.FailureReason,
 		isPlayerLoaded = playerData.isLoaded,
@@ -66,6 +68,8 @@ function AmberShopService.start(playerDataModule)
 		applyPurchasedUpgrade = function(player, upgradeName)
 			if upgradeName == "WalkSpeed" then
 				walkSpeedController.applyToCurrentCharacter(playerData, player)
+			elseif upgradeName == "SwingSpeed" and axeService then
+				axeService.applyToPlayer(player)
 			end
 		end,
 	})

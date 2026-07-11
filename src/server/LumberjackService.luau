@@ -488,9 +488,7 @@ local function getPlayerSwingMultiplier(player)
 		return swingSpeed.DEFAULT_MULTIPLIER
 	end
 
-	local selectedSpeed = player:GetAttribute(swingSpeed.PLAYER_ATTRIBUTE_NAME)
-
-	return swingSpeed.sanitizeSelectedMultiplier(selectedSpeed)
+	return swingSpeed.getPlayerSwingSpeedMultiplier(player)
 end
 
 local function getLumberjackSwingInterval(player)
