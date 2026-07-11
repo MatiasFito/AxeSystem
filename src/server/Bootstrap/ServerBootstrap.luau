@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ServerBootstrap = {}
 
 local studioAssetValidatorModuleName = "StudioAssetValidator"
+local walkSpeedControllerModuleName = "WalkSpeedController"
 
 local serviceDefinitions = {
 	{
@@ -129,12 +130,18 @@ local function syncPlayerAxe(services, player)
 	end
 end
 
+local function syncPlayerWalkSpeed(services, player, character)
+	services.WalkSpeedController.applyToCharacter(services.PlayerData, player, character)
+end
+
 local function onPlayerAdded(services, player)
-	player.CharacterAdded:Connect(function()
+	player.CharacterAdded:Connect(function(character)
+		task.defer(syncPlayerWalkSpeed, services, player, character)
 		task.defer(syncPlayerAxe, services, player)
 	end)
 
 	services.PlayerData.loadPlayer(player)
+	services.WalkSpeedController.applyToCurrentCharacter(services.PlayerData, player)
 	syncPlayerAxe(services, player)
 	services.TreeService.onPlayerAdded(player)
 	services.LumberjackService.onPlayerAdded(player)
@@ -149,6 +156,7 @@ end
 function ServerBootstrap.start(serverRoot)
 	local services = loadServices(serverRoot)
 	local studioAssetValidator = require(serverRoot:WaitForChild(studioAssetValidatorModuleName) :: ModuleScript)
+	services.WalkSpeedController = require(serverRoot:WaitForChild(walkSpeedControllerModuleName) :: ModuleScript)
 
 	studioAssetValidator.validateOrThrow()
 

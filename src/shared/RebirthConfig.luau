@@ -4,6 +4,24 @@ RebirthConfig.MINIMUM_PLOT_ORDER = 10
 
 local progressionProfile = {
 	MaxUpgradeLevel = 25,
+	WalkSpeed = {
+		CostCheckpoints = {
+			{ Order = 1, Value = 1 },
+			{ Order = 5, Value = 8 },
+			{ Order = 10, Value = 30 },
+			{ Order = 15, Value = 90 },
+			{ Order = 20, Value = 250 },
+			{ Order = 25, Value = 600 },
+		},
+		EffectCheckpoints = {
+			{ Order = 1, Value = 1.10 },
+			{ Order = 5, Value = 1.35 },
+			{ Order = 10, Value = 1.45 },
+			{ Order = 15, Value = 1.65 },
+			{ Order = 20, Value = 1.85 },
+			{ Order = 25, Value = 2.20 },
+		},
+	},
 	RegrowthTime = {
 		CostCheckpoints = {
 			{ Order = 1, Value = 1 },
@@ -97,6 +115,10 @@ local progressionProfile = {
 }
 
 local upgradeMetadata = {
+	WalkSpeed = {
+		DisplayName = "Fleet Foot",
+		Description = "Permanently increases player walk speed.",
+	},
 	RegrowthTime = {
 		DisplayName = "Golden Fertilizer",
 		Description = "Reduces tree regrowth time globally.",
@@ -120,6 +142,7 @@ local upgradeMetadata = {
 }
 
 local upgradeKeys = {
+	"WalkSpeed",
 	"RegrowthTime",
 	"AxeDamage",
 	"CostReduction",
@@ -277,6 +300,10 @@ function RebirthConfig.getAmberGainMultiplier(level)
 	return RebirthConfig.getUpgradeEffect("AmberGain", level) or 1
 end
 
+function RebirthConfig.getWalkSpeedMultiplier(level)
+	return RebirthConfig.getUpgradeEffect("WalkSpeed", level) or 1
+end
+
 function RebirthConfig.getRegrowthTimeMultiplier(level)
 	return RebirthConfig.getUpgradeEffect("RegrowthTime", level) or 1
 end
@@ -337,6 +364,10 @@ end
 function RebirthConfig.getUpgradeBenefitText(upgradeKey, value)
 	if typeof(value) ~= "number" then
 		return ""
+	end
+
+	if upgradeKey == "WalkSpeed" then
+		return string.format("+%d%% Speed", roundPercent((value - 1) * 100))
 	end
 
 	if upgradeKey == "RegrowthTime" then

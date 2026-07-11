@@ -54,6 +54,10 @@ function AmberShopPurchaseResolver.create(deps)
 			return buildFailure(player, deps.failureReasons.SaveFailed)
 		end
 
+		if deps.applyPurchasedUpgrade then
+			deps.applyPurchasedUpgrade(player, upgradeName)
+		end
+
 		local updatedState = deps.buildState(player)
 
 		return deps.buildSuccess(updatedState, {

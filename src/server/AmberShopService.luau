@@ -9,6 +9,7 @@ local amberShopPurchaseResolverModule = require(script.Parent:WaitForChild("Ambe
 local amberShopRemoteHandlers = require(script.Parent:WaitForChild("AmberShopRemoteHandlers") :: ModuleScript)
 local amberShopRemoteRegistry = require(script.Parent:WaitForChild("AmberShopRemoteRegistry") :: ModuleScript)
 local amberShopStateBuilder = require(script.Parent:WaitForChild("AmberShopStateBuilder") :: ModuleScript)
+local walkSpeedController = require(script.Parent:WaitForChild("WalkSpeedController") :: ModuleScript)
 
 local AmberShopService = {}
 
@@ -62,6 +63,11 @@ function AmberShopService.start(playerDataModule)
 			return serviceResult.failure(reason, amberShopConstants.getFailureMessage, state)
 		end,
 		buildSuccess = serviceResult.success,
+		applyPurchasedUpgrade = function(player, upgradeName)
+			if upgradeName == "WalkSpeed" then
+				walkSpeedController.applyToCurrentCharacter(playerData, player)
+			end
+		end,
 	})
 
 	local remotes = amberShopRemoteRegistry.getOrCreateRemotes()
