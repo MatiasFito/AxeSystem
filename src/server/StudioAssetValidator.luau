@@ -327,13 +327,8 @@ local function validateTreePlotSets(errors)
 end
 
 local function validateBlacksmithSection(errors)
-	local template = requireChild(
-		ServerStorage,
-		blacksmithConstants.BLACKSMITH_SECTION_TEMPLATE_NAME,
-		"Model",
-		errors,
-		"ServerStorage"
-	)
+	local template =
+		requireChild(Workspace, blacksmithConstants.BLACKSMITH_SECTION_MODEL_NAME, "Model", errors, "Workspace")
 
 	if not template then
 		return
@@ -344,21 +339,21 @@ local function validateBlacksmithSection(errors)
 		blacksmithConstants.BLACKSMITH_PART_NAME,
 		"BasePart",
 		errors,
-		string.format("ServerStorage/%s", blacksmithConstants.BLACKSMITH_SECTION_TEMPLATE_NAME)
+		string.format("Workspace/%s", blacksmithConstants.BLACKSMITH_SECTION_MODEL_NAME)
 	)
 	requireDescendant(
 		template,
 		blacksmithConstants.BLACKSMITH_FLOOR_NAME,
 		"BasePart",
 		errors,
-		string.format("ServerStorage/%s", blacksmithConstants.BLACKSMITH_SECTION_TEMPLATE_NAME)
+		string.format("Workspace/%s", blacksmithConstants.BLACKSMITH_SECTION_MODEL_NAME)
 	)
 	requireDescendant(
 		template,
 		blacksmithConstants.BLACKSMITH_NPC_NAME,
 		"Model",
 		errors,
-		string.format("ServerStorage/%s", blacksmithConstants.BLACKSMITH_SECTION_TEMPLATE_NAME)
+		string.format("Workspace/%s", blacksmithConstants.BLACKSMITH_SECTION_MODEL_NAME)
 	)
 end
 

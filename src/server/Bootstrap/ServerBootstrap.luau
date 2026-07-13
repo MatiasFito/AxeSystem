@@ -72,7 +72,7 @@ local serviceStartOrder = {
 	{
 		name = "BlacksmithService",
 		start = function(services)
-			services.BlacksmithService.start(services.PlayerData, services.AxeService, services.TreePlotService)
+			services.BlacksmithService.start(services.PlayerData, services.AxeService)
 		end,
 	},
 	{

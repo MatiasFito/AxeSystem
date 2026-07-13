@@ -1,48 +1,11 @@
 local Workspace = game:GetService("Workspace")
 
 local blacksmithConstants = require(script.Parent:WaitForChild("BlacksmithConstants"))
-local treeConstants = require(script.Parent:WaitForChild("TreeConstants"))
 
 local BlacksmithZoneUtils = {}
 
-local function getPlotSetsFolder()
-	return Workspace:FindFirstChild(treeConstants.TREE_PLOT_SETS_FOLDER_NAME)
-end
-
-function BlacksmithZoneUtils.getPlotSetFolder(plotSetId)
-	if typeof(plotSetId) ~= "string" or plotSetId == "" then
-		return nil
-	end
-
-	local plotSetsFolder = getPlotSetsFolder()
-
-	if not plotSetsFolder then
-		return nil
-	end
-
-	local directFolder = plotSetsFolder:FindFirstChild(plotSetId)
-
-	if directFolder and directFolder:IsA("Folder") then
-		return directFolder
-	end
-
-	for _, child in plotSetsFolder:GetChildren() do
-		if child:IsA("Folder") and child:GetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE) == plotSetId then
-			return child
-		end
-	end
-
-	return nil
-end
-
-function BlacksmithZoneUtils.getBlacksmithSectionModel(plotSetId)
-	local plotSetFolder = BlacksmithZoneUtils.getPlotSetFolder(plotSetId)
-
-	if not plotSetFolder then
-		return nil
-	end
-
-	local model = plotSetFolder:FindFirstChild(blacksmithConstants.BLACKSMITH_SECTION_MODEL_NAME)
+function BlacksmithZoneUtils.getBlacksmithSectionModel()
+	local model = Workspace:FindFirstChild(blacksmithConstants.BLACKSMITH_SECTION_MODEL_NAME)
 
 	if model and model:IsA("Model") then
 		return model
@@ -51,8 +14,8 @@ function BlacksmithZoneUtils.getBlacksmithSectionModel(plotSetId)
 	return nil
 end
 
-function BlacksmithZoneUtils.getBlacksmithPartForPlotSet(plotSetId)
-	local model = BlacksmithZoneUtils.getBlacksmithSectionModel(plotSetId)
+function BlacksmithZoneUtils.getBlacksmithPart()
+	local model = BlacksmithZoneUtils.getBlacksmithSectionModel()
 
 	if not model then
 		return nil

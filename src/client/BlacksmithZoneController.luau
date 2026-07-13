@@ -10,7 +10,6 @@ local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstan
 local blacksmithZoneUtils = require(sharedFolder:WaitForChild("BlacksmithZoneUtils") :: ModuleScript)
 local networkFolder = sharedFolder:WaitForChild("Network")
 local remoteResolver = require(networkFolder:WaitForChild("RemoteResolver") :: ModuleScript)
-local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 
 local POLL_INTERVAL = 0.15
 local MISS_THRESHOLD = 3
@@ -23,18 +22,6 @@ local requestUpgradeRemote = nil
 local timeSincePoll = 0
 local insideZone = false
 local missCount = 0
-local plotSetId = nil
-
-local function syncAssignedPlotSetId()
-	local assignedPlotSetId = player:GetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE)
-
-	if typeof(assignedPlotSetId) == "string" and assignedPlotSetId ~= "" then
-		plotSetId = assignedPlotSetId
-		return
-	end
-
-	plotSetId = nil
-end
 
 local function resolveRemotes()
 	local blacksmithFolder = remoteResolver.waitForPath(ReplicatedStorage, {
@@ -68,10 +55,6 @@ local function resolveRemotes()
 end
 
 local function applyPayload(payload)
-	if payload.state and typeof(payload.state.plotSetId) == "string" and payload.state.plotSetId ~= "" then
-		plotSetId = payload.state.plotSetId
-	end
-
 	if payload.success then
 		blacksmithUI.renderState(payload.state)
 		return
@@ -140,15 +123,7 @@ local function dismissShopWhileInside()
 end
 
 local function updateZoneState()
-	if typeof(plotSetId) ~= "string" or plotSetId == "" then
-		if insideZone then
-			closeShop()
-		end
-
-		return
-	end
-
-	local part = blacksmithZoneUtils.getBlacksmithPartForPlotSet(plotSetId)
+	local part = blacksmithZoneUtils.getBlacksmithPart()
 	local isInZone = part ~= nil and blacksmithZoneUtils.isCharacterInZone(player.Character, part)
 
 	if isInZone then
@@ -187,18 +162,9 @@ function BlacksmithZoneController.start()
 
 	blacksmithUI.setUpgradeHandler(requestUpgrade)
 	blacksmithUI.setCloseHandler(dismissShopWhileInside)
-	syncAssignedPlotSetId()
 
 	player.CharacterAdded:Connect(function()
 		closeShop()
-	end)
-	player:GetAttributeChangedSignal(treeConstants.PLOT_SET_ID_ATTRIBUTE):Connect(function()
-		local previousPlotSetId = plotSetId
-		syncAssignedPlotSetId()
-
-		if plotSetId ~= previousPlotSetId then
-			closeShop()
-		end
 	end)
 
 	RunService.Heartbeat:Connect(function(deltaTime)

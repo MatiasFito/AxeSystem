@@ -8,8 +8,6 @@ local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
 local blacksmithRemoteHandlersModule = require(script.Parent:WaitForChild("BlacksmithRemoteHandlers") :: ModuleScript)
 local blacksmithRemoteRegistry = require(script.Parent:WaitForChild("BlacksmithRemoteRegistry") :: ModuleScript)
-local blacksmithSectionMaterializerModule =
-	require(script.Parent:WaitForChild("BlacksmithSectionMaterializer") :: ModuleScript)
 local blacksmithStateBuilderModule = require(script.Parent:WaitForChild("BlacksmithStateBuilder") :: ModuleScript)
 local blacksmithUpgradeResolverModule = require(script.Parent:WaitForChild("BlacksmithUpgradeResolver") :: ModuleScript)
 
@@ -17,31 +15,20 @@ local BlacksmithService = {}
 
 local started = false
 
-function BlacksmithService.start(playerDataModule, axeServiceModule, treePlotServiceModule)
+function BlacksmithService.start(playerDataModule, axeServiceModule)
 	if started then
 		return
 	end
 
 	started = true
-	local blacksmithSectionMaterializer = blacksmithSectionMaterializerModule.create({
-		getPlotSets = treePlotServiceModule.getPlotSets,
-	})
-	blacksmithSectionMaterializer.materializeAll()
 
-	local function getBlacksmithPartForPlayer(player)
-		local plotSetId = treePlotServiceModule.getAssignedPlotSetId(player)
-
-		if typeof(plotSetId) ~= "string" or plotSetId == "" then
-			return nil
-		end
-
-		return blacksmithZoneUtils.getBlacksmithPartForPlotSet(plotSetId)
+	local function getBlacksmithPartForPlayer(_player)
+		return blacksmithZoneUtils.getBlacksmithPart()
 	end
 
 	local blacksmithStateBuilder = blacksmithStateBuilderModule.create({
 		failureReasons = blacksmithConstants.FailureReason,
 		isPlayerLoaded = playerDataModule.isLoaded,
-		getAssignedPlotSetId = treePlotServiceModule.getAssignedPlotSetId,
 		getAxeTierId = playerDataModule.getAxeTierId,
 		getTier = axeConfig.getTier,
 		getNextTier = axeConfig.getNextTier,

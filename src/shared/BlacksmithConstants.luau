@@ -6,13 +6,10 @@ BlacksmithConstants.DATASTORE_KEY_PREFIX = "player:"
 
 BlacksmithConstants.DEFAULT_AXE_TIER_ID = "WoodAxe"
 BlacksmithConstants.AXE_TEMPLATE_FOLDER_NAME = "AxeTemplates"
-BlacksmithConstants.BLACKSMITH_SECTION_TEMPLATE_NAME = "BlacksmithSection"
 BlacksmithConstants.BLACKSMITH_SECTION_MODEL_NAME = "BlacksmithSection"
 BlacksmithConstants.BLACKSMITH_PART_NAME = "AxeUpgrades"
 BlacksmithConstants.BLACKSMITH_FLOOR_NAME = "BlacksmithFloor"
 BlacksmithConstants.BLACKSMITH_NPC_NAME = "Blacksmith"
-BlacksmithConstants.BLACKSMITH_TARGET_PLOT_ID = "Plot03"
-BlacksmithConstants.BLACKSMITH_FORWARD_OFFSET = 15
 BlacksmithConstants.IS_AXE_TOOL_ATTRIBUTE = "IsAxeTool"
 BlacksmithConstants.AXE_TIER_ID_ATTRIBUTE = "AxeTierId"
 
