@@ -6,6 +6,7 @@ local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstan
 local blacksmithZoneUtils = require(sharedFolder:WaitForChild("BlacksmithZoneUtils") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
+local axeDamageResolverModule = require(script.Parent:WaitForChild("AxeDamageResolver") :: ModuleScript)
 local blacksmithRemoteHandlersModule = require(script.Parent:WaitForChild("BlacksmithRemoteHandlers") :: ModuleScript)
 local blacksmithRemoteRegistry = require(script.Parent:WaitForChild("BlacksmithRemoteRegistry") :: ModuleScript)
 local blacksmithStateBuilderModule = require(script.Parent:WaitForChild("BlacksmithStateBuilder") :: ModuleScript)
@@ -26,6 +27,10 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 		return blacksmithZoneUtils.getBlacksmithPart()
 	end
 
+	local axeDamageResolver = axeDamageResolverModule.create({
+		getAmberUpgradeLevel = playerDataModule.getAmberUpgradeLevel,
+	})
+
 	local blacksmithStateBuilder = blacksmithStateBuilderModule.create({
 		failureReasons = blacksmithConstants.FailureReason,
 		isPlayerLoaded = playerDataModule.isLoaded,
@@ -33,6 +38,7 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 		getTier = axeConfig.getTier,
 		getNextTier = axeConfig.getNextTier,
 		getGold = playerDataModule.getGold,
+		resolveFinalDamageForTier = axeDamageResolver.resolveFinalDamageForTier,
 		buildFailure = function(reason)
 			return serviceResult.failure(reason, blacksmithConstants.getFailureMessage)
 		end,

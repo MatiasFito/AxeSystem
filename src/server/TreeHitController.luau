@@ -136,14 +136,8 @@ function TreeHitController.create(deps)
 			runtimePlotState.CurrentHealth = levelData.Health
 		end
 
-		local axeDamageLevel = deps.getAmberUpgradeLevel(player, "AxeDamage") or 0
 		local goldUpgradeLevel = deps.getAmberUpgradeLevel(player, "GoldMultiplier") or 0
-		local power = math.max(
-			1,
-			math.floor(
-				(math.max(1, math.floor(hitContext.power or 1)) * deps.getAxeDamageMultiplier(axeDamageLevel)) + 0.5
-			)
-		)
+		local power = deps.resolveFinalDamageFromBasePower(player, hitContext.power)
 		local effectOrigin = hitContext.effectOrigin or plotRecord.DirtPatch.Position
 
 		local actualDamage = math.min(runtimePlotState.CurrentHealth, power)

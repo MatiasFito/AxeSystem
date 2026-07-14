@@ -1,6 +1,6 @@
 local BlacksmithStateBuilder = {}
 
-local function buildAxeSnapshot(tier, includeCost)
+local function buildAxeSnapshot(player, tier, includeCost, resolveFinalDamageForTier)
 	if not tier then
 		return nil
 	end
@@ -9,6 +9,8 @@ local function buildAxeSnapshot(tier, includeCost)
 		id = tier.Id,
 		name = tier.Name,
 		description = tier.Description,
+		baseDamage = tier.Power,
+		finalDamage = resolveFinalDamageForTier and resolveFinalDamageForTier(player, tier) or tier.Power,
 		power = tier.Power,
 		goldMultiplier = tier.GoldMultiplier,
 		imageId = tier.ImageId,
@@ -40,9 +42,9 @@ function BlacksmithStateBuilder.create(deps)
 		return deps.buildSuccess({
 			gold = gold,
 			currentTierId = currentTierId,
-			currentAxe = buildAxeSnapshot(currentTier, false),
+			currentAxe = buildAxeSnapshot(player, currentTier, false, deps.resolveFinalDamageForTier),
 			nextTierId = nextTier and nextTier.Id or nil,
-			nextAxe = buildAxeSnapshot(nextTier, true),
+			nextAxe = buildAxeSnapshot(player, nextTier, true, deps.resolveFinalDamageForTier),
 			canUpgrade = nextTier ~= nil and gold >= nextTier.Cost,
 			isMaxTier = nextTier == nil,
 		})

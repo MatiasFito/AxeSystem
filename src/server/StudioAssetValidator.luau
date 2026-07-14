@@ -550,6 +550,66 @@ local function validateBlacksmithSection(errors)
 	)
 end
 
+local function validateBlacksmithGui(errors)
+	local blacksmithGui = requireChild(StarterGui, "BlacksmithGui", "ScreenGui", errors, "StarterGui")
+
+	if not blacksmithGui then
+		return
+	end
+
+	local root = requireChild(blacksmithGui, "Root", "GuiObject", errors, "StarterGui/BlacksmithGui")
+
+	if not root then
+		return
+	end
+
+	requireChild(root, "CloseButton", "GuiButton", errors, "StarterGui/BlacksmithGui/Root")
+	requireChild(root, "UpgradeButton", "GuiButton", errors, "StarterGui/BlacksmithGui/Root")
+	requireChild(root, "UpgradeArrow", "GuiObject", errors, "StarterGui/BlacksmithGui/Root")
+
+	for _, cardName in ipairs({ "CurrentAxe", "NextAxe" }) do
+		local card = requireChild(root, cardName, "GuiObject", errors, "StarterGui/BlacksmithGui/Root")
+
+		if card then
+			requireChild(
+				card,
+				"AxeImage",
+				"ImageLabel",
+				errors,
+				string.format("StarterGui/BlacksmithGui/Root/%s", cardName)
+			)
+			requireChild(
+				card,
+				"AxeName",
+				"TextLabel",
+				errors,
+				string.format("StarterGui/BlacksmithGui/Root/%s", cardName)
+			)
+			requireChild(
+				card,
+				"BaseDamage",
+				"TextLabel",
+				errors,
+				string.format("StarterGui/BlacksmithGui/Root/%s", cardName)
+			)
+			requireChild(
+				card,
+				"YourDamage",
+				"TextLabel",
+				errors,
+				string.format("StarterGui/BlacksmithGui/Root/%s", cardName)
+			)
+			requireChild(
+				card,
+				"GoldBonus",
+				"TextLabel",
+				errors,
+				string.format("StarterGui/BlacksmithGui/Root/%s", cardName)
+			)
+		end
+	end
+end
+
 local function validateNpcTemplates(errors)
 	local npcFolder =
 		requireFolder(ServerStorage, lumberjackConstants.NPC_TEMPLATE_FOLDER_NAME, errors, "ServerStorage")
@@ -613,6 +673,7 @@ function StudioAssetValidator.validateOrThrow()
 	validateAxeTemplates(errors)
 	validateAxeDefaults(errors)
 	validateAxeOverrides(errors)
+	validateBlacksmithGui(errors)
 	validateBlacksmithSection(errors)
 	validateTrees(errors)
 	validateTreePlotSets(errors)

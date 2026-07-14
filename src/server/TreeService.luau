@@ -10,6 +10,7 @@ local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScri
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
+local axeDamageResolverModule = require(script.Parent:WaitForChild("AxeDamageResolver") :: ModuleScript)
 local treeRemoteHandlers = require(script.Parent:WaitForChild("TreeRemoteHandlers") :: ModuleScript)
 local treeStateBuilder = require(script.Parent:WaitForChild("TreeStateBuilder") :: ModuleScript)
 local treeInteractionUtils = require(script.Parent:WaitForChild("TreeInteractionUtils") :: ModuleScript)
@@ -95,6 +96,9 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	started = true
 	playerData = playerDataModule
 	treePlotService = treePlotServiceModule
+	local axeDamageResolver = axeDamageResolverModule.create({
+		getAmberUpgradeLevel = getAmberUpgradeLevel,
+	})
 	local treeVisualController = nil
 	local treeGrowthController = nil
 	local unlockPromptManager = nil
@@ -265,7 +269,7 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getLevelData = treeConfig.getLevelData,
 		getToolStatValue = treeInteractionUtils.getToolStatValue,
 		getAmberUpgradeLevel = getAmberUpgradeLevel,
-		getAxeDamageMultiplier = rebirthConfig.getAxeDamageMultiplier,
+		resolveFinalDamageFromBasePower = axeDamageResolver.resolveFinalDamageFromBasePower,
 		getGoldMultiplier = rebirthConfig.getGoldMultiplier,
 		getEffectiveGrowTime = getEffectiveGrowTime,
 		emitTreeParticles = treeVisualController.emitTreeParticles,
