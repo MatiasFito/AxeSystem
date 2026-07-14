@@ -5,65 +5,191 @@ local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local lumberjackConfig = require(sharedFolder:WaitForChild("LumberjackConfig") :: ModuleScript)
+local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 local networkFolder = sharedFolder:WaitForChild("Network")
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
-local leaderstatsWatcher = require(utilsFolder:WaitForChild("LeaderstatsWatcher") :: ModuleScript)
 local remoteResolver = require(networkFolder:WaitForChild("RemoteResolver") :: ModuleScript)
-local timeSync = require(utilsFolder:WaitForChild("TimeSync") :: ModuleScript)
-local TreePlotCard = require(script.Parent:WaitForChild("TreePlotCard") :: ModuleScript)
 
-local GUI_NAME = "TreeUpgradePads"
+local PLOT_SIGN_PART_NAME = "PlotSign"
+local PLOT_UPGRADE_GUI_NAME = "PlotUpgradeGui"
 local REMOTE_WAIT_TIMEOUT = 10
 local REFRESH_RATE = 0.05
-local PAD_CARD_SCALE = 1.5
-local PAD_CARD_BASE_WIDTH = 188
-local PAD_HORIZONTAL_PADDING = 12
-local PAD_TOP_PADDING = 12
-local PAD_BUTTON_GAP = 18
-local PAD_BUTTON_HEIGHT = 48
-local PAD_BUTTON_HORIZONTAL_PADDING = 16
-local PAD_BUTTON_VERTICAL_PADDING = 4
-local PAD_BOTTOM_PADDING = 14
-
-local PANEL_COLOR = Color3.fromRGB(35, 44, 33)
-local PANEL_HIGHLIGHT = Color3.fromRGB(52, 69, 48)
-local PANEL_STROKE = Color3.fromRGB(210, 229, 201)
-local LABEL_COLOR = Color3.fromRGB(244, 247, 237)
 local GREEN_COLOR = Color3.fromRGB(101, 197, 95)
 local RED_COLOR = Color3.fromRGB(196, 84, 84)
-local MAX_COLOR = Color3.fromRGB(91, 102, 88)
-
-local PAD_CARD_LAYOUT = TreePlotCard.scaleLayout(TreePlotCard.DEFAULT_LAYOUT, PAD_CARD_SCALE)
-local PAD_CARD_WIDTH = math.floor(PAD_CARD_BASE_WIDTH * PAD_CARD_SCALE + 0.5)
-local PAD_BUTTON_WIDTH = math.floor(PAD_CARD_WIDTH * 0.78 + 0.5)
-local PAD_ROOT_WIDTH = PAD_CARD_WIDTH + (PAD_HORIZONTAL_PADDING * 2)
-local PAD_ROOT_HEIGHT = PAD_TOP_PADDING
-	+ PAD_CARD_LAYOUT.FrameSize.Y.Offset
-	+ PAD_BUTTON_GAP
-	+ PAD_BUTTON_HEIGHT
-	+ PAD_BOTTOM_PADDING
-
-PAD_CARD_LAYOUT.FrameSize = UDim2.fromOffset(PAD_CARD_WIDTH, PAD_CARD_LAYOUT.FrameSize.Y.Offset)
-PAD_CARD_LAYOUT.FramePosition = UDim2.fromOffset(PAD_HORIZONTAL_PADDING, PAD_TOP_PADDING)
 
 local TreeUpgradePadController = {}
 
 local started = false
-local rootGui = nil
 local getTreeStateRemote = nil
 local treeStateUpdatedRemote = nil
 local requestTreeUpgradeRemote = nil
+local requestLumberjackHireRemote = nil
+local requestLumberjackUpgradeRemote = nil
 
 local plotSetId = nil
-local goldAmount = 0
 local plotStatesById = {}
-local padUisByPlotId = {}
-local disconnectLeaderstatsWatcher = nil
-local serverTimeAtSync = 0
-local localClockAtSync = 0
+local signBindingsByPlotId = {}
+local modalBinding = nil
+local selectedPlotId = nil
 local lastRefreshAt = 0
+
+local function formatSeconds(seconds)
+	local clampedSeconds = math.max(0, seconds or 0)
+
+	if clampedSeconds >= 10 then
+		return string.format("%.0fs", clampedSeconds)
+	end
+
+	if clampedSeconds >= 1 then
+		return string.format("%.1fs", clampedSeconds)
+	end
+
+	return string.format("%.2fs", clampedSeconds)
+end
+
+local function formatGoldText(amount)
+	return string.format("%s Gold", currencyFormatter.formatGold(amount))
+end
+
+local function setText(instance, text)
+	if not instance then
+		return
+	end
+
+	if instance:IsA("TextLabel") or instance:IsA("TextButton") then
+		instance.Text = text
+	end
+end
+
+local function setVisible(instance, visible)
+	if not instance then
+		return
+	end
+
+	if instance:IsA("ScreenGui") then
+		instance.Enabled = visible
+		return
+	end
+
+	if instance:IsA("GuiObject") then
+		instance.Visible = visible
+	end
+end
+
+local function setButtonInteractable(button, isInteractable)
+	if not button or not button:IsA("GuiButton") then
+		return
+	end
+
+	button.Active = isInteractable
+	button.Selectable = isInteractable
+	button.AutoButtonColor = isInteractable
+	if button:IsA("TextButton") then
+		button.TextTransparency = isInteractable and 0 or 0.35
+	end
+end
+
+local function connectGuiActivated(guiObject, callback)
+	if not guiObject or not callback then
+		return nil
+	end
+
+	if guiObject:IsA("GuiButton") then
+		return guiObject.Activated:Connect(callback)
+	end
+
+	if guiObject:IsA("GuiObject") then
+		guiObject.Active = true
+		return guiObject.InputBegan:Connect(function(input)
+			if
+				input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch
+			then
+				callback()
+			end
+		end)
+	end
+
+	return nil
+end
+
+local function addConnection(connections, connection)
+	if connection then
+		table.insert(connections, connection)
+	end
+end
+
+local function findDirectChild(parent, name)
+	if not parent then
+		return nil
+	end
+
+	return parent:FindFirstChild(name)
+end
+
+local function findDescendantByPath(parent, path)
+	local current = parent
+
+	for _, name in ipairs(path) do
+		current = current and current:FindFirstChild(name)
+		if not current then
+			return nil
+		end
+	end
+
+	return current
+end
+
+local function findGuiButtonByNameToken(parent, token)
+	if not parent then
+		return nil
+	end
+
+	local normalizedToken = string.lower(token)
+
+	for _, descendant in parent:GetDescendants() do
+		if descendant:IsA("GuiButton") and string.find(string.lower(descendant.Name), normalizedToken, 1, true) then
+			return descendant
+		end
+	end
+
+	return nil
+end
+
+local function buildComparisonText(label, currentText, nextText)
+	if nextText and nextText ~= "" and nextText ~= currentText then
+		return string.format("%s: %s => %s", label, currentText, nextText)
+	end
+
+	return string.format("%s: %s", label, currentText)
+end
+
+local function getCurrentGoldAmount()
+	local leaderstats = player:FindFirstChild("leaderstats")
+
+	if not leaderstats then
+		return 0
+	end
+
+	local goldValue = leaderstats:FindFirstChild("Gold")
+
+	if goldValue and goldValue:IsA("IntValue") then
+		return goldValue.Value
+	end
+
+	return 0
+end
+
+local function setButtonBackgroundColor(button, color)
+	if not button or not button:IsA("GuiButton") then
+		return
+	end
+
+	button.BackgroundColor3 = color
+end
 
 local function getOwnedPlotSetFolder()
 	if typeof(plotSetId) ~= "string" or plotSetId == "" then
@@ -77,6 +203,74 @@ local function getOwnedPlotSetFolder()
 	end
 
 	return plotSetsFolder:FindFirstChild(plotSetId)
+end
+
+local function getPlotSetsFolder()
+	local plotSetsFolder = Workspace:FindFirstChild(treeConstants.TREE_PLOT_SETS_FOLDER_NAME)
+
+	if plotSetsFolder and plotSetsFolder:IsA("Folder") then
+		return plotSetsFolder
+	end
+
+	return nil
+end
+
+local function resolvePlotSetId(plotSetFolder)
+	if not plotSetFolder then
+		return nil
+	end
+
+	local folderPlotSetId = plotSetFolder:GetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE)
+
+	if typeof(folderPlotSetId) == "string" and folderPlotSetId ~= "" then
+		return folderPlotSetId
+	end
+
+	return plotSetFolder.Name
+end
+
+local function isOwnedPlotSetFolder(plotSetFolder)
+	return typeof(plotSetId) == "string" and plotSetId ~= "" and resolvePlotSetId(plotSetFolder) == plotSetId
+end
+
+local function setPlotSignVisibility(plotSign, isVisible)
+	if not plotSign or not plotSign:IsA("BasePart") then
+		return
+	end
+
+	plotSign.LocalTransparencyModifier = isVisible and 0 or 1
+
+	local surfaceGui = plotSign:FindFirstChildOfClass("SurfaceGui")
+
+	if surfaceGui then
+		surfaceGui.Enabled = isVisible
+	end
+
+	for _, descendant in plotSign:GetDescendants() do
+		if descendant:IsA("GuiButton") then
+			setButtonInteractable(descendant, isVisible)
+		end
+	end
+end
+
+local function refreshPlotSetOwnershipVisibility()
+	local plotSetsFolder = getPlotSetsFolder()
+
+	if not plotSetsFolder then
+		return
+	end
+
+	for _, plotSetFolder in plotSetsFolder:GetChildren() do
+		if plotSetFolder:IsA("Folder") then
+			local shouldShowPlotSet = isOwnedPlotSetFolder(plotSetFolder)
+
+			for _, descendant in plotSetFolder:GetDescendants() do
+				if descendant.Name == PLOT_SIGN_PART_NAME and descendant:IsA("BasePart") then
+					setPlotSignVisibility(descendant, shouldShowPlotSet)
+				end
+			end
+		end
+	end
 end
 
 local function getPlotModel(plotId)
@@ -95,199 +289,467 @@ local function getPlotModel(plotId)
 	return plotSetFolder:FindFirstChild(plotId)
 end
 
-local function getPlotDirtPatch(plotId)
+local function getPlotSignPart(plotId)
 	local plotModel = getPlotModel(plotId)
 
 	if not plotModel then
 		return nil
 	end
 
-	local dirtPatch = plotModel:FindFirstChild(treeConstants.DIRT_PATCH_NAME)
+	local plotSign = plotModel:FindFirstChild(PLOT_SIGN_PART_NAME, true)
 
-	if dirtPatch and dirtPatch:IsA("BasePart") then
-		return dirtPatch
+	if plotSign and plotSign:IsA("BasePart") then
+		return plotSign
 	end
 
 	return nil
 end
 
-local function destroyPad(plotId)
-	local padUi = padUisByPlotId[plotId]
+local function destroySignBinding(plotId)
+	local signBinding = signBindingsByPlotId[plotId]
 
-	if not padUi then
+	if not signBinding then
 		return
 	end
 
-	if padUi.Gui then
-		padUi.Gui:Destroy()
+	if signBinding.Connection then
+		signBinding.Connection:Disconnect()
 	end
 
-	padUisByPlotId[plotId] = nil
+	signBindingsByPlotId[plotId] = nil
 end
 
-local function destroyAllPads()
-	for plotId in padUisByPlotId do
-		destroyPad(plotId)
+local function destroyAllSignBindings()
+	for plotId in signBindingsByPlotId do
+		destroySignBinding(plotId)
 	end
 end
 
-local function ensureRootGui()
-	if rootGui then
+local function closeModal()
+	selectedPlotId = nil
+
+	if not modalBinding then
 		return
+	end
+
+	setVisible(modalBinding.Gui, false)
+	setVisible(modalBinding.MainFrame, false)
+	setVisible(modalBinding.HiredWorkerView, false)
+	setVisible(modalBinding.HireWorkerView, false)
+	setVisible(modalBinding.UpgradeWorkerButton, false)
+	setButtonInteractable(modalBinding.UpgradeTreeButton, false)
+	setButtonInteractable(modalBinding.UpgradeWorkerButton, false)
+	setButtonInteractable(modalBinding.HireWorkerButton, false)
+	setText(modalBinding.TreeHeader, "")
+	setText(modalBinding.TreeHpLabel, "")
+	setText(modalBinding.TreeGrowTimeLabel, "")
+	setText(modalBinding.TreeRewardLabel, "")
+	setText(modalBinding.WorkerHeader, "")
+	setText(modalBinding.WorkerBonus, "")
+	setText(modalBinding.WorkerAxe, "")
+	setText(modalBinding.UpgradeTreeButton, "")
+	setText(modalBinding.UpgradeWorkerButton, "")
+	setText(modalBinding.HireWorkerButton, "")
+end
+
+local function destroyModalBinding()
+	if not modalBinding then
+		return
+	end
+
+	for _, connection in ipairs(modalBinding.Connections) do
+		connection:Disconnect()
+	end
+
+	modalBinding = nil
+end
+
+local function ensureModalBinding()
+	if modalBinding and modalBinding.Gui and modalBinding.Gui.Parent then
+		return modalBinding
 	end
 
 	local playerGui = player:WaitForChild("PlayerGui")
-	local existingGui = playerGui:FindFirstChild(GUI_NAME)
+	local plotUpgradeGui = playerGui:FindFirstChild(PLOT_UPGRADE_GUI_NAME)
 
-	if existingGui and existingGui:IsA("ScreenGui") then
-		existingGui:Destroy()
+	if not plotUpgradeGui or not plotUpgradeGui:IsA("ScreenGui") then
+		return nil
 	end
 
-	rootGui = Instance.new("ScreenGui")
-	rootGui.Name = GUI_NAME
-	rootGui.ResetOnSpawn = false
-	rootGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	rootGui.Parent = playerGui
-end
+	destroyModalBinding()
 
-local function createPadUi(plotId, dirtPatch)
-	local surfaceGui = Instance.new("SurfaceGui")
-	surfaceGui.Name = string.format("%sPad", plotId)
-	surfaceGui.Adornee = dirtPatch
-	surfaceGui.Face = Enum.NormalId.Top
-	surfaceGui.LightInfluence = 0
-	surfaceGui.MaxDistance = 80
-	surfaceGui.PixelsPerStud = 34
-	surfaceGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	surfaceGui.Parent = rootGui
+	local mainFrame = findDirectChild(plotUpgradeGui, "MainFrame")
+	local dimmer = findDirectChild(plotUpgradeGui, "Dimmer")
+	local contentFrame = findDescendantByPath(mainFrame, { "ContentFrame" })
+	local treeStatsColumn = findDescendantByPath(contentFrame, { "TreeStatsColumn" })
+	local workerColumn = findDescendantByPath(contentFrame, { "WorkerColumn" })
+	local hiredWorkerView = findDescendantByPath(workerColumn, { "HiredWorkerView" })
+	local hireWorkerView = findDescendantByPath(workerColumn, { "HireWorkerView" })
+	local bottomButtons = findDescendantByPath(mainFrame, { "BottomButtons" })
 
-	local rootFrame = Instance.new("Frame")
-	rootFrame.Name = "Root"
-	rootFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-	rootFrame.Position = UDim2.fromScale(0.72, 0.5)
-	rootFrame.Size = UDim2.fromOffset(PAD_ROOT_WIDTH, PAD_ROOT_HEIGHT)
-	rootFrame.Rotation = -90
-	rootFrame.BackgroundColor3 = PANEL_COLOR
-	rootFrame.BackgroundTransparency = 0.06
-	rootFrame.BorderSizePixel = 0
-	rootFrame.Parent = surfaceGui
+	if
+		not mainFrame
+		or not dimmer
+		or not treeStatsColumn
+		or not workerColumn
+		or not hiredWorkerView
+		or not hireWorkerView
+	then
+		return nil
+	end
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 16)
-	corner.Parent = rootFrame
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = PANEL_STROKE
-	stroke.Thickness = 2
-	stroke.Parent = rootFrame
-
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, PANEL_HIGHLIGHT),
-		ColorSequenceKeypoint.new(1, PANEL_COLOR),
-	})
-	gradient.Rotation = 90
-	gradient.Parent = rootFrame
-
-	local card = TreePlotCard.create(rootFrame, "InfoCard", PAD_CARD_LAYOUT)
-
-	local upgradeButton = Instance.new("TextButton")
-	upgradeButton.Name = "UpgradeButton"
-	upgradeButton.AnchorPoint = Vector2.new(0.5, 0)
-	upgradeButton.Position = UDim2.new(0.5, 0, 0, PAD_TOP_PADDING + PAD_CARD_LAYOUT.FrameSize.Y.Offset + PAD_BUTTON_GAP)
-	upgradeButton.Size = UDim2.fromOffset(PAD_BUTTON_WIDTH, PAD_BUTTON_HEIGHT)
-	upgradeButton.AutoButtonColor = false
-	upgradeButton.BorderSizePixel = 0
-	upgradeButton.Font = Enum.Font.GothamBlack
-	upgradeButton.Text = "0 GOLD"
-	upgradeButton.TextColor3 = LABEL_COLOR
-	upgradeButton.TextScaled = true
-	upgradeButton.Parent = rootFrame
-
-	local buttonCorner = Instance.new("UICorner")
-	buttonCorner.CornerRadius = UDim.new(0, 14)
-	buttonCorner.Parent = upgradeButton
-
-	local buttonStroke = Instance.new("UIStroke")
-	buttonStroke.Color = PANEL_STROKE
-	buttonStroke.Thickness = 1.5
-	buttonStroke.Parent = upgradeButton
-
-	local buttonPadding = Instance.new("UIPadding")
-	buttonPadding.PaddingLeft = UDim.new(0, PAD_BUTTON_HORIZONTAL_PADDING)
-	buttonPadding.PaddingRight = UDim.new(0, PAD_BUTTON_HORIZONTAL_PADDING)
-	buttonPadding.PaddingTop = UDim.new(0, PAD_BUTTON_VERTICAL_PADDING)
-	buttonPadding.PaddingBottom = UDim.new(0, PAD_BUTTON_VERTICAL_PADDING)
-	buttonPadding.Parent = upgradeButton
-
-	upgradeButton.Activated:Connect(function()
-		local plotState = plotStatesById[plotId]
-
-		if not plotState or plotState.isMaxLevel or plotState.upgradeCost == nil then
-			return
-		end
-
-		requestTreeUpgradeRemote:FireServer(plotId)
-	end)
-
-	padUisByPlotId[plotId] = {
-		Gui = surfaceGui,
-		Card = card,
-		UpgradeButton = upgradeButton,
+	local connections = {}
+	local binding = {
+		Gui = plotUpgradeGui,
+		Dimmer = dimmer,
+		MainFrame = mainFrame,
+		TreeHeader = findDescendantByPath(treeStatsColumn, { "Header" }),
+		TreeHpLabel = findDescendantByPath(treeStatsColumn, { "HP" }),
+		TreeGrowTimeLabel = findDescendantByPath(treeStatsColumn, { "GrowTime" }),
+		TreeRewardLabel = findDescendantByPath(treeStatsColumn, { "Reward" }),
+		WorkerHeader = findDescendantByPath(hiredWorkerView, { "Header" }),
+		WorkerBonus = findDescendantByPath(hiredWorkerView, { "Bonus" }),
+		WorkerAxe = findDescendantByPath(hiredWorkerView, { "Axe" }),
+		HiredWorkerView = hiredWorkerView,
+		HireWorkerView = hireWorkerView,
+		HireWorkerButton = findDescendantByPath(hireWorkerView, { "HireWorkerButton" }),
+		UpgradeTreeButton = bottomButtons and findDescendantByPath(bottomButtons, { "UpgradeTreeButton" }) or nil,
+		UpgradeWorkerButton = bottomButtons and findDescendantByPath(bottomButtons, { "UpgradeWorkerButton" }) or nil,
+		Connections = connections,
 	}
 
-	return padUisByPlotId[plotId]
+	addConnection(
+		connections,
+		connectGuiActivated(dimmer, function()
+			closeModal()
+		end)
+	)
+
+	if binding.UpgradeTreeButton then
+		addConnection(
+			connections,
+			connectGuiActivated(binding.UpgradeTreeButton, function()
+				local plotId = selectedPlotId
+				local plotState = plotId and plotStatesById[plotId] or nil
+
+				if not plotId or not plotState or plotState.isMaxLevel or plotState.upgradeCost == nil then
+					return
+				end
+
+				requestTreeUpgradeRemote:FireServer(plotId)
+			end)
+		)
+	end
+
+	if binding.UpgradeWorkerButton then
+		addConnection(
+			connections,
+			connectGuiActivated(binding.UpgradeWorkerButton, function()
+				local plotId = selectedPlotId
+				local plotState = plotId and plotStatesById[plotId] or nil
+
+				if not plotId or not plotState or not plotState.canUpgradeLumberjack then
+					return
+				end
+
+				requestLumberjackUpgradeRemote:FireServer(plotId)
+			end)
+		)
+	end
+
+	if binding.HireWorkerButton then
+		addConnection(
+			connections,
+			connectGuiActivated(binding.HireWorkerButton, function()
+				local plotId = selectedPlotId
+				local plotState = plotId and plotStatesById[plotId] or nil
+
+				if not plotId or not plotState or not plotState.canHireLumberjack then
+					return
+				end
+
+				requestLumberjackHireRemote:FireServer(plotId)
+			end)
+		)
+	end
+
+	modalBinding = binding
+	closeModal()
+	return binding
 end
 
-local function renderPad(plotId)
+local function openModal(plotId)
+	if typeof(plotId) ~= "string" then
+		return
+	end
+
 	local plotState = plotStatesById[plotId]
 
 	if not plotState or not plotState.unlocked then
-		destroyPad(plotId)
 		return
 	end
 
-	local dirtPatch = getPlotDirtPatch(plotId)
+	selectedPlotId = plotId
+	lastRefreshAt = 0
+end
 
-	if not dirtPatch then
-		destroyPad(plotId)
+local function ensureSignBinding(plotId, plotSign)
+	local signBinding = signBindingsByPlotId[plotId]
+
+	if
+		signBinding
+		and signBinding.SignPart == plotSign
+		and signBinding.SurfaceGui
+		and signBinding.SurfaceGui.Parent
+	then
+		return signBinding
+	end
+
+	destroySignBinding(plotId)
+
+	if not plotSign then
+		return nil
+	end
+
+	local surfaceGui = plotSign:FindFirstChildOfClass("SurfaceGui")
+
+	if not surfaceGui then
+		return nil
+	end
+
+	local mainContent = findDescendantByPath(surfaceGui, { "Background", "MainContent" })
+
+	if not mainContent then
+		return nil
+	end
+
+	local upgradeButton = findGuiButtonByNameToken(surfaceGui, "upgrade")
+
+	signBinding = {
+		SignPart = plotSign,
+		SurfaceGui = surfaceGui,
+		TreeNameLabel = findDescendantByPath(mainContent, { "TreeName" }),
+		TreeLevelLabel = findDescendantByPath(mainContent, { "TreeLevel" }),
+		TreeRewardLabel = findDescendantByPath(mainContent, { "TreeReward" }),
+		LumberjackLevelLabel = findDescendantByPath(mainContent, { "LumberjackLevel" }),
+		LumberjackBonusLabel = findDescendantByPath(mainContent, { "LumberjackBonus" }),
+		UpgradeButton = upgradeButton,
+		Connection = upgradeButton and connectGuiActivated(upgradeButton, function()
+			openModal(plotId)
+		end) or nil,
+	}
+
+	signBindingsByPlotId[plotId] = signBinding
+	return signBinding
+end
+
+local function setSignVisible(signBinding, isVisible)
+	if not signBinding then
 		return
 	end
 
-	local padUi = padUisByPlotId[plotId]
-
-	if not padUi or not padUi.Gui or padUi.Gui.Adornee ~= dirtPatch then
-		destroyPad(plotId)
-		padUi = createPadUi(plotId, dirtPatch)
+	if signBinding.SurfaceGui then
+		signBinding.SurfaceGui.Enabled = isVisible
 	end
 
-	TreePlotCard.render(padUi.Card, plotState, {
-		estimatedServerTime = timeSync.estimateServerTime(serverTimeAtSync, localClockAtSync),
-	})
+	if signBinding.SignPart and signBinding.SignPart:IsA("BasePart") then
+		signBinding.SignPart.LocalTransparencyModifier = isVisible and 0 or 1
+	end
+
+	setButtonInteractable(signBinding.UpgradeButton, isVisible)
+end
+
+local function renderSign(plotId)
+	local plotState = plotStatesById[plotId]
+
+	if not plotState then
+		destroySignBinding(plotId)
+		return
+	end
+
+	local plotSign = getPlotSignPart(plotId)
+
+	if not plotSign then
+		destroySignBinding(plotId)
+		return
+	end
+
+	local signBinding = ensureSignBinding(plotId, plotSign)
+
+	if not signBinding then
+		return
+	end
+
+	if not plotState.unlocked then
+		setSignVisible(signBinding, false)
+		if selectedPlotId == plotId then
+			closeModal()
+		end
+		return
+	end
+
+	setSignVisible(signBinding, true)
+	setText(signBinding.TreeNameLabel, plotState.treeName or "")
+	setText(signBinding.TreeLevelLabel, string.format("Lvl %d", plotState.level or 0))
+	setText(signBinding.TreeRewardLabel, formatGoldText(plotState.stats and plotState.stats.reward or 0))
+
+	if plotState.hasLumberjack then
+		setText(signBinding.LumberjackLevelLabel, string.format("Lvl %d", plotState.lumberjackLevel or 0))
+		setText(
+			signBinding.LumberjackBonusLabel,
+			string.format("+%d%% Gold", plotState.lumberjackGoldBonusPercent or 0)
+		)
+	else
+		setText(signBinding.LumberjackLevelLabel, "No Worker")
+		setText(signBinding.LumberjackBonusLabel, "")
+	end
+end
+
+local function renderModal()
+	local binding = ensureModalBinding()
+
+	if not binding or not selectedPlotId then
+		if modalBinding then
+			closeModal()
+		end
+		return
+	end
+
+	local plotState = plotStatesById[selectedPlotId]
+
+	if not plotState or not plotState.unlocked then
+		closeModal()
+		return
+	end
+
+	local currentLevel = math.max(1, plotState.level or 1)
+	local currentStats = plotState.stats or treeConfig.getLevelData(plotState.treeId, currentLevel)
+	local nextLevel = treeConfig.getUpgradeLevel(plotState.treeId, currentLevel)
+	local nextStats = nextLevel and treeConfig.getLevelData(plotState.treeId, nextLevel) or nil
+	local currentReward = currentStats and currentStats.Reward or currentStats and currentStats.reward or 0
+	local currentHealth = currentStats and currentStats.Health or currentStats and currentStats.health or 0
+	local currentGrowTime = currentStats and currentStats.GrowTime or currentStats and currentStats.growTime or 0
+	local nextReward = nextStats and nextStats.Reward or nextStats and nextStats.reward or nil
+	local nextHealth = nextStats and nextStats.Health or nextStats and nextStats.health or nil
+	local nextGrowTime = nextStats and nextStats.GrowTime or nextStats and nextStats.growTime or nil
+	local currentGold = getCurrentGoldAmount()
+
+	setVisible(binding.Gui, true)
+	setVisible(binding.MainFrame, true)
+	setText(binding.TreeHeader, string.format("%s - Lvl %d", plotState.treeName or "Plot", currentLevel))
+	setText(
+		binding.TreeHpLabel,
+		buildComparisonText(
+			"HP",
+			string.format("%s HP", currencyFormatter.formatGold(currentHealth)),
+			nextHealth and string.format("%s HP", currencyFormatter.formatGold(nextHealth)) or nil
+		)
+	)
+	setText(
+		binding.TreeGrowTimeLabel,
+		buildComparisonText("Grow", formatSeconds(currentGrowTime), nextGrowTime and formatSeconds(nextGrowTime) or nil)
+	)
+	setText(
+		binding.TreeRewardLabel,
+		buildComparisonText(
+			"Reward",
+			currencyFormatter.formatGold(currentReward),
+			nextReward and currencyFormatter.formatGold(nextReward) or nil
+		)
+	)
 
 	if plotState.isMaxLevel or plotState.upgradeCost == nil then
-		padUi.UpgradeButton.Text = "MAX"
-		padUi.UpgradeButton.BackgroundColor3 = MAX_COLOR
-		padUi.UpgradeButton.Active = false
-		return
+		setText(binding.UpgradeTreeButton, "MAX TREE LEVEL")
+		setButtonInteractable(binding.UpgradeTreeButton, false)
+	else
+		setText(
+			binding.UpgradeTreeButton,
+			string.format("UPGRADE TREE: %s G", currencyFormatter.formatGold(plotState.upgradeCost))
+		)
+		setButtonInteractable(binding.UpgradeTreeButton, true)
 	end
 
-	local canAfford = goldAmount >= plotState.upgradeCost
-	padUi.UpgradeButton.Text = string.format("%s GOLD", currencyFormatter.formatGold(plotState.upgradeCost))
-	padUi.UpgradeButton.BackgroundColor3 = canAfford and GREEN_COLOR or RED_COLOR
-	padUi.UpgradeButton.Active = true
+	local workerSupported = plotState.hasLumberjack
+		or plotState.canHireLumberjack
+		or plotState.lumberjackHireCost ~= nil
+
+	if plotState.hasLumberjack then
+		setVisible(binding.HiredWorkerView, true)
+		setVisible(binding.HireWorkerView, false)
+		setVisible(binding.UpgradeWorkerButton, true)
+		setText(binding.WorkerHeader, string.format("Worker - Lvl %d", plotState.lumberjackLevel or 0))
+
+		local currentBonus = plotState.lumberjackGoldBonusPercent or 0
+		local nextBonus = nil
+
+		if not plotState.lumberjackIsMaxLevel then
+			nextBonus = lumberjackConfig.getGoldBonusPercent((plotState.lumberjackLevel or 0) + 1)
+		end
+
+		setText(
+			binding.WorkerBonus,
+			buildComparisonText(
+				"Bonus",
+				string.format("+%d%% Gold", currentBonus),
+				nextBonus and string.format("+%d%% Gold", nextBonus) or nil
+			)
+		)
+		setText(binding.WorkerAxe, string.format("Using: %s", plotState.lumberjackAxeName or "Unknown Axe"))
+
+		if plotState.lumberjackIsMaxLevel or not plotState.canUpgradeLumberjack then
+			setText(binding.UpgradeWorkerButton, "MAX WORKER LEVEL")
+			setButtonInteractable(binding.UpgradeWorkerButton, false)
+		else
+			setText(
+				binding.UpgradeWorkerButton,
+				string.format(
+					"UPGRADE WORKER: %s G",
+					currencyFormatter.formatGold(plotState.lumberjackUpgradeCost or 0)
+				)
+			)
+			setButtonInteractable(binding.UpgradeWorkerButton, true)
+		end
+
+		setButtonInteractable(binding.HireWorkerButton, false)
+	elseif workerSupported and plotState.canHireLumberjack then
+		setVisible(binding.HiredWorkerView, false)
+		setVisible(binding.HireWorkerView, true)
+		setVisible(binding.UpgradeWorkerButton, false)
+		setText(
+			binding.HireWorkerButton,
+			string.format("HIRE LUMBERJACK: %s G", currencyFormatter.formatGold(plotState.lumberjackHireCost or 0))
+		)
+		setButtonBackgroundColor(
+			binding.HireWorkerButton,
+			currentGold >= (plotState.lumberjackHireCost or math.huge) and GREEN_COLOR or RED_COLOR
+		)
+		setButtonInteractable(binding.HireWorkerButton, true)
+	else
+		setVisible(binding.HiredWorkerView, true)
+		setVisible(binding.HireWorkerView, false)
+		setVisible(binding.UpgradeWorkerButton, false)
+		setText(binding.WorkerHeader, "Worker Unavailable")
+		setText(binding.WorkerBonus, "This plot does not support a worker")
+		setText(binding.WorkerAxe, "")
+		setButtonBackgroundColor(binding.HireWorkerButton, RED_COLOR)
+		setButtonInteractable(binding.HireWorkerButton, false)
+	end
 end
 
 local function rerenderPads()
+	refreshPlotSetOwnershipVisibility()
+
 	for plotId in plotStatesById do
-		renderPad(plotId)
+		renderSign(plotId)
 	end
 
-	for plotId in padUisByPlotId do
-		if not plotStatesById[plotId] or not plotStatesById[plotId].unlocked then
-			destroyPad(plotId)
+	for plotId in signBindingsByPlotId do
+		if not plotStatesById[plotId] then
+			destroySignBinding(plotId)
 		end
 	end
+
+	renderModal()
 
 	lastRefreshAt = os.clock()
 end
@@ -297,12 +759,10 @@ local function applyState(state)
 		return
 	end
 
-	serverTimeAtSync = tonumber(state.serverTime) or serverTimeAtSync
-	localClockAtSync = os.clock()
-
 	if typeof(state.plotSetId) == "string" and state.plotSetId ~= plotSetId then
 		plotSetId = state.plotSetId
-		destroyAllPads()
+		destroyAllSignBindings()
+		closeModal()
 	end
 
 	for _, plotState in state.plots or {} do
@@ -312,27 +772,15 @@ local function applyState(state)
 	rerenderPads()
 end
 
-local function bindLeaderstats()
-	if disconnectLeaderstatsWatcher then
-		disconnectLeaderstatsWatcher()
-		disconnectLeaderstatsWatcher = nil
-	end
-
-	disconnectLeaderstatsWatcher = leaderstatsWatcher.watchIntValue(player, "Gold", REMOTE_WAIT_TIMEOUT, function(value)
-		goldAmount = value
-		rerenderPads()
-	end)
-end
-
 local function resolveRemotes()
 	local treesFolder = remoteResolver.waitForPath(ReplicatedStorage, {
 		{
 			Name = treeConstants.REMOTE_FOLDER_NAME,
-			ErrorMessage = "Tree remotes folder was not found for upgrade pads",
+			ErrorMessage = "Tree remotes folder was not found for plot upgrades",
 		},
 		{
 			Name = treeConstants.TREE_REMOTE_FOLDER_NAME,
-			ErrorMessage = "Tree remote folder was not found for upgrade pads",
+			ErrorMessage = "Tree remote folder was not found for plot upgrades",
 		},
 	}, REMOTE_WAIT_TIMEOUT)
 
@@ -344,6 +792,8 @@ local function resolveRemotes()
 		treeConstants.GET_STATE_REMOTE_NAME,
 		treeConstants.STATE_UPDATED_REMOTE_NAME,
 		treeConstants.REQUEST_UPGRADE_REMOTE_NAME,
+		treeConstants.REQUEST_LUMBERJACK_HIRE_REMOTE_NAME,
+		treeConstants.REQUEST_LUMBERJACK_UPGRADE_REMOTE_NAME,
 	}, REMOTE_WAIT_TIMEOUT, "Tree remote")
 
 	if not remotes then
@@ -353,8 +803,14 @@ local function resolveRemotes()
 	getTreeStateRemote = remotes[treeConstants.GET_STATE_REMOTE_NAME] :: RemoteFunction
 	treeStateUpdatedRemote = remotes[treeConstants.STATE_UPDATED_REMOTE_NAME] :: RemoteEvent
 	requestTreeUpgradeRemote = remotes[treeConstants.REQUEST_UPGRADE_REMOTE_NAME] :: RemoteEvent
+	requestLumberjackHireRemote = remotes[treeConstants.REQUEST_LUMBERJACK_HIRE_REMOTE_NAME] :: RemoteEvent
+	requestLumberjackUpgradeRemote = remotes[treeConstants.REQUEST_LUMBERJACK_UPGRADE_REMOTE_NAME] :: RemoteEvent
 
-	return getTreeStateRemote ~= nil and treeStateUpdatedRemote ~= nil and requestTreeUpgradeRemote ~= nil
+	return getTreeStateRemote ~= nil
+		and treeStateUpdatedRemote ~= nil
+		and requestTreeUpgradeRemote ~= nil
+		and requestLumberjackHireRemote ~= nil
+		and requestLumberjackUpgradeRemote ~= nil
 end
 
 local function requestInitialState()
@@ -377,14 +833,25 @@ function TreeUpgradePadController.start()
 	end
 
 	started = true
-	ensureRootGui()
 
 	if not resolveRemotes() then
 		return
 	end
 
-	bindLeaderstats()
+	refreshPlotSetOwnershipVisibility()
+	ensureModalBinding()
 	treeStateUpdatedRemote.OnClientEvent:Connect(applyState)
+
+	local plotSetsFolder = getPlotSetsFolder()
+
+	if plotSetsFolder then
+		plotSetsFolder.DescendantAdded:Connect(function(descendant)
+			if descendant.Name == PLOT_SIGN_PART_NAME and descendant:IsA("BasePart") then
+				refreshPlotSetOwnershipVisibility()
+			end
+		end)
+	end
+
 	RunService.Heartbeat:Connect(function()
 		if os.clock() - lastRefreshAt >= REFRESH_RATE then
 			rerenderPads()

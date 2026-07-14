@@ -33,6 +33,7 @@ local hirePromptManager = nil
 local progressionResolver = nil
 local runtimeFolder = nil
 local runtimeByPlayer = {}
+local hireRemote = nil
 local upgradeRemote = nil
 
 local PROMPT_TOUCH_COOLDOWN = 0.3
@@ -232,6 +233,22 @@ local function getOrCreateUpgradeRemote()
 
 	upgradeRemote = remotes[treeConstants.REQUEST_LUMBERJACK_UPGRADE_REMOTE_NAME] :: RemoteEvent
 	return upgradeRemote
+end
+
+local function getOrCreateHireRemote()
+	if hireRemote then
+		return hireRemote
+	end
+
+	local remotes = remoteRegistry.getOrCreateNamedChildren(getTreeRemoteFolder(), {
+		{
+			Name = treeConstants.REQUEST_LUMBERJACK_HIRE_REMOTE_NAME,
+			ClassName = "RemoteEvent",
+		},
+	})
+
+	hireRemote = remotes[treeConstants.REQUEST_LUMBERJACK_HIRE_REMOTE_NAME] :: RemoteEvent
+	return hireRemote
 end
 
 local function pushStateUpdate(player, changedPlotIds)
@@ -683,6 +700,14 @@ local function handleUpgradeRequest(player, plotId)
 	progressionResolver.attemptUpgrade(player, plotId)
 end
 
+local function handleHireRequest(player, plotId)
+	if typeof(plotId) ~= "string" then
+		return
+	end
+
+	progressionResolver.attemptHire(player, plotId)
+end
+
 function LumberjackService.start(playerDataModule, treePlotServiceModule, treeServiceModule)
 	if started then
 		return
@@ -744,6 +769,7 @@ function LumberjackService.start(playerDataModule, treePlotServiceModule, treeSe
 		end,
 		buildSuccess = serviceResult.success,
 	})
+	getOrCreateHireRemote().OnServerEvent:Connect(handleHireRequest)
 	getOrCreateUpgradeRemote().OnServerEvent:Connect(handleUpgradeRequest)
 end
 

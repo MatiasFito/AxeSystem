@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local StarterGui = game:GetService("StarterGui")
 local Workspace = game:GetService("Workspace")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
@@ -268,7 +269,199 @@ local function validateTrees(errors)
 end
 
 local function validateTreePlotTemplate(errors)
-	requireChild(ServerStorage, treeConstants.TREE_PLOT_TEMPLATE_NAME, "Model", errors, "ServerStorage")
+	local template =
+		requireChild(ServerStorage, treeConstants.TREE_PLOT_TEMPLATE_NAME, "Model", errors, "ServerStorage")
+
+	if not template then
+		return
+	end
+
+	local plotSign = requireDescendant(
+		template,
+		"PlotSign",
+		"BasePart",
+		errors,
+		string.format("ServerStorage/%s", treeConstants.TREE_PLOT_TEMPLATE_NAME)
+	)
+
+	if not plotSign then
+		return
+	end
+
+	local surfaceGui = requireChild(
+		plotSign,
+		"SurfaceGui",
+		"SurfaceGui",
+		errors,
+		string.format("ServerStorage/%s/PlotSign", treeConstants.TREE_PLOT_TEMPLATE_NAME)
+	)
+
+	if not surfaceGui then
+		return
+	end
+
+	local background = requireChild(
+		surfaceGui,
+		"Background",
+		"GuiObject",
+		errors,
+		string.format("ServerStorage/%s/PlotSign/SurfaceGui", treeConstants.TREE_PLOT_TEMPLATE_NAME)
+	)
+
+	if not background then
+		return
+	end
+
+	local mainContent = requireChild(
+		background,
+		"MainContent",
+		"GuiObject",
+		errors,
+		string.format("ServerStorage/%s/PlotSign/SurfaceGui/Background", treeConstants.TREE_PLOT_TEMPLATE_NAME)
+	)
+
+	if not mainContent then
+		return
+	end
+
+	requireChild(
+		mainContent,
+		"TreeName",
+		"TextLabel",
+		errors,
+		string.format(
+			"ServerStorage/%s/PlotSign/SurfaceGui/Background/MainContent",
+			treeConstants.TREE_PLOT_TEMPLATE_NAME
+		)
+	)
+	requireChild(
+		mainContent,
+		"TreeLevel",
+		"TextLabel",
+		errors,
+		string.format(
+			"ServerStorage/%s/PlotSign/SurfaceGui/Background/MainContent",
+			treeConstants.TREE_PLOT_TEMPLATE_NAME
+		)
+	)
+	requireChild(
+		mainContent,
+		"TreeReward",
+		"TextLabel",
+		errors,
+		string.format(
+			"ServerStorage/%s/PlotSign/SurfaceGui/Background/MainContent",
+			treeConstants.TREE_PLOT_TEMPLATE_NAME
+		)
+	)
+	requireChild(
+		mainContent,
+		"LumberjackLevel",
+		"TextLabel",
+		errors,
+		string.format(
+			"ServerStorage/%s/PlotSign/SurfaceGui/Background/MainContent",
+			treeConstants.TREE_PLOT_TEMPLATE_NAME
+		)
+	)
+	requireChild(
+		mainContent,
+		"LumberjackBonus",
+		"TextLabel",
+		errors,
+		string.format(
+			"ServerStorage/%s/PlotSign/SurfaceGui/Background/MainContent",
+			treeConstants.TREE_PLOT_TEMPLATE_NAME
+		)
+	)
+end
+
+local function validatePlotUpgradeGui(errors)
+	local plotUpgradeGui = requireChild(StarterGui, "PlotUpgradeGui", "ScreenGui", errors, "StarterGui")
+
+	if not plotUpgradeGui then
+		return
+	end
+
+	local mainFrame = requireChild(plotUpgradeGui, "MainFrame", "GuiObject", errors, "StarterGui/PlotUpgradeGui")
+	requireChild(plotUpgradeGui, "Dimmer", "GuiObject", errors, "StarterGui/PlotUpgradeGui")
+
+	if not mainFrame then
+		return
+	end
+
+	local contentFrame =
+		requireChild(mainFrame, "ContentFrame", "GuiObject", errors, "StarterGui/PlotUpgradeGui/MainFrame")
+	local bottomButtons =
+		requireChild(mainFrame, "BottomButtons", "GuiObject", errors, "StarterGui/PlotUpgradeGui/MainFrame")
+
+	if bottomButtons then
+		requireChild(
+			bottomButtons,
+			"UpgradeTreeButton",
+			"GuiButton",
+			errors,
+			"StarterGui/PlotUpgradeGui/MainFrame/BottomButtons"
+		)
+		requireChild(
+			bottomButtons,
+			"UpgradeWorkerButton",
+			"GuiButton",
+			errors,
+			"StarterGui/PlotUpgradeGui/MainFrame/BottomButtons"
+		)
+	end
+
+	if not contentFrame then
+		return
+	end
+
+	local treeStatsColumn = requireChild(
+		contentFrame,
+		"TreeStatsColumn",
+		"GuiObject",
+		errors,
+		"StarterGui/PlotUpgradeGui/MainFrame/ContentFrame"
+	)
+	local workerColumn = requireChild(
+		contentFrame,
+		"WorkerColumn",
+		"GuiObject",
+		errors,
+		"StarterGui/PlotUpgradeGui/MainFrame/ContentFrame"
+	)
+
+	if treeStatsColumn then
+		requireChild(treeStatsColumn, "Header", "TextLabel", errors, "StarterGui/PlotUpgradeGui/TreeStatsColumn")
+		requireChild(treeStatsColumn, "HP", "TextLabel", errors, "StarterGui/PlotUpgradeGui/TreeStatsColumn")
+		requireChild(treeStatsColumn, "GrowTime", "TextLabel", errors, "StarterGui/PlotUpgradeGui/TreeStatsColumn")
+		requireChild(treeStatsColumn, "Reward", "TextLabel", errors, "StarterGui/PlotUpgradeGui/TreeStatsColumn")
+	end
+
+	if not workerColumn then
+		return
+	end
+
+	local hiredWorkerView =
+		requireChild(workerColumn, "HiredWorkerView", "GuiObject", errors, "StarterGui/PlotUpgradeGui/WorkerColumn")
+	local hireWorkerView =
+		requireChild(workerColumn, "HireWorkerView", "GuiObject", errors, "StarterGui/PlotUpgradeGui/WorkerColumn")
+
+	if hiredWorkerView then
+		requireChild(hiredWorkerView, "Header", "TextLabel", errors, "StarterGui/PlotUpgradeGui/HiredWorkerView")
+		requireChild(hiredWorkerView, "Bonus", "TextLabel", errors, "StarterGui/PlotUpgradeGui/HiredWorkerView")
+		requireChild(hiredWorkerView, "Axe", "TextLabel", errors, "StarterGui/PlotUpgradeGui/HiredWorkerView")
+	end
+
+	if hireWorkerView then
+		requireChild(
+			hireWorkerView,
+			"HireWorkerButton",
+			"GuiButton",
+			errors,
+			"StarterGui/PlotUpgradeGui/HireWorkerView"
+		)
+	end
 end
 
 local function isAllowedPlotSetName(name)
@@ -424,6 +617,7 @@ function StudioAssetValidator.validateOrThrow()
 	validateTrees(errors)
 	validateTreePlotSets(errors)
 	validateTreePlotTemplate(errors)
+	validatePlotUpgradeGui(errors)
 	validateNpcTemplates(errors)
 
 	if #errors > 0 then
