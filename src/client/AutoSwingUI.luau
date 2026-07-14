@@ -11,9 +11,6 @@ local AUTO_SWING_ATTRIBUTE_NAME = "AutoSwingHeld"
 
 local AUTO_ON_COLOR = Color3.fromRGB(78, 168, 106)
 local AUTO_OFF_COLOR = Color3.fromRGB(180, 95, 95)
-local STROKE_COLOR = Color3.fromRGB(238, 232, 216)
-local PANEL_COLOR = Color3.fromRGB(37, 31, 28)
-local LABEL_COLOR = Color3.fromRGB(245, 239, 224)
 
 local AutoSwingUI = {}
 
@@ -26,6 +23,30 @@ local stateLabel = nil
 local trackedTool = nil
 local childAddedConnection = nil
 local childRemovedConnection = nil
+local playerGuiChildAddedConnection = nil
+local toggleButtonConnection = nil
+
+local function findDescendant(parent, name)
+	if not parent then
+		return nil
+	end
+
+	return parent:FindFirstChild(name, true)
+end
+
+local function disconnectGuiConnections()
+	if toggleButtonConnection then
+		toggleButtonConnection:Disconnect()
+		toggleButtonConnection = nil
+	end
+end
+
+local function clearGuiRefs()
+	disconnectGuiConnections()
+	screenGui = nil
+	toggleButton = nil
+	stateLabel = nil
+end
 
 local function getCharacter()
 	return player.Character
@@ -101,68 +122,35 @@ local function buildGui()
 	local playerGui = player:WaitForChild("PlayerGui")
 	local existingGui = playerGui:FindFirstChild(GUI_NAME)
 
-	if existingGui and existingGui:IsA("ScreenGui") then
-		existingGui:Destroy()
+	if not existingGui or not existingGui:IsA("ScreenGui") then
+		clearGuiRefs()
+
+		if not playerGuiChildAddedConnection then
+			playerGuiChildAddedConnection = playerGui.ChildAdded:Connect(function(child)
+				if child.Name == GUI_NAME and child:IsA("ScreenGui") then
+					buildGui()
+				end
+			end)
+		end
+
+		return
 	end
 
-	screenGui = Instance.new("ScreenGui")
-	screenGui.Name = GUI_NAME
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.Parent = playerGui
+	screenGui = existingGui
+	toggleButton = findDescendant(screenGui, BUTTON_NAME)
+	stateLabel = toggleButton and findDescendant(toggleButton, "State") or nil
 
-	toggleButton = Instance.new("ImageButton")
-	toggleButton.Name = BUTTON_NAME
-	toggleButton.AnchorPoint = Vector2.new(0, 1)
-	toggleButton.Position = UDim2.new(0, 18, 1, -18)
-	toggleButton.Size = UDim2.fromOffset(112, 112)
-	toggleButton.AutoButtonColor = false
-	toggleButton.Image = ""
-	toggleButton.BackgroundColor3 = AUTO_OFF_COLOR
-	toggleButton.BorderSizePixel = 0
-	toggleButton.Parent = screenGui
+	if playerGuiChildAddedConnection then
+		playerGuiChildAddedConnection:Disconnect()
+		playerGuiChildAddedConnection = nil
+	end
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 20)
-	corner.Parent = toggleButton
+	disconnectGuiConnections()
 
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = STROKE_COLOR
-	stroke.Thickness = 2
-	stroke.Parent = toggleButton
+	if toggleButton and toggleButton:IsA("GuiButton") then
+		toggleButtonConnection = toggleButton.Activated:Connect(toggleAutoSwing)
+	end
 
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, PANEL_COLOR),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(78, 58, 45)),
-	})
-	gradient.Rotation = 90
-	gradient.Parent = toggleButton
-
-	local titleLabel = Instance.new("TextLabel")
-	titleLabel.Name = "Title"
-	titleLabel.BackgroundTransparency = 1
-	titleLabel.Position = UDim2.fromOffset(10, 16)
-	titleLabel.Size = UDim2.new(1, -20, 0, 42)
-	titleLabel.Font = Enum.Font.GothamBold
-	titleLabel.Text = "AUTO\nSWING"
-	titleLabel.TextColor3 = LABEL_COLOR
-	titleLabel.TextScaled = true
-	titleLabel.TextWrapped = true
-	titleLabel.Parent = toggleButton
-
-	stateLabel = Instance.new("TextLabel")
-	stateLabel.Name = "State"
-	stateLabel.BackgroundTransparency = 1
-	stateLabel.AnchorPoint = Vector2.new(0.5, 1)
-	stateLabel.Position = UDim2.new(0.5, 0, 1, -14)
-	stateLabel.Size = UDim2.new(1, -20, 0, 30)
-	stateLabel.Font = Enum.Font.GothamBlack
-	stateLabel.TextColor3 = LABEL_COLOR
-	stateLabel.TextScaled = true
-	stateLabel.Parent = toggleButton
-
-	toggleButton.Activated:Connect(toggleAutoSwing)
 	updateButtonVisuals()
 end
 

@@ -5,29 +5,10 @@ local utilsFolder = sharedFolder:WaitForChild("Utils")
 local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
 
 local GUI_NAME = "TopGoldLabelGui"
-local GOLD_PILL_WIDTH_SCALE = 0.28
-local AMBER_PILL_WIDTH_SCALE = 0.14
-local LABEL_HEIGHT = 56
-local TOP_PADDING = 6
-local INNER_HORIZONTAL_PADDING = 16
-local INNER_VERTICAL_PADDING = 8
 local MIN_ANIMATION_DURATION = 0.08
 local MAX_ANIMATION_DURATION = 0.5
 local SECONDS_PER_STEP = 0.013
 local MAX_VISIBLE_STEPS = 42
-
-local BACKGROUND_COLOR = Color3.fromRGB(12, 11, 9)
-local SHADOW_COLOR = Color3.fromRGB(0, 0, 0)
-local GRADIENT_TOP_COLOR = Color3.fromRGB(35, 28, 14)
-local GRADIENT_BOTTOM_COLOR = Color3.fromRGB(12, 11, 9)
-local STROKE_COLOR = Color3.fromRGB(234, 195, 96)
-local HIGHLIGHT_COLOR = Color3.fromRGB(255, 233, 162)
-local TEXT_COLOR = Color3.fromRGB(245, 214, 118)
-local AMBER_STROKE_COLOR = Color3.fromRGB(238, 165, 68)
-local AMBER_HIGHLIGHT_COLOR = Color3.fromRGB(255, 196, 96)
-local AMBER_TEXT_COLOR = Color3.fromRGB(255, 216, 132)
-local GOLD_CENTER_X = 0.36
-local AMBER_CENTER_X = 0.59
 
 local TopGoldLabelView = {}
 
@@ -36,12 +17,15 @@ local amountLabel = nil
 local amberRootFrame = nil
 local amberAmountLabel = nil
 local amberButton = nil
+local playerGui = nil
 local mountedPlayer = nil
 local displayedGold = 0
 local displayedAmber = 0
 local animationToken = 0
 local amberAnimationToken = 0
 local amberActivatedHandler = nil
+local playerGuiChildAddedConnection = nil
+local amberButtonConnection = nil
 
 local function formatGold(amount)
 	return string.format("$ %s", currencyFormatter.formatGold(amount))
@@ -67,129 +51,80 @@ local function renderAmber(amount)
 	end
 end
 
-local function createPill(screenGuiParent, centerX, widthScale, strokeColor, highlightColor, textColor)
-	local shadowFrame = Instance.new("Frame")
-	shadowFrame.Name = "Shadow"
-	shadowFrame.AnchorPoint = Vector2.new(0.5, 0)
-	shadowFrame.Position = UDim2.new(centerX, 0, 0, TOP_PADDING + 4)
-	shadowFrame.Size = UDim2.new(widthScale, 0, 0, LABEL_HEIGHT)
-	shadowFrame.BackgroundColor3 = SHADOW_COLOR
-	shadowFrame.BackgroundTransparency = 0.45
-	shadowFrame.BorderSizePixel = 0
-	shadowFrame.ZIndex = 0
-	shadowFrame.Parent = screenGuiParent
+local function findDescendant(parent, name)
+	if not parent then
+		return nil
+	end
 
-	local shadowCorner = Instance.new("UICorner")
-	shadowCorner.CornerRadius = UDim.new(0, 14)
-	shadowCorner.Parent = shadowFrame
+	return parent:FindFirstChild(name, true)
+end
 
-	local frame = Instance.new("Frame")
-	frame.Name = "Root"
-	frame.AnchorPoint = Vector2.new(0.5, 0)
-	frame.Position = UDim2.new(centerX, 0, 0, TOP_PADDING)
-	frame.Size = UDim2.new(widthScale, 0, 0, LABEL_HEIGHT)
-	frame.BackgroundColor3 = BACKGROUND_COLOR
-	frame.BorderSizePixel = 0
-	frame.ZIndex = 1
-	frame.Parent = screenGuiParent
+local function disconnectGuiConnections()
+	if amberButtonConnection then
+		amberButtonConnection:Disconnect()
+		amberButtonConnection = nil
+	end
+end
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 14)
-	corner.Parent = frame
+local function clearGuiRefs()
+	disconnectGuiConnections()
+	screenGui = nil
+	amountLabel = nil
+	amberRootFrame = nil
+	amberAmountLabel = nil
+	amberButton = nil
+end
 
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, GRADIENT_TOP_COLOR),
-		ColorSequenceKeypoint.new(1, GRADIENT_BOTTOM_COLOR),
-	})
-	gradient.Rotation = 90
-	gradient.Parent = frame
+local function bindButton()
+	if amberButtonConnection then
+		amberButtonConnection:Disconnect()
+		amberButtonConnection = nil
+	end
 
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = strokeColor
-	stroke.Thickness = 2
-	stroke.Parent = frame
-
-	local highlight = Instance.new("Frame")
-	highlight.Name = "Highlight"
-	highlight.AnchorPoint = Vector2.new(0.5, 0)
-	highlight.Position = UDim2.new(0.5, 0, 0, 1)
-	highlight.Size = UDim2.new(1, -18, 0, 2)
-	highlight.BackgroundColor3 = highlightColor
-	highlight.BackgroundTransparency = 0.2
-	highlight.BorderSizePixel = 0
-	highlight.ZIndex = 2
-	highlight.Parent = frame
-
-	local highlightCorner = Instance.new("UICorner")
-	highlightCorner.CornerRadius = UDim.new(1, 0)
-	highlightCorner.Parent = highlight
-
-	local label = Instance.new("TextLabel")
-	label.Name = "Amount"
-	label.BackgroundTransparency = 1
-	label.Position = UDim2.fromOffset(INNER_HORIZONTAL_PADDING, INNER_VERTICAL_PADDING)
-	label.Size = UDim2.new(1, -(INNER_HORIZONTAL_PADDING * 2), 1, -(INNER_VERTICAL_PADDING * 2))
-	label.Font = Enum.Font.GothamBlack
-	label.Text = ""
-	label.TextColor3 = textColor
-	label.TextScaled = true
-	label.TextStrokeColor3 = BACKGROUND_COLOR
-	label.TextStrokeTransparency = 0.5
-	label.TextWrapped = true
-	label.TextXAlignment = Enum.TextXAlignment.Center
-	label.ZIndex = 3
-	label.Parent = frame
-
-	return frame, label
+	if amberButton and amberButton:IsA("GuiButton") then
+		amberButtonConnection = amberButton.Activated:Connect(function()
+			if amberActivatedHandler then
+				amberActivatedHandler()
+			end
+		end)
+	end
 end
 
 local function ensureGui(player)
-	if screenGui then
+	if screenGui and screenGui.Parent then
 		return
 	end
 
-	local playerGui = player:WaitForChild("PlayerGui")
+	playerGui = playerGui or player:WaitForChild("PlayerGui")
 	local existingGui = playerGui:FindFirstChild(GUI_NAME)
 
-	if existingGui and existingGui:IsA("ScreenGui") then
-		existingGui:Destroy()
+	if not existingGui or not existingGui:IsA("ScreenGui") then
+		clearGuiRefs()
+
+		if not playerGuiChildAddedConnection then
+			playerGuiChildAddedConnection = playerGui.ChildAdded:Connect(function(child)
+				if child.Name == GUI_NAME and child:IsA("ScreenGui") then
+					ensureGui(player)
+				end
+			end)
+		end
+
+		return
 	end
 
-	screenGui = Instance.new("ScreenGui")
-	screenGui.Name = GUI_NAME
-	screenGui.ResetOnSpawn = false
-	screenGui.IgnoreGuiInset = true
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.Parent = playerGui
+	screenGui = existingGui
+	local goldRootFrame = findDescendant(screenGui, "GoldRoot")
+	amberRootFrame = findDescendant(screenGui, "AmberRoot")
+	amountLabel = goldRootFrame and findDescendant(goldRootFrame, "Amount") or nil
+	amberAmountLabel = amberRootFrame and findDescendant(amberRootFrame, "Amount") or nil
+	amberButton = amberRootFrame and findDescendant(amberRootFrame, "Button") or nil
 
-	local goldRootFrame = nil
-	goldRootFrame, amountLabel =
-		createPill(screenGui, GOLD_CENTER_X, GOLD_PILL_WIDTH_SCALE, STROKE_COLOR, HIGHLIGHT_COLOR, TEXT_COLOR)
-	amberRootFrame, amberAmountLabel = createPill(
-		screenGui,
-		AMBER_CENTER_X,
-		AMBER_PILL_WIDTH_SCALE,
-		AMBER_STROKE_COLOR,
-		AMBER_HIGHLIGHT_COLOR,
-		AMBER_TEXT_COLOR
-	)
+	if playerGuiChildAddedConnection then
+		playerGuiChildAddedConnection:Disconnect()
+		playerGuiChildAddedConnection = nil
+	end
 
-	amberButton = Instance.new("TextButton")
-	amberButton.Name = "Button"
-	amberButton.BackgroundTransparency = 1
-	amberButton.Size = UDim2.fromScale(1, 1)
-	amberButton.Text = ""
-	amberButton.AutoButtonColor = true
-	amberButton.ZIndex = 4
-	amberButton.Parent = amberRootFrame
-	goldRootFrame.Name = "GoldRoot"
-	amberRootFrame.Name = "AmberRoot"
-	amberButton.Activated:Connect(function()
-		if amberActivatedHandler then
-			amberActivatedHandler()
-		end
-	end)
+	bindButton()
 
 	renderGold(displayedGold)
 	renderAmber(displayedAmber)
@@ -209,6 +144,10 @@ end
 
 function TopGoldLabelView.setGold(nextAmount)
 	nextAmount = math.max(0, math.floor(tonumber(nextAmount) or 0))
+
+	if mountedPlayer then
+		ensureGui(mountedPlayer)
+	end
 
 	if not amountLabel then
 		renderGold(nextAmount)
@@ -264,6 +203,10 @@ end
 
 function TopGoldLabelView.setAmber(nextAmount)
 	nextAmount = math.max(0, math.floor(tonumber(nextAmount) or 0))
+
+	if mountedPlayer then
+		ensureGui(mountedPlayer)
+	end
 
 	if not amberAmountLabel then
 		renderAmber(nextAmount)

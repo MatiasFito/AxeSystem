@@ -89,6 +89,10 @@ local function requireDescendant(parent, name, expectedClassName, errors, contex
 	return child
 end
 
+local function hasPrefix(value, prefix)
+	return string.len(value) >= string.len(prefix) and string.sub(value, 1, string.len(prefix)) == prefix
+end
+
 local function validateAxeTemplates(errors)
 	local templatesFolder =
 		requireFolder(ServerStorage, blacksmithConstants.AXE_TEMPLATE_FOLDER_NAME, errors, "ServerStorage")
@@ -464,6 +468,133 @@ local function validatePlotUpgradeGui(errors)
 	end
 end
 
+local function validateAmberShopGui(errors)
+	local amberShopGui = requireChild(StarterGui, "AmberShopGui", "ScreenGui", errors, "StarterGui")
+
+	if not amberShopGui then
+		return
+	end
+
+	local overlay = requireChild(amberShopGui, "Overlay", "GuiObject", errors, "StarterGui/AmberShopGui")
+
+	if not overlay then
+		return
+	end
+
+	local root = requireChild(overlay, "Root", "GuiObject", errors, "StarterGui/AmberShopGui/Overlay")
+
+	if not root then
+		return
+	end
+
+	requireChild(root, "Balance", "TextLabel", errors, "StarterGui/AmberShopGui/Overlay/Root")
+	requireChild(root, "Status", "TextLabel", errors, "StarterGui/AmberShopGui/Overlay/Root")
+	requireChild(root, "CloseButton", "GuiButton", errors, "StarterGui/AmberShopGui/Overlay/Root")
+
+	local scrollingFrame =
+		requireChild(root, "ScrollingFrame", "ScrollingFrame", errors, "StarterGui/AmberShopGui/Overlay/Root")
+
+	if not scrollingFrame then
+		return
+	end
+
+	if not scrollingFrame:FindFirstChildOfClass("UIListLayout") then
+		pushError(errors, "Missing UIListLayout under StarterGui/AmberShopGui/Overlay/Root/ScrollingFrame")
+	end
+
+	local cardTemplate = scrollingFrame:FindFirstChild("CardTemplate")
+
+	if cardTemplate and not cardTemplate:IsA("Frame") then
+		pushError(errors, "Expected StarterGui/AmberShopGui card template to be a Frame")
+		cardTemplate = nil
+	end
+
+	if not cardTemplate then
+		for _, child in ipairs(scrollingFrame:GetChildren()) do
+			if child:IsA("Frame") and hasPrefix(child.Name, "Card_") then
+				cardTemplate = child
+				break
+			end
+		end
+	end
+
+	if not cardTemplate then
+		pushError(
+			errors,
+			"StarterGui/AmberShopGui/Overlay/Root/ScrollingFrame must contain CardTemplate or at least one Card_<upgradeKey> frame"
+		)
+		return
+	end
+
+	requireChild(cardTemplate, "Title", "TextLabel", errors, "StarterGui/AmberShopGui/CardTemplate")
+	requireChild(cardTemplate, "Level", "TextLabel", errors, "StarterGui/AmberShopGui/CardTemplate")
+	requireChild(cardTemplate, "Description", "TextLabel", errors, "StarterGui/AmberShopGui/CardTemplate")
+	requireChild(cardTemplate, "Comparison", "TextLabel", errors, "StarterGui/AmberShopGui/CardTemplate")
+	requireChild(cardTemplate, "UpgradeButton", "GuiButton", errors, "StarterGui/AmberShopGui/CardTemplate")
+end
+
+local function validateAutoSwingGui(errors)
+	local autoSwingGui = requireChild(StarterGui, "AutoSwingGui", "ScreenGui", errors, "StarterGui")
+
+	if not autoSwingGui then
+		return
+	end
+
+	local toggleButton = requireDescendant(autoSwingGui, "ToggleButton", "GuiButton", errors, "StarterGui/AutoSwingGui")
+
+	if toggleButton then
+		requireDescendant(toggleButton, "State", "TextLabel", errors, "StarterGui/AutoSwingGui/ToggleButton")
+	end
+end
+
+local function validateRebirthGui(errors)
+	local rebirthGui = requireChild(StarterGui, "RebirthGui", "ScreenGui", errors, "StarterGui")
+
+	if not rebirthGui then
+		return
+	end
+
+	local root = requireChild(rebirthGui, "Root", "GuiObject", errors, "StarterGui/RebirthGui")
+	local modalOverlay = requireChild(rebirthGui, "ModalOverlay", "GuiObject", errors, "StarterGui/RebirthGui")
+
+	if root then
+		requireChild(root, "RebirthButton", "GuiButton", errors, "StarterGui/RebirthGui/Root")
+		requireChild(root, "StatusLabel", "TextLabel", errors, "StarterGui/RebirthGui/Root")
+	end
+
+	if not modalOverlay then
+		return
+	end
+
+	local modal = requireChild(modalOverlay, "Modal", "GuiObject", errors, "StarterGui/RebirthGui/ModalOverlay")
+
+	if modal then
+		requireChild(modal, "MessageLabel", "TextLabel", errors, "StarterGui/RebirthGui/ModalOverlay/Modal")
+		requireChild(modal, "ConfirmButton", "GuiButton", errors, "StarterGui/RebirthGui/ModalOverlay/Modal")
+		requireChild(modal, "CancelButton", "GuiButton", errors, "StarterGui/RebirthGui/ModalOverlay/Modal")
+	end
+end
+
+local function validateTopGoldLabelGui(errors)
+	local topGoldGui = requireChild(StarterGui, "TopGoldLabelGui", "ScreenGui", errors, "StarterGui")
+
+	if not topGoldGui then
+		return
+	end
+
+	local goldRoot = requireDescendant(topGoldGui, "GoldRoot", "GuiObject", errors, "StarterGui/TopGoldLabelGui")
+	local amberRoot = requireDescendant(topGoldGui, "AmberRoot", "GuiObject", errors, "StarterGui/TopGoldLabelGui")
+
+	if goldRoot then
+		requireDescendant(goldRoot, "Amount", "TextLabel", errors, "StarterGui/TopGoldLabelGui/GoldRoot")
+	end
+
+	if amberRoot then
+		requireDescendant(amberRoot, "Amount", "TextLabel", errors, "StarterGui/TopGoldLabelGui/AmberRoot")
+		requireDescendant(amberRoot, "Button", "GuiButton", errors, "StarterGui/TopGoldLabelGui/AmberRoot")
+	end
+end
+
 local function isAllowedPlotSetName(name)
 	for index = 1, 6 do
 		if name == string.format("PlotSet%02d", index) then
@@ -673,8 +804,12 @@ function StudioAssetValidator.validateOrThrow()
 	validateAxeTemplates(errors)
 	validateAxeDefaults(errors)
 	validateAxeOverrides(errors)
+	validateAmberShopGui(errors)
+	validateAutoSwingGui(errors)
 	validateBlacksmithGui(errors)
 	validateBlacksmithSection(errors)
+	validateRebirthGui(errors)
+	validateTopGoldLabelGui(errors)
 	validateTrees(errors)
 	validateTreePlotSets(errors)
 	validateTreePlotTemplate(errors)

@@ -3,16 +3,8 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
 local GUI_NAME = "RebirthGui"
-
-local PANEL_COLOR = Color3.fromRGB(28, 30, 23)
-local PANEL_HIGHLIGHT = Color3.fromRGB(53, 61, 44)
-local PANEL_STROKE = Color3.fromRGB(230, 219, 173)
-local LABEL_COLOR = Color3.fromRGB(244, 240, 221)
 local BUTTON_READY_COLOR = Color3.fromRGB(184, 120, 46)
 local BUTTON_DISABLED_COLOR = Color3.fromRGB(92, 92, 92)
-local CONFIRM_COLOR = Color3.fromRGB(108, 169, 83)
-local CANCEL_COLOR = Color3.fromRGB(152, 70, 70)
-local MODAL_OVERLAY_COLOR = Color3.fromRGB(0, 0, 0)
 
 local RebirthUI = {}
 
@@ -30,14 +22,26 @@ local confirmHandler = nil
 local previewState = nil
 local isBusy = false
 
-local ROOT_BOTTOM_OFFSET = -24
-local ROOT_RIGHT_OFFSET = -24
-local ROOT_WIDTH = 348
-local ROOT_HEIGHT = 116
-local CONTENT_CENTER_Y = 40
-
 local function formatAmount(amount)
 	return tostring(math.max(0, math.floor(amount or 0)))
+end
+
+local function setText(instance, text)
+	if not instance then
+		return
+	end
+
+	if instance:IsA("TextLabel") or instance:IsA("TextButton") then
+		instance.Text = text
+	end
+end
+
+local function findDirectChild(parent, name)
+	if not parent then
+		return nil
+	end
+
+	return parent:FindFirstChild(name)
 end
 
 local function buildStatusText(state)
@@ -70,8 +74,8 @@ local function updateButtonState()
 	actionButton.Active = isEnabled
 	actionButton.AutoButtonColor = isEnabled
 	actionButton.BackgroundColor3 = isEnabled and BUTTON_READY_COLOR or BUTTON_DISABLED_COLOR
-	actionButton.Text = isBusy and "Processing..." or "Rebirth"
-	statusLabel.Text = buildStatusText(previewState)
+	setText(actionButton, isBusy and "Processing..." or "Rebirth")
+	setText(statusLabel, buildStatusText(previewState))
 end
 
 local function closeModal()
@@ -86,7 +90,7 @@ local function updateModalMessage(state)
 	end
 
 	local amberReward = typeof(state) == "table" and state.estimatedAmber or 0
-	modalMessageLabel.Text = string.format("Are you sure? You will receive %s Amber.", formatAmount(amberReward))
+	setText(modalMessageLabel, string.format("Are you sure? You will receive %s Amber.", formatAmount(amberReward)))
 end
 
 local function handleButtonActivated()
@@ -109,39 +113,10 @@ local function handleConfirmActivated()
 
 	confirmHandler(previewState)
 end
-
-local function createButton(parent, name, size, position, backgroundColor, text)
-	local button = Instance.new("TextButton")
-	button.Name = name
-	button.AnchorPoint = Vector2.new(0, 0.5)
-	button.Position = position
-	button.Size = size
-	button.BackgroundColor3 = backgroundColor
-	button.BorderSizePixel = 0
-	button.Font = Enum.Font.GothamBlack
-	button.Text = text
-	button.TextColor3 = LABEL_COLOR
-	button.TextScaled = true
-	button.Parent = parent
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 14)
-	corner.Parent = button
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = PANEL_STROKE
-	stroke.Thickness = 1.5
-	stroke.Parent = button
-
-	return button
-end
-
 local function ensureGui()
-	if started then
+	if started and screenGui and screenGui.Parent then
 		return
 	end
-
-	started = true
 	previewState = {
 		isEligible = false,
 		minimumPlotOrder = 10,
@@ -152,133 +127,37 @@ local function ensureGui()
 	local playerGui = player:WaitForChild("PlayerGui")
 	local existingGui = playerGui:FindFirstChild(GUI_NAME)
 
-	if existingGui and existingGui:IsA("ScreenGui") then
-		existingGui:Destroy()
+	if not existingGui or not existingGui:IsA("ScreenGui") then
+		return
 	end
 
-	screenGui = Instance.new("ScreenGui")
-	screenGui.Name = GUI_NAME
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.Parent = playerGui
+	started = true
+	screenGui = existingGui
+	rootFrame = findDirectChild(screenGui, "Root")
+	actionButton = rootFrame and findDirectChild(rootFrame, "RebirthButton") or nil
+	statusLabel = rootFrame and findDirectChild(rootFrame, "StatusLabel") or nil
+	modalOverlay = findDirectChild(screenGui, "ModalOverlay")
+	local modalFrame = modalOverlay and findDirectChild(modalOverlay, "Modal") or nil
+	modalMessageLabel = modalFrame and findDirectChild(modalFrame, "MessageLabel") or nil
+	confirmButton = modalFrame and findDirectChild(modalFrame, "ConfirmButton") or nil
+	cancelButton = modalFrame and findDirectChild(modalFrame, "CancelButton") or nil
 
-	rootFrame = Instance.new("Frame")
-	rootFrame.Name = "Root"
-	rootFrame.AnchorPoint = Vector2.new(1, 1)
-	rootFrame.Position = UDim2.new(1, ROOT_RIGHT_OFFSET, 1, ROOT_BOTTOM_OFFSET)
-	rootFrame.Size = UDim2.fromOffset(ROOT_WIDTH, ROOT_HEIGHT)
-	rootFrame.BackgroundColor3 = PANEL_COLOR
-	rootFrame.BorderSizePixel = 0
-	rootFrame.Parent = screenGui
+	if actionButton and actionButton:IsA("GuiButton") then
+		actionButton.Activated:Connect(handleButtonActivated)
+	end
 
-	local rootCorner = Instance.new("UICorner")
-	rootCorner.CornerRadius = UDim.new(0, 18)
-	rootCorner.Parent = rootFrame
+	if confirmButton and confirmButton:IsA("GuiButton") then
+		confirmButton.Activated:Connect(handleConfirmActivated)
+	end
 
-	local rootStroke = Instance.new("UIStroke")
-	rootStroke.Color = PANEL_STROKE
-	rootStroke.Thickness = 2
-	rootStroke.Parent = rootFrame
+	if cancelButton and cancelButton:IsA("GuiButton") then
+		cancelButton.Activated:Connect(closeModal)
+	end
 
-	local rootGradient = Instance.new("UIGradient")
-	rootGradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, PANEL_HIGHLIGHT),
-		ColorSequenceKeypoint.new(1, PANEL_COLOR),
-	})
-	rootGradient.Rotation = 90
-	rootGradient.Parent = rootFrame
+	if modalOverlay then
+		modalOverlay.Visible = false
+	end
 
-	actionButton = createButton(
-		rootFrame,
-		"RebirthButton",
-		UDim2.fromOffset(220, 48),
-		UDim2.new(0.5, -110, 0, CONTENT_CENTER_Y),
-		BUTTON_DISABLED_COLOR,
-		"Rebirth"
-	)
-	actionButton.AnchorPoint = Vector2.new(0, 0.5)
-
-	statusLabel = Instance.new("TextLabel")
-	statusLabel.Name = "StatusLabel"
-	statusLabel.BackgroundTransparency = 1
-	statusLabel.Position = UDim2.fromOffset(16, 88)
-	statusLabel.Size = UDim2.new(1, -32, 0, 18)
-	statusLabel.Font = Enum.Font.GothamMedium
-	statusLabel.TextColor3 = LABEL_COLOR
-	statusLabel.TextScaled = true
-	statusLabel.TextWrapped = true
-	statusLabel.TextXAlignment = Enum.TextXAlignment.Center
-	statusLabel.Parent = rootFrame
-
-	modalOverlay = Instance.new("Frame")
-	modalOverlay.Name = "ModalOverlay"
-	modalOverlay.BackgroundColor3 = MODAL_OVERLAY_COLOR
-	modalOverlay.BackgroundTransparency = 0.35
-	modalOverlay.BorderSizePixel = 0
-	modalOverlay.Size = UDim2.fromScale(1, 1)
-	modalOverlay.Visible = false
-	modalOverlay.Parent = screenGui
-
-	local modalFrame = Instance.new("Frame")
-	modalFrame.Name = "Modal"
-	modalFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-	modalFrame.Position = UDim2.fromScale(0.5, 0.5)
-	modalFrame.Size = UDim2.fromOffset(340, 180)
-	modalFrame.BackgroundColor3 = PANEL_COLOR
-	modalFrame.BorderSizePixel = 0
-	modalFrame.Parent = modalOverlay
-
-	local modalCorner = Instance.new("UICorner")
-	modalCorner.CornerRadius = UDim.new(0, 20)
-	modalCorner.Parent = modalFrame
-
-	local modalStroke = Instance.new("UIStroke")
-	modalStroke.Color = PANEL_STROKE
-	modalStroke.Thickness = 2
-	modalStroke.Parent = modalFrame
-
-	local modalGradient = Instance.new("UIGradient")
-	modalGradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, PANEL_HIGHLIGHT),
-		ColorSequenceKeypoint.new(1, PANEL_COLOR),
-	})
-	modalGradient.Rotation = 90
-	modalGradient.Parent = modalFrame
-
-	modalMessageLabel = Instance.new("TextLabel")
-	modalMessageLabel.Name = "MessageLabel"
-	modalMessageLabel.BackgroundTransparency = 1
-	modalMessageLabel.Position = UDim2.fromOffset(24, 28)
-	modalMessageLabel.Size = UDim2.new(1, -48, 0, 68)
-	modalMessageLabel.Font = Enum.Font.GothamBold
-	modalMessageLabel.TextColor3 = LABEL_COLOR
-	modalMessageLabel.TextScaled = true
-	modalMessageLabel.TextWrapped = true
-	modalMessageLabel.Parent = modalFrame
-
-	confirmButton = createButton(
-		modalFrame,
-		"ConfirmButton",
-		UDim2.fromOffset(132, 44),
-		UDim2.fromOffset(24, 126),
-		CONFIRM_COLOR,
-		"Confirm"
-	)
-	confirmButton.AnchorPoint = Vector2.new(0, 0)
-
-	cancelButton = createButton(
-		modalFrame,
-		"CancelButton",
-		UDim2.fromOffset(132, 44),
-		UDim2.new(1, -156, 0, 126),
-		CANCEL_COLOR,
-		"Cancel"
-	)
-	cancelButton.AnchorPoint = Vector2.new(0, 0)
-
-	actionButton.Activated:Connect(handleButtonActivated)
-	confirmButton.Activated:Connect(handleConfirmActivated)
-	cancelButton.Activated:Connect(closeModal)
 	updateModalMessage(previewState)
 	updateButtonState()
 end
@@ -298,7 +177,7 @@ function RebirthUI.setBusy(nextBusy)
 	isBusy = nextBusy == true
 	confirmButton.Active = not isBusy
 	confirmButton.AutoButtonColor = not isBusy
-	confirmButton.Text = isBusy and "Processing..." or "Confirm"
+	setText(confirmButton, isBusy and "Processing..." or "Confirm")
 	cancelButton.Active = not isBusy
 	cancelButton.AutoButtonColor = not isBusy
 	updateButtonState()
