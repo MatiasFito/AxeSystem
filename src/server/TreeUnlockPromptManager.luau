@@ -186,7 +186,7 @@ function TreeUnlockPromptManager.create(deps)
 
 		local plotState = deps.getTreePlot(player, plotId)
 		local tree = deps.getTreeByPlotId(plotId)
-		local runtimePlotState = deps.getRuntimePlotState(player, plotId)
+		local runtimePlotState = deps.getPlotRuntimeState(player, plotId)
 
 		if not plotState or not tree then
 			destroyUnlockButton(runtimePlotState)

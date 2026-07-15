@@ -13,6 +13,7 @@ local RebirthService = {}
 
 local started = false
 local playerData = nil
+local treePlotRuntimeService = nil
 local treeService = nil
 local lumberjackService = nil
 
@@ -37,7 +38,7 @@ local function getMaxUnlockedPlotOrder(treePlots)
 end
 
 local function refreshRuntimeState(player)
-	if treeService and not treeService.onPlayerDataReset(player) then
+	if treePlotRuntimeService and not treePlotRuntimeService.onPlayerDataReset(player) then
 		warn(string.format("RebirthService failed to refresh tree state for %s", player.Name))
 	end
 
@@ -102,13 +103,19 @@ function RebirthService.requestRebirth(player)
 	})
 end
 
-function RebirthService.start(playerDataModule, treeServiceModule, lumberjackServiceModule)
+function RebirthService.start(
+	playerDataModule,
+	treePlotRuntimeServiceModule,
+	treeServiceModule,
+	lumberjackServiceModule
+)
 	if started then
 		return
 	end
 
 	started = true
 	playerData = playerDataModule
+	treePlotRuntimeService = treePlotRuntimeServiceModule
 	treeService = treeServiceModule
 	lumberjackService = lumberjackServiceModule
 

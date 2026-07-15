@@ -111,17 +111,17 @@ function TreeHitController.create(deps)
 			return false
 		end
 
-		local runtimePlotState = deps.getRuntimePlotState(player, plotId)
+		local treeRuntimeState = deps.getTreeRuntimeState(player, plotId)
 		local now = os.clock()
 		local hitCooldownSeconds = resolveHitCooldownSeconds(hitContext)
 		local hitCooldownGraceSeconds = resolveHitCooldownGraceSeconds(hitCooldownSeconds)
-		local elapsedSinceLastAccept = now - runtimePlotState.LastAcceptedHitAt
+		local elapsedSinceLastAccept = now - treeRuntimeState.LastAcceptedHitAt
 
 		if elapsedSinceLastAccept + hitCooldownGraceSeconds < hitCooldownSeconds then
 			return false
 		end
 
-		runtimePlotState.LastAcceptedHitAt = now
+		treeRuntimeState.LastAcceptedHitAt = now
 
 		local tree = deps.getTreeByPlotId(plotId)
 		local levelData = tree and deps.getLevelData(tree.Id, plotState.Level) or nil
@@ -132,8 +132,8 @@ function TreeHitController.create(deps)
 			return false
 		end
 
-		if runtimePlotState.CurrentHealth == nil then
-			runtimePlotState.CurrentHealth = levelData.Health
+		if treeRuntimeState.CurrentHealth == nil then
+			treeRuntimeState.CurrentHealth = levelData.Health
 		end
 
 		local goldUpgradeLevel = deps.getAmberUpgradeLevel(player, "GoldMultiplier") or 0
@@ -148,29 +148,29 @@ function TreeHitController.create(deps)
 		local power = deps.resolveFinalDamageFromBasePower(player, hitContext.power)
 		local effectOrigin = hitContext.effectOrigin or plotRecord.DirtPatch.Position
 
-		local actualDamage = math.min(runtimePlotState.CurrentHealth, power)
-		runtimePlotState.CurrentHealth -= actualDamage
+		local actualDamage = math.min(treeRuntimeState.CurrentHealth, power)
+		treeRuntimeState.CurrentHealth -= actualDamage
 
-		if runtimePlotState.CurrentHealth > 0 then
-			deps.emitTreeParticles(runtimePlotState.SpawnedTreeModel, constants.HitParticleCount, effectOrigin)
+		if treeRuntimeState.CurrentHealth > 0 then
+			deps.emitTreeParticles(treeRuntimeState.SpawnedTreeModel, constants.HitParticleCount, effectOrigin)
 		else
 			pushTreeParticles(
 				player,
 				plotRecord,
 				constants.FellParticleCount,
-				deps.getTreeImpactWorldCFrame(runtimePlotState.SpawnedTreeModel, effectOrigin)
+				deps.getTreeImpactWorldCFrame(treeRuntimeState.SpawnedTreeModel, effectOrigin)
 			)
 		end
 
 		pushTreeAudio(player, plotRecord, "hit", constants.HitSoundId, constants.HitSoundVolume)
 
-		if runtimePlotState.CurrentHealth > 0 then
+		if treeRuntimeState.CurrentHealth > 0 then
 			deps.applyTreeScale(
-				runtimePlotState,
+				treeRuntimeState,
 				plotRecord,
-				deps.getHarvestScale(runtimePlotState.CurrentHealth, levelData.Health)
+				deps.getHarvestScale(treeRuntimeState.CurrentHealth, levelData.Health)
 			)
-			deps.applyTreeShake(runtimePlotState, plotRecord, constants.ShakeDuration, constants.ShakeAngleDegrees)
+			deps.applyTreeShake(treeRuntimeState, plotRecord, constants.ShakeDuration, constants.ShakeAngleDegrees)
 
 			return true
 		end
@@ -189,11 +189,11 @@ function TreeHitController.create(deps)
 		local growingUntil = deps.getServerNow() + deps.getEffectiveGrowTime(player, levelData.GrowTime)
 		deps.setGold(player, currentGold + reward)
 		deps.refreshUnlockButtons(player)
-		runtimePlotState.CurrentHealth = 0
+		treeRuntimeState.CurrentHealth = 0
 		deps.applyTreeVisual(
-			runtimePlotState,
+			treeRuntimeState,
 			plotRecord,
-			runtimePlotState.VisualScale > 0 and runtimePlotState.VisualScale or 1,
+			treeRuntimeState.VisualScale > 0 and treeRuntimeState.VisualScale or 1,
 			nil,
 			1,
 			true

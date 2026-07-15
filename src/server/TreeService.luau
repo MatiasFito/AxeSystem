@@ -21,7 +21,10 @@ local treeVisualControllerModule = require(script.Parent:WaitForChild("TreeVisua
 local treeGrowthControllerModule = require(script.Parent:WaitForChild("TreeGrowthController") :: ModuleScript)
 local treeHitControllerModule = require(script.Parent:WaitForChild("TreeHitController") :: ModuleScript)
 local treePlotMaterializerModule = require(script.Parent:WaitForChild("TreePlotMaterializer") :: ModuleScript)
+local treePlotRuntimeOrchestratorModule =
+	require(script.Parent:WaitForChild("TreePlotRuntimeOrchestrator") :: ModuleScript)
 local treeProgressionResolverModule = require(script.Parent:WaitForChild("TreeProgressionResolver") :: ModuleScript)
+local treeRulesModule = require(script.Parent:WaitForChild("TreeRules") :: ModuleScript)
 local treeRuntimeManagerModule = require(script.Parent:WaitForChild("TreeRuntimeManager") :: ModuleScript)
 
 local TreeService = {}
@@ -29,7 +32,6 @@ local TreeService = {}
 local TREE_HIT_DISTANCE = treeConstants.HIT_DISTANCE
 local HIT_COOLDOWN_SECONDS = swingSpeed.MIN_EFFECTIVE_SWING_DURATION
 local HIT_COOLDOWN_GRACE_SECONDS = 0.02
-local PLOT_ASSIGNMENT_WAIT_ATTEMPTS = 10
 local TREE_MIN_SCALE = 0.05
 local TREE_DEAD_SCALE = 0.5
 local TREE_GROWTH_STEP_SECONDS = 0.05
@@ -56,6 +58,7 @@ local treePlotMaterializer = nil
 local treeRuntimeManager = nil
 local treeNetworkBridge = nil
 local treeHitController = nil
+local treeRules = nil
 local sessionTimeService = nil
 
 local function getServerNow()
@@ -63,49 +66,36 @@ local function getServerNow()
 end
 
 local function getAmberUpgradeLevel(player, upgradeKey)
-	if not playerData or not playerData.getAmberUpgradeLevel then
+	if not treeRules then
 		return 0
 	end
 
-	return playerData.getAmberUpgradeLevel(player, upgradeKey) or 0
+	return treeRules.getAmberUpgradeLevel(player, upgradeKey)
 end
 
 local function getEffectiveGrowTime(player, baseGrowTime)
-	if typeof(baseGrowTime) ~= "number" then
+	if not treeRules then
 		return 0
 	end
 
-	return math.max(
-		0,
-		baseGrowTime * rebirthConfig.getRegrowthTimeMultiplier(getAmberUpgradeLevel(player, "RegrowthTime"))
-	)
+	return treeRules.getEffectiveGrowTime(player, baseGrowTime)
 end
 
 local function getUnlockCost(player, tree)
-	if not tree or typeof(tree.UnlockCost) ~= "number" then
+	if not treeRules then
 		return nil
 	end
 
-	return rebirthConfig.getReducedCost(tree.UnlockCost, getAmberUpgradeLevel(player, "CostReduction"))
+	return treeRules.getUnlockCost(player, tree)
 end
 
-local function getAssignedPlotSetWithRetry(player)
-	for attempt = 1, PLOT_ASSIGNMENT_WAIT_ATTEMPTS do
-		local plotSet = treePlotService and treePlotService.getAssignedPlotSet(player)
-
-		if plotSet then
-			return plotSet
-		end
-
-		if attempt < PLOT_ASSIGNMENT_WAIT_ATTEMPTS then
-			task.wait()
-		end
-	end
-
-	return nil
-end
-
-function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceModule, sessionTimeServiceModule)
+function TreeService.start(
+	playerDataModule,
+	treePlotServiceModule,
+	treePlotRuntimeServiceModule,
+	axeServiceModule,
+	sessionTimeServiceModule
+)
 	if started then
 		return
 	end
@@ -114,6 +104,15 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	playerData = playerDataModule
 	treePlotService = treePlotServiceModule
 	sessionTimeService = sessionTimeServiceModule
+	treeRules = treeRulesModule.create({
+		getAmberUpgradeLevel = function(player, upgradeKey)
+			if not playerData or not playerData.getAmberUpgradeLevel then
+				return 0
+			end
+
+			return playerData.getAmberUpgradeLevel(player, upgradeKey) or 0
+		end,
+	})
 	local axeDamageResolver = axeDamageResolverModule.create({
 		getAmberUpgradeLevel = getAmberUpgradeLevel,
 	})
@@ -162,8 +161,10 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 			ReadyBounceScales = TREE_READY_BOUNCE_SCALES,
 		},
 		getAssignedPlot = treePlotService.getAssignedPlot,
-		getRuntimePlotState = treeRuntimeManager.getRuntimePlotState,
-		getActiveRuntimePlotState = treeRuntimeManager.getActiveRuntimePlotState,
+		getPlotRuntimeState = treeRuntimeManager.getPlotRuntimeState,
+		getActivePlotRuntimeState = treeRuntimeManager.getActivePlotRuntimeState,
+		getTreeRuntimeState = treeRuntimeManager.getTreeRuntimeState,
+		getActiveTreeRuntimeState = treeRuntimeManager.getActiveTreeRuntimeState,
 		getTreePlot = playerData.getTreePlot,
 		getServerNow = getServerNow,
 		applyTreeScale = treeVisualController.applyTreeScale,
@@ -181,7 +182,8 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getAssignedPlotSet = treePlotService.getAssignedPlotSet,
 		getTreePlot = playerData.getTreePlot,
 		setTreePlot = playerData.setTreePlot,
-		getRuntimePlotState = treeRuntimeManager.getRuntimePlotState,
+		getPlotRuntimeState = treeRuntimeManager.getPlotRuntimeState,
+		getTreeRuntimeState = treeRuntimeManager.getTreeRuntimeState,
 		clearScheduledReady = treeGrowthController.clearScheduledReady,
 		destroySpawnedTree = treeVisualController.destroySpawnedTree,
 		updatePromptForPlot = function(player, plotId)
@@ -218,6 +220,15 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getServerNow = getServerNow,
 		grownState = treeConstants.PlotState.Grown,
 	})
+	treePlotRuntimeOrchestratorModule.configure({
+		constants = {
+			PlotSetIdAttribute = treeConstants.PLOT_SET_ID_ATTRIBUTE,
+			PlotSetSpawnName = treeConstants.PLOT_SET_SPAWN_NAME,
+		},
+		treePlotRuntimeService = treePlotRuntimeServiceModule,
+		treeRuntimeManager = treeRuntimeManager,
+		treePlotMaterializer = treePlotMaterializer,
+	})
 	local treeProgressionResolver = treeProgressionResolverModule.create({
 		failureReasons = treeConstants.FailureReason,
 		isPlayerLoaded = playerData.isLoaded,
@@ -237,7 +248,7 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		setTreePlot = playerData.setTreePlot,
 		playUnlockButtonSuccessTween = function(player, plotId)
 			if unlockPromptManager then
-				unlockPromptManager.playUnlockButtonSuccessTween(treeRuntimeManager.getRuntimePlotState(player, plotId))
+				unlockPromptManager.playUnlockButtonSuccessTween(treeRuntimeManager.getPlotRuntimeState(player, plotId))
 			end
 		end,
 		materializePlot = treePlotMaterializer.materializePlot,
@@ -282,7 +293,7 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getTreePlot = playerData.getTreePlot,
 		getCharacterRootPart = treeInteractionUtils.getCharacterRootPart,
 		getEquippedAxeTool = treeInteractionUtils.getEquippedAxeTool,
-		getRuntimePlotState = treeRuntimeManager.getRuntimePlotState,
+		getTreeRuntimeState = treeRuntimeManager.getTreeRuntimeState,
 		getTreeByPlotId = treeConfig.getTreeByPlotId,
 		getLevelData = treeConfig.getLevelData,
 		getToolStatValue = treeInteractionUtils.getToolStatValue,
@@ -354,12 +365,11 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 
 			return template
 		end,
-		getRuntimePlotState = treeRuntimeManager.getRuntimePlotState,
+		getPlotRuntimeState = treeRuntimeManager.getPlotRuntimeState,
 		getTouchingPlayer = treeInteractionUtils.getTouchingPlayer,
 		attemptUnlock = treeProgressionResolver.attemptUnlock,
 		isPlotUnlockable = treeStateBuilder.isPlotUnlockable,
 	})
-
 	treeRuntimeManager.getOrCreateRuntimeFolder()
 
 	local remotes = treeNetworkBridge.getOrCreateRemotes()
@@ -396,80 +406,6 @@ function TreeService.processAutomationHit(player, plotId, hitContext)
 	end
 
 	return treeHitController.processAutomationHit(player, plotId, hitContext)
-end
-
-function TreeService.onPlayerAdded(player)
-	if not playerData.isLoaded(player) then
-		return false
-	end
-
-	local plotSet, errorMessage = treePlotService.assignPlayer(player)
-
-	if not plotSet then
-		player:SetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE, nil)
-		warn(string.format("Failed to assign tree plot set to %s: %s", player.Name, tostring(errorMessage)))
-		return false
-	end
-
-	treeRuntimeManager.cleanupPlayerRuntime(player)
-	treeRuntimeManager.setPlotSetId(player, plotSet.Id)
-	player:SetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE, plotSet.Id)
-	return treePlotMaterializer.refreshAllAssignedPlots(player)
-end
-
-function TreeService.onPlayerRemoving(player)
-	treeRuntimeManager.cleanupPlayerRuntime(player)
-	treePlotService.releasePlayer(player)
-	player:SetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE, nil)
-end
-
-function TreeService.onPlayerDataReset(player)
-	if not playerData.isLoaded(player) then
-		return false
-	end
-
-	treeRuntimeManager.cleanupPlayerRuntime(player)
-	local plotSetId = treePlotService.getAssignedPlotSetId(player)
-	treeRuntimeManager.setPlotSetId(player, plotSetId)
-	player:SetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE, plotSetId)
-	return treePlotMaterializer.refreshAllAssignedPlots(player)
-end
-
-function TreeService.teleportCharacterToAssignedPlotSpawn(player, character)
-	if not character or character.Parent == nil then
-		return false
-	end
-
-	local plotSet = getAssignedPlotSetWithRetry(player)
-
-	if not plotSet or not plotSet.Folder then
-		warn(string.format("Failed to resolve assigned plot set for %s during character spawn", player.Name))
-		return false
-	end
-
-	local plotSpawn = plotSet.Folder:FindFirstChild(treeConstants.PLOT_SET_SPAWN_NAME)
-
-	if not plotSpawn or not plotSpawn:IsA("BasePart") then
-		warn(
-			string.format(
-				"Assigned plot set '%s' for %s is missing a BasePart named '%s'",
-				tostring(plotSet.Id),
-				player.Name,
-				treeConstants.PLOT_SET_SPAWN_NAME
-			)
-		)
-		return false
-	end
-
-	local rootPart = character:WaitForChild("HumanoidRootPart", 5)
-
-	if not rootPart or character.Parent == nil then
-		warn(string.format("Failed to resolve HumanoidRootPart for %s during character spawn", player.Name))
-		return false
-	end
-
-	character:PivotTo(plotSpawn.CFrame)
-	return true
 end
 
 return TreeService

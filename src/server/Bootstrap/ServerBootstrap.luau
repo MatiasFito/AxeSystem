@@ -43,6 +43,10 @@ local serviceDefinitions = {
 		moduleName = "TreePlotService",
 	},
 	{
+		name = "TreePlotRuntimeService",
+		moduleName = "TreePlotRuntimeService",
+	},
+	{
 		name = "TreeService",
 		moduleName = "TreeService",
 	},
@@ -74,6 +78,12 @@ local serviceStartOrder = {
 		end,
 	},
 	{
+		name = "TreePlotRuntimeService",
+		start = function(services)
+			services.TreePlotRuntimeService.start(services.PlayerData, services.TreePlotService)
+		end,
+	},
+	{
 		name = "AmberShopService",
 		start = function(services)
 			services.AmberShopService.start(services.PlayerData, services.AxeService)
@@ -91,6 +101,7 @@ local serviceStartOrder = {
 			services.TreeService.start(
 				services.PlayerData,
 				services.TreePlotService,
+				services.TreePlotRuntimeService,
 				services.AxeService,
 				services.SessionTimeService
 			)
@@ -105,7 +116,12 @@ local serviceStartOrder = {
 	{
 		name = "RebirthService",
 		start = function(services)
-			services.RebirthService.start(services.PlayerData, services.TreeService, services.LumberjackService)
+			services.RebirthService.start(
+				services.PlayerData,
+				services.TreePlotRuntimeService,
+				services.TreeService,
+				services.LumberjackService
+			)
 		end,
 	},
 	{
@@ -114,7 +130,7 @@ local serviceStartOrder = {
 			services.OrbOfRegretService.start(
 				services.PlayerData,
 				services.AxeService,
-				services.TreeService,
+				services.TreePlotRuntimeService,
 				services.LumberjackService
 			)
 		end,
@@ -160,7 +176,7 @@ local function syncPlayerWalkSpeed(services, player, character)
 end
 
 local function syncPlayerPlotSpawn(services, player, character)
-	services.TreeService.teleportCharacterToAssignedPlotSpawn(player, character)
+	services.TreePlotRuntimeService.teleportCharacterToAssignedPlotSpawn(player, character)
 end
 
 local function onPlayerAdded(services, player)
@@ -176,14 +192,14 @@ local function onPlayerAdded(services, player)
 	syncPlayerAxe(services, player)
 	syncPlayerSwingSpeed(services, player)
 	services.SessionTimeService.onPlayerAdded(player)
-	services.TreeService.onPlayerAdded(player)
+	services.TreePlotRuntimeService.onPlayerAdded(player)
 	services.LumberjackService.onPlayerAdded(player)
 end
 
 local function onPlayerRemoving(services, player)
 	services.SessionTimeService.onPlayerRemoving(player)
 	services.LumberjackService.onPlayerRemoving(player)
-	services.TreeService.onPlayerRemoving(player)
+	services.TreePlotRuntimeService.onPlayerRemoving(player)
 	services.PlayerData.removePlayer(player)
 end
 

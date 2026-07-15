@@ -10,7 +10,7 @@ local OrbOfRegretService = {}
 local started = false
 local playerData = nil
 local axeService = nil
-local treeService = nil
+local treePlotRuntimeService = nil
 local lumberjackService = nil
 
 local ORB_NAME = "OrbOfRegret"
@@ -84,7 +84,7 @@ local function handleTriggered(player)
 		warn(string.format("OrbOfRegret failed to regrant default axe to %s: %s", player.Name, tostring(axeResult)))
 	end
 
-	if treeService and not treeService.onPlayerDataReset(player) then
+	if treePlotRuntimeService and not treePlotRuntimeService.onPlayerDataReset(player) then
 		warn(string.format("OrbOfRegret failed to refresh tree state for %s", player.Name))
 	end
 
@@ -93,7 +93,12 @@ local function handleTriggered(player)
 	end
 end
 
-function OrbOfRegretService.start(playerDataModule, axeServiceModule, treeServiceModule, lumberjackServiceModule)
+function OrbOfRegretService.start(
+	playerDataModule,
+	axeServiceModule,
+	treePlotRuntimeServiceModule,
+	lumberjackServiceModule
+)
 	if started then
 		return
 	end
@@ -101,7 +106,7 @@ function OrbOfRegretService.start(playerDataModule, axeServiceModule, treeServic
 	started = true
 	playerData = playerDataModule
 	axeService = axeServiceModule
-	treeService = treeServiceModule
+	treePlotRuntimeService = treePlotRuntimeServiceModule
 	lumberjackService = lumberjackServiceModule
 
 	local _, prompt = ensureOrb()

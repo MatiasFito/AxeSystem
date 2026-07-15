@@ -1,5 +1,29 @@
 local TreeRuntimeManager = {}
 
+local function createPlotRuntimeState()
+	return {
+		UnlockButtonModel = nil,
+		UnlockTouchConnection = nil,
+		UnlockTweenToken = 0,
+		IsUnlockAnimating = false,
+		LastUnlockTouchAt = 0,
+		ReadyTaskToken = 0,
+	}
+end
+
+local function createTreeRuntimeState()
+	return {
+		CurrentHealth = nil,
+		FullHealth = nil,
+		SpawnedTreeModel = nil,
+		LastAcceptedHitAt = 0,
+		AnimationToken = 0,
+		VisualState = nil,
+		VisualScale = 1,
+		ShakeToken = 0,
+	}
+end
+
 function TreeRuntimeManager.create(deps)
 	local runtimeFolder = nil
 	local runtimeByPlayer = {}
@@ -44,48 +68,60 @@ function TreeRuntimeManager.create(deps)
 
 		runtimeState = {
 			PlotSetId = deps.getAssignedPlotSetId(player),
-			Plots = {},
+			PlotRuntimeByPlotId = {},
+			TreeRuntimeByPlotId = {},
 		}
 		runtimeByPlayer[player] = runtimeState
 
 		return runtimeState
 	end
 
-	local function getRuntimePlotState(player, plotId)
+	local function getOrCreateRuntimeStateBundle(player, plotId)
 		local runtimeState = getRuntimePlayerState(player)
-		local runtimePlotState = runtimeState.Plots[plotId]
+		local plotRuntimeState = runtimeState.PlotRuntimeByPlotId[plotId]
+		local treeRuntimeState = runtimeState.TreeRuntimeByPlotId[plotId]
 
-		if runtimePlotState then
-			return runtimePlotState
+		if not plotRuntimeState then
+			plotRuntimeState = createPlotRuntimeState()
+			runtimeState.PlotRuntimeByPlotId[plotId] = plotRuntimeState
 		end
 
-		runtimePlotState = {
-			CurrentHealth = nil,
-			FullHealth = nil,
-			SpawnedTreeModel = nil,
-			UnlockButtonModel = nil,
-			UnlockTouchConnection = nil,
-			UnlockTweenToken = 0,
-			IsUnlockAnimating = false,
-			LastUnlockTouchAt = 0,
-			ReadyTaskToken = 0,
-			LastAcceptedHitAt = 0,
-			AnimationToken = 0,
-			VisualState = nil,
-			VisualScale = 1,
-		}
-		runtimeState.Plots[plotId] = runtimePlotState
-		return runtimePlotState
+		if not treeRuntimeState then
+			treeRuntimeState = createTreeRuntimeState()
+			runtimeState.TreeRuntimeByPlotId[plotId] = treeRuntimeState
+		end
+
+		return runtimeState, plotRuntimeState, treeRuntimeState
 	end
 
-	local function getActiveRuntimePlotState(player, plotId)
+	local function getPlotRuntimeState(player, plotId)
+		local _, plotRuntimeState = getOrCreateRuntimeStateBundle(player, plotId)
+		return plotRuntimeState
+	end
+
+	local function getTreeRuntimeState(player, plotId)
+		local _, _, treeRuntimeState = getOrCreateRuntimeStateBundle(player, plotId)
+		return treeRuntimeState
+	end
+
+	local function getActivePlotRuntimeState(player, plotId)
 		local runtimeState = runtimeByPlayer[player]
 
 		if not runtimeState then
 			return nil
 		end
 
-		return runtimeState.Plots[plotId]
+		return runtimeState.PlotRuntimeByPlotId[plotId]
+	end
+
+	local function getActiveTreeRuntimeState(player, plotId)
+		local runtimeState = runtimeByPlayer[player]
+
+		if not runtimeState then
+			return nil
+		end
+
+		return runtimeState.TreeRuntimeByPlotId[plotId]
 	end
 
 	local function setPlotSetId(player, plotSetId)
@@ -99,10 +135,24 @@ function TreeRuntimeManager.create(deps)
 			return
 		end
 
-		for _, runtimePlotState in runtimeState.Plots do
-			deps.clearScheduledReady(runtimePlotState)
-			deps.destroyUnlockButton(runtimePlotState)
-			deps.destroySpawnedTree(runtimePlotState)
+		local destroyedTreeStates = {}
+
+		for plotId, plotRuntimeState in runtimeState.PlotRuntimeByPlotId do
+			deps.clearScheduledReady(plotRuntimeState)
+			deps.destroyUnlockButton(plotRuntimeState)
+
+			local treeRuntimeState = runtimeState.TreeRuntimeByPlotId[plotId]
+
+			if treeRuntimeState then
+				deps.destroySpawnedTree(treeRuntimeState)
+				destroyedTreeStates[plotId] = true
+			end
+		end
+
+		for plotId, treeRuntimeState in runtimeState.TreeRuntimeByPlotId do
+			if not destroyedTreeStates[plotId] then
+				deps.destroySpawnedTree(treeRuntimeState)
+			end
 		end
 
 		local plotSetId = runtimeState.PlotSetId
@@ -122,8 +172,10 @@ function TreeRuntimeManager.create(deps)
 		getOrCreateRuntimeFolder = getOrCreateRuntimeFolder,
 		getOrCreateSetRuntimeFolder = getOrCreateSetRuntimeFolder,
 		getRuntimePlayerState = getRuntimePlayerState,
-		getRuntimePlotState = getRuntimePlotState,
-		getActiveRuntimePlotState = getActiveRuntimePlotState,
+		getPlotRuntimeState = getPlotRuntimeState,
+		getTreeRuntimeState = getTreeRuntimeState,
+		getActivePlotRuntimeState = getActivePlotRuntimeState,
+		getActiveTreeRuntimeState = getActiveTreeRuntimeState,
 		setPlotSetId = setPlotSetId,
 		cleanupPlayerRuntime = cleanupPlayerRuntime,
 	}

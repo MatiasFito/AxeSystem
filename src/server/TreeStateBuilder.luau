@@ -4,28 +4,24 @@ local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local lumberjackConfig = require(sharedFolder:WaitForChild("LumberjackConfig") :: ModuleScript)
 local lumberjackConstants = require(sharedFolder:WaitForChild("LumberjackConstants") :: ModuleScript)
-local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local serviceResult = require(utilsFolder:WaitForChild("ServiceResult") :: ModuleScript)
+local treeRulesModule = require(script.Parent:WaitForChild("TreeRules") :: ModuleScript)
 
 local TreeStateBuilder = {}
 
-local function getCostReductionLevel(playerData, player)
-	if not playerData.getAmberUpgradeLevel then
-		return 0
-	end
+local function createTreeRules(playerData)
+	return treeRulesModule.create({
+		getAmberUpgradeLevel = function(player, upgradeKey)
+			if not playerData.getAmberUpgradeLevel then
+				return 0
+			end
 
-	return playerData.getAmberUpgradeLevel(player, "CostReduction") or 0
-end
-
-local function getDiscountedCost(playerData, player, baseCost)
-	if typeof(baseCost) ~= "number" then
-		return nil
-	end
-
-	return rebirthConfig.getReducedCost(baseCost, getCostReductionLevel(playerData, player))
+			return playerData.getAmberUpgradeLevel(player, upgradeKey) or 0
+		end,
+	})
 end
 
 function TreeStateBuilder.isPlotUnlockable(treePlots, plotId)
@@ -53,7 +49,7 @@ function TreeStateBuilder.isPlotUnlockable(treePlots, plotId)
 	return previousPlotState ~= nil and previousPlotState.Unlocked == true
 end
 
-function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
+function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId, treeRules)
 	local plotState = playerData.getTreePlot(player, plotId)
 	local tree = treeConfig.getTreeByPlotId(plotId)
 
@@ -69,12 +65,12 @@ function TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
 	local hasLumberjack = supportsLumberjack and plotState.HasLumberjack == true
 	local lumberjackLevel = hasLumberjack and math.max(1, plotState.LumberjackLevel or 0) or 0
 	local lumberjackIsMaxLevel = hasLumberjack and lumberjackLevel >= lumberjackConstants.MAX_LEVEL
-	local unlockCost = getDiscountedCost(playerData, player, tree.UnlockCost)
+	local unlockCost = treeRules.getUnlockCost(player, tree)
 	local lumberjackHireCost = supportsLumberjack
-			and getDiscountedCost(playerData, player, lumberjackConfig.getHireCostByPlotId(plotId))
+			and treeRules.getDiscountedCost(player, lumberjackConfig.getHireCostByPlotId(plotId))
 		or nil
 	local lumberjackUpgradeCost = hasLumberjack
-			and getDiscountedCost(playerData, player, lumberjackConfig.getUpgradeCostByPlotId(plotId, lumberjackLevel))
+			and treeRules.getDiscountedCost(player, lumberjackConfig.getUpgradeCostByPlotId(plotId, lumberjackLevel))
 		or nil
 	local lumberjackAxeName = nil
 	local canHireLumberjack = supportsLumberjack and plotState.Unlocked and not hasLumberjack
@@ -133,6 +129,7 @@ function TreeStateBuilder.buildStatePayload(playerData, treePlotService, getServ
 		return serviceResult.failure(treeConstants.FailureReason.DataNotLoaded, treeConstants.getFailureMessage)
 	end
 
+	local treeRules = createTreeRules(playerData)
 	local plotSnapshots = {}
 	local plotSetId = treePlotService.getAssignedPlotSetId(player)
 	local plotIds = changedPlotIds
@@ -146,7 +143,7 @@ function TreeStateBuilder.buildStatePayload(playerData, treePlotService, getServ
 	end
 
 	for _, plotId in plotIds do
-		local snapshot = TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId)
+		local snapshot = TreeStateBuilder.buildPlotSnapshot(playerData, player, plotId, treeRules)
 
 		if snapshot then
 			table.insert(plotSnapshots, snapshot)

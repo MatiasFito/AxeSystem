@@ -6,7 +6,7 @@ function TreePlotMaterializer.create(deps)
 	local function spawnTreeForPlot(player, plotId, initialScale)
 		local plotRecord = deps.getAssignedPlot(player, plotId)
 		local plotState = deps.getTreePlot(player, plotId)
-		local runtimePlotState = deps.getRuntimePlotState(player, plotId)
+		local treeRuntimeState = deps.getTreeRuntimeState(player, plotId)
 
 		if not plotRecord or not plotState then
 			return false
@@ -40,7 +40,7 @@ function TreePlotMaterializer.create(deps)
 			)
 		end
 
-		deps.destroySpawnedTree(runtimePlotState)
+		deps.destroySpawnedTree(treeRuntimeState)
 
 		local clone = template:Clone()
 		clone.Name = string.format("%s_%s", plotRecord.PlotSetId, plotId)
@@ -68,26 +68,27 @@ function TreePlotMaterializer.create(deps)
 			deps.alignCloneBottomToPlot(clone, plotRecord)
 		end
 
-		deps.captureTreeVisualState(runtimePlotState, clone)
-		runtimePlotState.SpawnedTreeModel = clone
-		runtimePlotState.CurrentHealth = levelData.Health
-		runtimePlotState.FullHealth = levelData.Health
-		deps.applyTreeScale(runtimePlotState, plotRecord, initialScale or 1)
+		deps.captureTreeVisualState(treeRuntimeState, clone)
+		treeRuntimeState.SpawnedTreeModel = clone
+		treeRuntimeState.CurrentHealth = levelData.Health
+		treeRuntimeState.FullHealth = levelData.Health
+		deps.applyTreeScale(treeRuntimeState, plotRecord, initialScale or 1)
 		return true
 	end
 
 	local function materializePlot(player, plotId)
 		local plotState = deps.getTreePlot(player, plotId)
-		local runtimePlotState = deps.getRuntimePlotState(player, plotId)
+		local plotRuntimeState = deps.getPlotRuntimeState(player, plotId)
+		local treeRuntimeState = deps.getTreeRuntimeState(player, plotId)
 
 		if not plotState then
 			return
 		end
 
-		deps.clearScheduledReady(runtimePlotState)
+		deps.clearScheduledReady(plotRuntimeState)
 
 		if not plotState.Unlocked then
-			deps.destroySpawnedTree(runtimePlotState)
+			deps.destroySpawnedTree(treeRuntimeState)
 			deps.updatePromptForPlot(player, plotId)
 			return
 		end
@@ -98,7 +99,7 @@ function TreePlotMaterializer.create(deps)
 			return
 		end
 
-		deps.destroySpawnedTree(runtimePlotState)
+		deps.destroySpawnedTree(treeRuntimeState)
 
 		local tree = deps.getTree(plotState.TreeId)
 		local levelData = tree and deps.getLevelData(tree.Id, plotState.Level) or nil
@@ -156,7 +157,7 @@ function TreePlotMaterializer.create(deps)
 				) or 0,
 			})
 
-			deps.applyTreeScale(runtimePlotState, plotRecord, 1)
+			deps.applyTreeScale(treeRuntimeState, plotRecord, 1)
 			deps.playReadyBounce(player, plotId)
 			deps.updatePromptForPlot(player, plotId)
 			deps.pushStateUpdate(player, { plotId })

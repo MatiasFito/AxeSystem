@@ -9,22 +9,22 @@ function TreeGrowthController.create(deps)
 
 	local function startGrowthAnimation(player, plotId, growingUntil, growTime)
 		local plotRecord = deps.getAssignedPlot(player, plotId)
-		local runtimePlotState = deps.getRuntimePlotState(player, plotId)
+		local treeRuntimeState = deps.getTreeRuntimeState(player, plotId)
 
-		if not plotRecord or not runtimePlotState.SpawnedTreeModel then
+		if not plotRecord or not treeRuntimeState.SpawnedTreeModel then
 			return
 		end
 
 		local duration = math.max(0.01, growTime)
 		local startTime = growingUntil - duration
-		local token = deps.beginVisualAnimation(runtimePlotState)
+		local token = deps.beginVisualAnimation(treeRuntimeState)
 
 		task.spawn(function()
 			while true do
-				local activePlotState = deps.getActiveRuntimePlotState(player, plotId)
+				local activeTreeState = deps.getActiveTreeRuntimeState(player, plotId)
 				local latestPlotState = deps.getTreePlot(player, plotId)
 
-				if not activePlotState or activePlotState.AnimationToken ~= token then
+				if not activeTreeState or activeTreeState.AnimationToken ~= token then
 					return
 				end
 
@@ -33,7 +33,7 @@ function TreeGrowthController.create(deps)
 				end
 
 				local progress = math.clamp((deps.getServerNow() - startTime) / duration, 0, 1)
-				deps.applyTreeScale(runtimePlotState, plotRecord, deps.getGrowthScale(progress))
+				deps.applyTreeScale(treeRuntimeState, plotRecord, deps.getGrowthScale(progress))
 
 				if progress >= 1 then
 					return
@@ -46,35 +46,35 @@ function TreeGrowthController.create(deps)
 
 	local function playReadyBounce(player, plotId)
 		local plotRecord = deps.getAssignedPlot(player, plotId)
-		local runtimePlotState = deps.getRuntimePlotState(player, plotId)
+		local treeRuntimeState = deps.getTreeRuntimeState(player, plotId)
 
-		if not plotRecord or not runtimePlotState.SpawnedTreeModel then
+		if not plotRecord or not treeRuntimeState.SpawnedTreeModel then
 			return
 		end
 
-		local token = deps.beginVisualAnimation(runtimePlotState)
+		local token = deps.beginVisualAnimation(treeRuntimeState)
 
 		task.spawn(function()
 			for _, bounceScale in constants.ReadyBounceScales do
-				local activePlotState = deps.getActiveRuntimePlotState(player, plotId)
+				local activeTreeState = deps.getActiveTreeRuntimeState(player, plotId)
 
-				if not activePlotState or activePlotState.AnimationToken ~= token then
+				if not activeTreeState or activeTreeState.AnimationToken ~= token then
 					return
 				end
 
-				deps.applyTreeScale(runtimePlotState, plotRecord, bounceScale)
+				deps.applyTreeScale(treeRuntimeState, plotRecord, bounceScale)
 				task.wait(constants.ReadyBounceStepSeconds)
 			end
 		end)
 	end
 
 	local function scheduleReadyTransition(player, plotId, growingUntil, onReady)
-		local runtimePlotState = deps.getRuntimePlotState(player, plotId)
-		local token = runtimePlotState.ReadyTaskToken + 1
-		runtimePlotState.ReadyTaskToken = token
+		local plotRuntimeState = deps.getPlotRuntimeState(player, plotId)
+		local token = plotRuntimeState.ReadyTaskToken + 1
+		plotRuntimeState.ReadyTaskToken = token
 
 		task.delay(math.max(0, growingUntil - deps.getServerNow()), function()
-			local activePlotState = deps.getActiveRuntimePlotState(player, plotId)
+			local activePlotState = deps.getActivePlotRuntimeState(player, plotId)
 
 			if not activePlotState or activePlotState.ReadyTaskToken ~= token then
 				return
