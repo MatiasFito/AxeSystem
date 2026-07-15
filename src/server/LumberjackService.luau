@@ -38,7 +38,6 @@ local upgradeRemote = nil
 
 local PROMPT_TOUCH_COOLDOWN = 0.3
 local PROMPT_EDGE_OFFSET = 3.5
-local PROMPT_SCALE = 1.25
 local PROMPT_COLOR_READY = Color3.fromRGB(255, 255, 255)
 local PROMPT_COLOR_LOCKED = Color3.fromRGB(126, 126, 126)
 local PROMPT_BASE_COLOR_READY = Color3.fromRGB(70, 145, 65)
@@ -724,7 +723,6 @@ function LumberjackService.start(playerDataModule, treePlotServiceModule, treeSe
 		constants = {
 			TouchCooldown = PROMPT_TOUCH_COOLDOWN,
 			EdgeOffset = PROMPT_EDGE_OFFSET,
-			Scale = PROMPT_SCALE,
 			ColorReady = PROMPT_COLOR_READY,
 			ColorLocked = PROMPT_COLOR_LOCKED,
 			BaseColorReady = PROMPT_BASE_COLOR_READY,
@@ -734,14 +732,21 @@ function LumberjackService.start(playerDataModule, treePlotServiceModule, treeSe
 			TweenDuration = PROMPT_TWEEN_DURATION,
 			MinThickness = PROMPT_MIN_THICKNESS,
 		},
-		setAllSurfacesStuds = treeSpatialUtils.setAllSurfacesStuds,
 		getSpawnCFrame = treeSpatialUtils.getSpawnCFrame,
 		getHorizontalDirection = treeSpatialUtils.getHorizontalDirection,
-		getPartExtentAlongDirection = treeSpatialUtils.getPartExtentAlongDirection,
 		getAssignedPlot = treePlotService.getAssignedPlot,
 		getAssignedPlotSet = treePlotService.getAssignedPlotSet,
 		getTreePlot = playerData.getTreePlot,
 		getGold = playerData.getGold,
+		getButtonTemplate = function()
+			local template = ServerStorage:FindFirstChild("ButtonTemplate")
+
+			if not template or not template:IsA("Model") then
+				error("Validated Studio asset 'ServerStorage/ButtonTemplate' is missing or invalid at runtime")
+			end
+
+			return template
+		end,
 		getRuntimePlotState = getRuntimePlotState,
 		getTouchingPlayer = treeInteractionUtils.getTouchingPlayer,
 		getHireCost = getHireCost,

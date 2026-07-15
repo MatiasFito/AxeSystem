@@ -137,6 +137,14 @@ function TreeHitController.create(deps)
 		end
 
 		local goldUpgradeLevel = deps.getAmberUpgradeLevel(player, "GoldMultiplier") or 0
+		local sessionGoldMultiplier = 1
+		local resolvedSessionGoldMultiplier = deps.getSessionGoldMultiplier and deps.getSessionGoldMultiplier(player)
+			or nil
+
+		if typeof(resolvedSessionGoldMultiplier) == "number" and resolvedSessionGoldMultiplier > 0 then
+			sessionGoldMultiplier = resolvedSessionGoldMultiplier
+		end
+
 		local power = deps.resolveFinalDamageFromBasePower(player, hitContext.power)
 		local effectOrigin = hitContext.effectOrigin or plotRecord.DirtPatch.Position
 
@@ -170,8 +178,11 @@ function TreeHitController.create(deps)
 		local reward = math.max(
 			0,
 			math.floor(
-				(resolveReward(levelData, hitContext.goldMultiplier or 1) * deps.getGoldMultiplier(goldUpgradeLevel))
-					+ 0.5
+				(
+					resolveReward(levelData, hitContext.goldMultiplier or 1)
+					* deps.getGoldMultiplier(goldUpgradeLevel)
+					* sessionGoldMultiplier
+				) + 0.5
 			)
 		)
 		local currentGold = deps.getGold(player) or 0

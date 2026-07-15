@@ -31,32 +31,32 @@ function TreeUnlockPromptManager.create(deps)
 			existingModel:Destroy()
 		end
 
-		local model = Instance.new("Model")
+		local model = deps.getButtonTemplate():Clone()
 		model.Name = string.format("%sUnlockButton", plotRecord.PlotId)
 
-		local base = Instance.new("Part")
-		base.Name = "Base"
-		base.Shape = Enum.PartType.Cylinder
-		base.Material = Enum.Material.Plastic
+		local base = model:FindFirstChild("Base")
+		local button = model:FindFirstChild("Button")
+		local billboardGui = model:FindFirstChild("CostBillboard")
+
+		if not base or not base:IsA("BasePart") or not button or not button:IsA("BasePart") then
+			error(
+				"Validated Studio asset 'ServerStorage/ButtonTemplate' is missing required Base or Button parts at runtime"
+			)
+		end
+
+		if not billboardGui or not billboardGui:IsA("BillboardGui") then
+			error("Validated Studio asset 'ServerStorage/ButtonTemplate' is missing CostBillboard at runtime")
+		end
+
 		base.Anchored = true
 		base.CanCollide = false
 		base.CanQuery = true
 		base.CanTouch = true
-		base.Size = Vector3.new(0.9, 3.8, 3.8) * constants.Scale
-		deps.setAllSurfacesStuds(base)
-		base.Parent = model
-
-		local button = Instance.new("Part")
-		button.Name = "Button"
-		button.Shape = Enum.PartType.Cylinder
-		button.Material = Enum.Material.Plastic
 		button.Anchored = true
 		button.CanCollide = false
 		button.CanQuery = true
 		button.CanTouch = true
-		button.Size = Vector3.new(0.75, 2.9, 2.9) * constants.Scale
-		deps.setAllSurfacesStuds(button)
-		button.Parent = model
+		billboardGui.Adornee = button
 
 		local forwardDirection = deps.getHorizontalDirection(plotRecord.DirtPatch.CFrame.LookVector)
 		local dirtPatchExtent = deps.getPartExtentAlongDirection(plotRecord.DirtPatch, forwardDirection)
@@ -72,25 +72,6 @@ function TreeUnlockPromptManager.create(deps)
 		local yOffset = (dirtPatchTopY - baseVerticalHalfExtent) - base.Position.Y
 		base.CFrame += Vector3.new(0, yOffset, 0)
 		button.CFrame += Vector3.new(0, yOffset, 0)
-
-		local billboardGui = Instance.new("BillboardGui")
-		billboardGui.Name = "CostBillboard"
-		billboardGui.Adornee = button
-		billboardGui.AlwaysOnTop = true
-		billboardGui.LightInfluence = 0
-		billboardGui.Size = UDim2.fromOffset(140, 50)
-		billboardGui.StudsOffsetWorldSpace = Vector3.new(0, 1.9, 0)
-		billboardGui.Parent = model
-
-		local costLabel = Instance.new("TextLabel")
-		costLabel.Name = "CostLabel"
-		costLabel.BackgroundTransparency = 1
-		costLabel.Size = UDim2.fromScale(1, 1)
-		costLabel.Font = Enum.Font.GothamBlack
-		costLabel.TextScaled = true
-		costLabel.TextStrokeTransparency = 0.35
-		costLabel.Text = ""
-		costLabel.Parent = billboardGui
 
 		return model, button, base
 	end

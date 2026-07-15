@@ -14,6 +14,7 @@ local StudioAssetValidator = {}
 
 local AXE_DEFAULTS_FOLDER_NAME = "AxeDefaults"
 local AXE_OVERRIDES_FOLDER_NAME = "AxeOverrides"
+local BUTTON_TEMPLATE_NAME = "ButtonTemplate"
 local TOOL_CHILDREN_FOLDER_NAME = "ToolChildren"
 local HANDLE_CHILDREN_FOLDER_NAME = "HandleChildren"
 
@@ -798,6 +799,37 @@ local function validateNpcTemplates(errors)
 	end
 end
 
+local function validateButtonTemplate(errors)
+	local template = requireChild(ServerStorage, BUTTON_TEMPLATE_NAME, "Model", errors, "ServerStorage")
+
+	if not template then
+		return
+	end
+
+	requireChild(template, "Base", "BasePart", errors, string.format("ServerStorage/%s", BUTTON_TEMPLATE_NAME))
+	requireChild(template, "Button", "BasePart", errors, string.format("ServerStorage/%s", BUTTON_TEMPLATE_NAME))
+
+	local billboardGui = requireChild(
+		template,
+		"CostBillboard",
+		"BillboardGui",
+		errors,
+		string.format("ServerStorage/%s", BUTTON_TEMPLATE_NAME)
+	)
+
+	if not billboardGui then
+		return
+	end
+
+	requireChild(
+		billboardGui,
+		"CostLabel",
+		"TextLabel",
+		errors,
+		string.format("ServerStorage/%s/CostBillboard", BUTTON_TEMPLATE_NAME)
+	)
+end
+
 function StudioAssetValidator.validateOrThrow()
 	local errors = {}
 
@@ -813,6 +845,7 @@ function StudioAssetValidator.validateOrThrow()
 	validateTrees(errors)
 	validateTreePlotSets(errors)
 	validateTreePlotTemplate(errors)
+	validateButtonTemplate(errors)
 	validatePlotUpgradeGui(errors)
 	validateNpcTemplates(errors)
 

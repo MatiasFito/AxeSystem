@@ -35,6 +35,10 @@ local serviceDefinitions = {
 		moduleName = "PlayerData",
 	},
 	{
+		name = "SessionTimeService",
+		moduleName = "SessionTimeService",
+	},
+	{
 		name = "TreePlotService",
 		moduleName = "TreePlotService",
 	},
@@ -58,6 +62,12 @@ local serviceStartOrder = {
 		end,
 	},
 	{
+		name = "SessionTimeService",
+		start = function(services)
+			services.SessionTimeService.start()
+		end,
+	},
+	{
 		name = "TreePlotService",
 		start = function(services)
 			services.TreePlotService.start()
@@ -78,7 +88,12 @@ local serviceStartOrder = {
 	{
 		name = "TreeService",
 		start = function(services)
-			services.TreeService.start(services.PlayerData, services.TreePlotService, services.AxeService)
+			services.TreeService.start(
+				services.PlayerData,
+				services.TreePlotService,
+				services.AxeService,
+				services.SessionTimeService
+			)
 		end,
 	},
 	{
@@ -155,11 +170,13 @@ local function onPlayerAdded(services, player)
 	services.WalkSpeedController.applyToCurrentCharacter(services.PlayerData, player)
 	syncPlayerAxe(services, player)
 	syncPlayerSwingSpeed(services, player)
+	services.SessionTimeService.onPlayerAdded(player)
 	services.TreeService.onPlayerAdded(player)
 	services.LumberjackService.onPlayerAdded(player)
 end
 
 local function onPlayerRemoving(services, player)
+	services.SessionTimeService.onPlayerRemoving(player)
 	services.LumberjackService.onPlayerRemoving(player)
 	services.TreeService.onPlayerRemoving(player)
 	services.PlayerData.removePlayer(player)

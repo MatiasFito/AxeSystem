@@ -43,7 +43,6 @@ local UNLOCK_BUTTON_BASE_COLOR_READY = Color3.fromRGB(70, 145, 65)
 local UNLOCK_BUTTON_BASE_COLOR_LOCKED = Color3.fromRGB(92, 92, 92)
 local UNLOCK_BUTTON_TOUCH_COOLDOWN = 0.3
 local UNLOCK_BUTTON_EDGE_OFFSET = 3.5
-local UNLOCK_BUTTON_SCALE = 1.25
 local UNLOCK_BUTTON_TEXT_READY = Color3.fromRGB(70, 145, 65)
 local UNLOCK_BUTTON_TEXT_LOCKED = Color3.fromRGB(126, 126, 126)
 local UNLOCK_BUTTON_TWEEN_DURATION = 0.75
@@ -56,6 +55,7 @@ local treePlotMaterializer = nil
 local treeRuntimeManager = nil
 local treeNetworkBridge = nil
 local treeHitController = nil
+local sessionTimeService = nil
 
 local function getServerNow()
 	return Workspace:GetServerTimeNow()
@@ -88,7 +88,7 @@ local function getUnlockCost(player, tree)
 	return rebirthConfig.getReducedCost(tree.UnlockCost, getAmberUpgradeLevel(player, "CostReduction"))
 end
 
-function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceModule)
+function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceModule, sessionTimeServiceModule)
 	if started then
 		return
 	end
@@ -96,6 +96,7 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 	started = true
 	playerData = playerDataModule
 	treePlotService = treePlotServiceModule
+	sessionTimeService = sessionTimeServiceModule
 	local axeDamageResolver = axeDamageResolverModule.create({
 		getAmberUpgradeLevel = getAmberUpgradeLevel,
 	})
@@ -271,6 +272,13 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getAmberUpgradeLevel = getAmberUpgradeLevel,
 		resolveFinalDamageFromBasePower = axeDamageResolver.resolveFinalDamageFromBasePower,
 		getGoldMultiplier = rebirthConfig.getGoldMultiplier,
+		getSessionGoldMultiplier = function(player)
+			if sessionTimeService and sessionTimeService.getGoldMultiplier then
+				return sessionTimeService.getGoldMultiplier(player)
+			end
+
+			return 1
+		end,
 		getEffectiveGrowTime = getEffectiveGrowTime,
 		emitTreeParticles = treeVisualController.emitTreeParticles,
 		getTreeImpactWorldCFrame = treeVisualController.getTreeImpactWorldCFrame,
@@ -302,7 +310,6 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		constants = {
 			TouchCooldown = UNLOCK_BUTTON_TOUCH_COOLDOWN,
 			EdgeOffset = UNLOCK_BUTTON_EDGE_OFFSET,
-			Scale = UNLOCK_BUTTON_SCALE,
 			ColorReady = UNLOCK_BUTTON_COLOR_READY,
 			ColorLocked = UNLOCK_BUTTON_COLOR_LOCKED,
 			BaseColorReady = UNLOCK_BUTTON_BASE_COLOR_READY,
@@ -312,7 +319,6 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 			TweenDuration = UNLOCK_BUTTON_TWEEN_DURATION,
 			MinThickness = UNLOCK_BUTTON_MIN_THICKNESS,
 		},
-		setAllSurfacesStuds = treeSpatialUtils.setAllSurfacesStuds,
 		getHorizontalDirection = treeSpatialUtils.getHorizontalDirection,
 		getPartExtentAlongDirection = treeSpatialUtils.getPartExtentAlongDirection,
 		getAssignedPlot = treePlotService.getAssignedPlot,
@@ -322,6 +328,15 @@ function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceMo
 		getGold = playerData.getGold,
 		getTreeByPlotId = treeConfig.getTreeByPlotId,
 		getUnlockCost = getUnlockCost,
+		getButtonTemplate = function()
+			local template = ServerStorage:FindFirstChild("ButtonTemplate")
+
+			if not template or not template:IsA("Model") then
+				error("Validated Studio asset 'ServerStorage/ButtonTemplate' is missing or invalid at runtime")
+			end
+
+			return template
+		end,
 		getRuntimePlotState = treeRuntimeManager.getRuntimePlotState,
 		getTouchingPlayer = treeInteractionUtils.getTouchingPlayer,
 		attemptUnlock = treeProgressionResolver.attemptUnlock,
