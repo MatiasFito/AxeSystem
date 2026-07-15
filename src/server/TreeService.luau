@@ -29,6 +29,7 @@ local TreeService = {}
 local TREE_HIT_DISTANCE = treeConstants.HIT_DISTANCE
 local HIT_COOLDOWN_SECONDS = swingSpeed.MIN_EFFECTIVE_SWING_DURATION
 local HIT_COOLDOWN_GRACE_SECONDS = 0.02
+local PLOT_ASSIGNMENT_WAIT_ATTEMPTS = 10
 local TREE_MIN_SCALE = 0.05
 local TREE_DEAD_SCALE = 0.5
 local TREE_GROWTH_STEP_SECONDS = 0.05
@@ -86,6 +87,22 @@ local function getUnlockCost(player, tree)
 	end
 
 	return rebirthConfig.getReducedCost(tree.UnlockCost, getAmberUpgradeLevel(player, "CostReduction"))
+end
+
+local function getAssignedPlotSetWithRetry(player)
+	for attempt = 1, PLOT_ASSIGNMENT_WAIT_ATTEMPTS do
+		local plotSet = treePlotService and treePlotService.getAssignedPlotSet(player)
+
+		if plotSet then
+			return plotSet
+		end
+
+		if attempt < PLOT_ASSIGNMENT_WAIT_ATTEMPTS then
+			task.wait()
+		end
+	end
+
+	return nil
 end
 
 function TreeService.start(playerDataModule, treePlotServiceModule, axeServiceModule, sessionTimeServiceModule)
@@ -416,6 +433,43 @@ function TreeService.onPlayerDataReset(player)
 	treeRuntimeManager.setPlotSetId(player, plotSetId)
 	player:SetAttribute(treeConstants.PLOT_SET_ID_ATTRIBUTE, plotSetId)
 	return treePlotMaterializer.refreshAllAssignedPlots(player)
+end
+
+function TreeService.teleportCharacterToAssignedPlotSpawn(player, character)
+	if not character or character.Parent == nil then
+		return false
+	end
+
+	local plotSet = getAssignedPlotSetWithRetry(player)
+
+	if not plotSet or not plotSet.Folder then
+		warn(string.format("Failed to resolve assigned plot set for %s during character spawn", player.Name))
+		return false
+	end
+
+	local plotSpawn = plotSet.Folder:FindFirstChild(treeConstants.PLOT_SET_SPAWN_NAME)
+
+	if not plotSpawn or not plotSpawn:IsA("BasePart") then
+		warn(
+			string.format(
+				"Assigned plot set '%s' for %s is missing a BasePart named '%s'",
+				tostring(plotSet.Id),
+				player.Name,
+				treeConstants.PLOT_SET_SPAWN_NAME
+			)
+		)
+		return false
+	end
+
+	local rootPart = character:WaitForChild("HumanoidRootPart", 5)
+
+	if not rootPart or character.Parent == nil then
+		warn(string.format("Failed to resolve HumanoidRootPart for %s during character spawn", player.Name))
+		return false
+	end
+
+	character:PivotTo(plotSpawn.CFrame)
+	return true
 end
 
 return TreeService

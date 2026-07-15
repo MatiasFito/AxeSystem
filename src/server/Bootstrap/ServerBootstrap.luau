@@ -159,8 +159,13 @@ local function syncPlayerWalkSpeed(services, player, character)
 	services.WalkSpeedController.applyToCharacter(services.PlayerData, player, character)
 end
 
+local function syncPlayerPlotSpawn(services, player, character)
+	services.TreeService.teleportCharacterToAssignedPlotSpawn(player, character)
+end
+
 local function onPlayerAdded(services, player)
 	player.CharacterAdded:Connect(function(character)
+		task.defer(syncPlayerPlotSpawn, services, player, character)
 		task.defer(syncPlayerWalkSpeed, services, player, character)
 		task.defer(syncPlayerAxe, services, player)
 		task.defer(syncPlayerSwingSpeed, services, player)

@@ -10,6 +10,7 @@ TreeConstants.TREE_PLOT_GENERATED_FOLDER_NAME = "GeneratedPlots"
 
 TreeConstants.PLOT_MODEL_NAME = "TreePlot"
 TreeConstants.PLOT_SET_ORIGIN_NAME = "PlotOrigin"
+TreeConstants.PLOT_SET_SPAWN_NAME = "PlotSpawn"
 TreeConstants.DIRT_PATCH_NAME = "DirtPatch"
 TreeConstants.TREE_SPAWN_NAME = "TreeSpawn"
 

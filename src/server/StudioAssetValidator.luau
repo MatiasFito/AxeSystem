@@ -628,6 +628,7 @@ local function validateTreePlotSets(errors)
 		else
 			validPlotSetCount += 1
 			requireChild(child, treeConstants.PLOT_SET_ORIGIN_NAME, "Part", errors, childPath)
+			requireChild(child, treeConstants.PLOT_SET_SPAWN_NAME, "Part", errors, childPath)
 		end
 	end
 
