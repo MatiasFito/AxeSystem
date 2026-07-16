@@ -140,9 +140,16 @@ function TreeHitController.create(deps)
 		local sessionGoldMultiplier = 1
 		local resolvedSessionGoldMultiplier = deps.getSessionGoldMultiplier and deps.getSessionGoldMultiplier(player)
 			or nil
+		local gamePassGoldMultiplier = 1
+		local resolvedGamePassGoldMultiplier = deps.getGamePassGoldMultiplier and deps.getGamePassGoldMultiplier(player)
+			or nil
 
 		if typeof(resolvedSessionGoldMultiplier) == "number" and resolvedSessionGoldMultiplier > 0 then
 			sessionGoldMultiplier = resolvedSessionGoldMultiplier
+		end
+
+		if typeof(resolvedGamePassGoldMultiplier) == "number" and resolvedGamePassGoldMultiplier > 0 then
+			gamePassGoldMultiplier = resolvedGamePassGoldMultiplier
 		end
 
 		local power = deps.resolveFinalDamageFromBasePower(player, hitContext.power)
@@ -182,6 +189,7 @@ function TreeHitController.create(deps)
 					resolveReward(levelData, hitContext.goldMultiplier or 1)
 					* deps.getGoldMultiplier(goldUpgradeLevel)
 					* sessionGoldMultiplier
+					* gamePassGoldMultiplier
 				) + 0.5
 			)
 		)

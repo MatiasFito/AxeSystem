@@ -60,6 +60,7 @@ local treeNetworkBridge = nil
 local treeHitController = nil
 local treeRules = nil
 local sessionTimeService = nil
+local gamePassService = nil
 
 local function getServerNow()
 	return Workspace:GetServerTimeNow()
@@ -94,7 +95,8 @@ function TreeService.start(
 	treePlotServiceModule,
 	treePlotRuntimeServiceModule,
 	axeServiceModule,
-	sessionTimeServiceModule
+	sessionTimeServiceModule,
+	gamePassServiceModule
 )
 	if started then
 		return
@@ -104,6 +106,7 @@ function TreeService.start(
 	playerData = playerDataModule
 	treePlotService = treePlotServiceModule
 	sessionTimeService = sessionTimeServiceModule
+	gamePassService = gamePassServiceModule
 	treeRules = treeRulesModule.create({
 		getAmberUpgradeLevel = function(player, upgradeKey)
 			if not playerData or not playerData.getAmberUpgradeLevel then
@@ -115,6 +118,13 @@ function TreeService.start(
 	})
 	local axeDamageResolver = axeDamageResolverModule.create({
 		getAmberUpgradeLevel = getAmberUpgradeLevel,
+		getGamePassDamageMultiplier = function(player)
+			if gamePassService and gamePassService.getDamageMultiplier then
+				return gamePassService.getDamageMultiplier(player)
+			end
+
+			return 1
+		end,
 	})
 	local treeVisualController = nil
 	local treeGrowthController = nil
@@ -300,6 +310,13 @@ function TreeService.start(
 		getAmberUpgradeLevel = getAmberUpgradeLevel,
 		resolveFinalDamageFromBasePower = axeDamageResolver.resolveFinalDamageFromBasePower,
 		getGoldMultiplier = rebirthConfig.getGoldMultiplier,
+		getGamePassGoldMultiplier = function(player)
+			if gamePassService and gamePassService.getGoldMultiplier then
+				return gamePassService.getGoldMultiplier(player)
+			end
+
+			return 1
+		end,
 		getSessionGoldMultiplier = function(player)
 			if sessionTimeService and sessionTimeService.getGoldMultiplier then
 				return sessionTimeService.getGoldMultiplier(player)

@@ -16,7 +16,7 @@ local BlacksmithService = {}
 
 local started = false
 
-function BlacksmithService.start(playerDataModule, axeServiceModule)
+function BlacksmithService.start(playerDataModule, axeServiceModule, gamePassServiceModule)
 	if started then
 		return
 	end
@@ -29,6 +29,13 @@ function BlacksmithService.start(playerDataModule, axeServiceModule)
 
 	local axeDamageResolver = axeDamageResolverModule.create({
 		getAmberUpgradeLevel = playerDataModule.getAmberUpgradeLevel,
+		getGamePassDamageMultiplier = function(player)
+			if gamePassServiceModule and gamePassServiceModule.getDamageMultiplier then
+				return gamePassServiceModule.getDamageMultiplier(player)
+			end
+
+			return 1
+		end,
 	})
 
 	local blacksmithStateBuilder = blacksmithStateBuilderModule.create({

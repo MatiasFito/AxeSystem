@@ -17,13 +17,27 @@ local function normalizeBasePower(basePower)
 end
 
 function AxeDamageResolver.create(deps)
+	local function getGamePassDamageMultiplier(player)
+		if not deps.getGamePassDamageMultiplier then
+			return 1
+		end
+
+		local multiplier = deps.getGamePassDamageMultiplier(player)
+
+		if typeof(multiplier) ~= "number" or multiplier <= 0 then
+			return 1
+		end
+
+		return multiplier
+	end
+
 	local function getDamageMultiplier(player)
 		if not deps.getAmberUpgradeLevel then
 			return 1
 		end
 
 		local level = deps.getAmberUpgradeLevel(player, AXE_DAMAGE_UPGRADE_KEY) or 0
-		return rebirthConfig.getAxeDamageMultiplier(level)
+		return rebirthConfig.getAxeDamageMultiplier(level) * getGamePassDamageMultiplier(player)
 	end
 
 	local function resolveFinalDamageFromBasePower(player, basePower)

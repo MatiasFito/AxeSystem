@@ -19,6 +19,10 @@ local serviceDefinitions = {
 		moduleName = "BlacksmithService",
 	},
 	{
+		name = "GamePassService",
+		moduleName = "GamePassService",
+	},
+	{
 		name = "LumberjackService",
 		moduleName = "LumberjackService",
 	},
@@ -60,9 +64,15 @@ local serviceStartOrder = {
 		end,
 	},
 	{
+		name = "GamePassService",
+		start = function(services)
+			services.GamePassService.start()
+		end,
+	},
+	{
 		name = "AxeService",
 		start = function(services)
-			services.AxeService.start(services.PlayerData)
+			services.AxeService.start(services.PlayerData, services.GamePassService)
 		end,
 	},
 	{
@@ -86,13 +96,13 @@ local serviceStartOrder = {
 	{
 		name = "AmberShopService",
 		start = function(services)
-			services.AmberShopService.start(services.PlayerData, services.AxeService)
+			services.AmberShopService.start(services.PlayerData, services.AxeService, services.GamePassService)
 		end,
 	},
 	{
 		name = "BlacksmithService",
 		start = function(services)
-			services.BlacksmithService.start(services.PlayerData, services.AxeService)
+			services.BlacksmithService.start(services.PlayerData, services.AxeService, services.GamePassService)
 		end,
 	},
 	{
@@ -103,7 +113,8 @@ local serviceStartOrder = {
 				services.TreePlotService,
 				services.TreePlotRuntimeService,
 				services.AxeService,
-				services.SessionTimeService
+				services.SessionTimeService,
+				services.GamePassService
 			)
 		end,
 	},
@@ -172,7 +183,7 @@ local function syncPlayerSwingSpeed(services, player)
 end
 
 local function syncPlayerWalkSpeed(services, player, character)
-	services.WalkSpeedController.applyToCharacter(services.PlayerData, player, character)
+	services.WalkSpeedController.applyToCharacter(services.PlayerData, services.GamePassService, player, character)
 end
 
 local function syncPlayerPlotSpawn(services, player, character)
@@ -188,7 +199,8 @@ local function onPlayerAdded(services, player)
 	end)
 
 	services.PlayerData.loadPlayer(player)
-	services.WalkSpeedController.applyToCurrentCharacter(services.PlayerData, player)
+	services.GamePassService.onPlayerAdded(player)
+	services.WalkSpeedController.applyToCurrentCharacter(services.PlayerData, services.GamePassService, player)
 	syncPlayerAxe(services, player)
 	syncPlayerSwingSpeed(services, player)
 	services.SessionTimeService.onPlayerAdded(player)
@@ -197,6 +209,7 @@ local function onPlayerAdded(services, player)
 end
 
 local function onPlayerRemoving(services, player)
+	services.GamePassService.onPlayerRemoving(player)
 	services.SessionTimeService.onPlayerRemoving(player)
 	services.LumberjackService.onPlayerRemoving(player)
 	services.TreePlotRuntimeService.onPlayerRemoving(player)

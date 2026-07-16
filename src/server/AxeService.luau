@@ -12,6 +12,7 @@ local axeInventoryPolicy = axeInventoryPolicyModule.create({
 	isAxeTool = axeConfig.isAxeTool,
 })
 local playerData = nil
+local gamePassService = nil
 local SWING_SPEED_UPGRADE_KEY = "SwingSpeed"
 
 local function ensureStatsFolder(tool)
@@ -69,6 +70,20 @@ local function getAmberSwingSpeedMultiplier(player)
 	return rebirthConfig.getSwingSpeedMultiplier(swingSpeedLevel)
 end
 
+local function getGamePassSwingSpeedMultiplier(player)
+	if not gamePassService or not gamePassService.getSwingSpeedMultiplier or not player then
+		return 1
+	end
+
+	local multiplier = gamePassService.getSwingSpeedMultiplier(player)
+
+	if typeof(multiplier) ~= "number" or multiplier <= 0 then
+		return 1
+	end
+
+	return multiplier
+end
+
 local function getEffectivePlayerSwingSpeed(player, selectedMultiplier)
 	local resolvedSelectedMultiplier = selectedMultiplier
 
@@ -76,7 +91,7 @@ local function getEffectivePlayerSwingSpeed(player, selectedMultiplier)
 		resolvedSelectedMultiplier = getSelectedPlayerSwingSpeed(player)
 	end
 
-	return resolvedSelectedMultiplier * getAmberSwingSpeedMultiplier(player)
+	return resolvedSelectedMultiplier * getAmberSwingSpeedMultiplier(player) * getGamePassSwingSpeedMultiplier(player)
 end
 
 local function setToolSwingSpeed(tool, multiplier)
@@ -123,8 +138,9 @@ local function applyPlayerSwingSpeed(player, multiplier)
 	return effectiveMultiplier
 end
 
-function AxeService.start(playerDataModule)
+function AxeService.start(playerDataModule, gamePassServiceModule)
 	playerData = playerDataModule
+	gamePassService = gamePassServiceModule
 end
 
 function AxeService.isAxeTool(tool)
