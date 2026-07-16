@@ -23,6 +23,10 @@ local serviceDefinitions = {
 		moduleName = "GamePassService",
 	},
 	{
+		name = "OfflineProgressionService",
+		moduleName = "OfflineProgressionService",
+	},
+	{
 		name = "LumberjackService",
 		moduleName = "LumberjackService",
 	},
@@ -73,6 +77,12 @@ local serviceStartOrder = {
 		name = "AxeService",
 		start = function(services)
 			services.AxeService.start(services.PlayerData, services.GamePassService)
+		end,
+	},
+	{
+		name = "OfflineProgressionService",
+		start = function(services)
+			services.OfflineProgressionService.start(services.PlayerData, services.GamePassService, services.AxeService)
 		end,
 	},
 	{
@@ -203,12 +213,14 @@ local function onPlayerAdded(services, player)
 	services.WalkSpeedController.applyToCurrentCharacter(services.PlayerData, services.GamePassService, player)
 	syncPlayerAxe(services, player)
 	syncPlayerSwingSpeed(services, player)
+	services.OfflineProgressionService.onPlayerAdded(player)
 	services.SessionTimeService.onPlayerAdded(player)
 	services.TreePlotRuntimeService.onPlayerAdded(player)
 	services.LumberjackService.onPlayerAdded(player)
 end
 
 local function onPlayerRemoving(services, player)
+	services.OfflineProgressionService.onPlayerRemoving(player)
 	services.GamePassService.onPlayerRemoving(player)
 	services.SessionTimeService.onPlayerRemoving(player)
 	services.LumberjackService.onPlayerRemoving(player)

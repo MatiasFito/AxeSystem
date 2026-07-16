@@ -135,6 +135,16 @@ function PlayerData.getAmberUpgradeLevel(player, upgradeKey)
 	return playerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades)[upgradeKey]
 end
 
+function PlayerData.getLastLogoutAt(player)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return nil
+	end
+
+	return state.LastLogoutAt
+end
+
 function PlayerData.setGold(player, gold)
 	local state = playerStates[player]
 
@@ -230,6 +240,18 @@ function PlayerData.setAmberUpgradeLevel(player, upgradeKey, level)
 
 	amberUpgrades[upgradeKey] = math.max(0, math.floor(tonumber(level) or 0))
 	state.AmberUpgrades = playerDataSerializer.cloneAmberUpgrades(amberUpgrades)
+	state.IsDirty = true
+	return true
+end
+
+function PlayerData.setLastLogoutAt(player, lastLogoutAt)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return false
+	end
+
+	state.LastLogoutAt = typeof(lastLogoutAt) == "number" and math.max(0, lastLogoutAt) or nil
 	state.IsDirty = true
 	return true
 end

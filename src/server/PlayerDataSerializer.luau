@@ -82,6 +82,7 @@ function PlayerDataSerializer.cloneState(state)
 		Rebirths = state.Rebirths,
 		Amber = state.Amber,
 		AmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades),
+		LastLogoutAt = state.LastLogoutAt,
 		LastUpdatedAt = state.LastUpdatedAt,
 		IsLoaded = state.IsLoaded,
 		IsDirty = state.IsDirty,
@@ -273,6 +274,7 @@ function PlayerDataSerializer.buildDefaultState()
 		Rebirths = 0,
 		Amber = 0,
 		AmberUpgrades = rebirthConfig.createDefaultAmberUpgrades(),
+		LastLogoutAt = nil,
 		LastUpdatedAt = os.time(),
 		IsLoaded = true,
 		IsDirty = true,
@@ -292,6 +294,7 @@ function PlayerDataSerializer.buildRebirthResetState(previousState, awardedAmber
 		Amber = PlayerDataSerializer.normalizeAmber(normalizedPreviousState.Amber)
 			+ PlayerDataSerializer.normalizeAmber(awardedAmber),
 		AmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(normalizedPreviousState.AmberUpgrades),
+		LastLogoutAt = nil,
 		LastUpdatedAt = os.time(),
 		IsLoaded = true,
 		IsDirty = true,
@@ -333,6 +336,7 @@ local function migrateLegacyData(rawData)
 		Rebirths = 0,
 		Amber = 0,
 		AmberUpgrades = rebirthConfig.createDefaultAmberUpgrades(),
+		LastLogoutAt = nil,
 		LastUpdatedAt = os.time(),
 		IsLoaded = true,
 		IsDirty = true,
@@ -346,6 +350,7 @@ local function normalizeCurrentData(rawData)
 	local normalizedRebirths = PlayerDataSerializer.normalizeRebirths(rawData.Rebirths)
 	local normalizedAmber = PlayerDataSerializer.normalizeAmber(rawData.Amber)
 	local normalizedAmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(rawData.AmberUpgrades)
+	local normalizedLastLogoutAt = normalizeTimestamp(rawData.LastLogoutAt)
 	local lastUpdatedAt = rawData.LastUpdatedAt
 	local wasChanged = false
 
@@ -380,6 +385,10 @@ local function normalizeCurrentData(rawData)
 		end
 	end
 
+	if normalizedLastLogoutAt ~= rawData.LastLogoutAt then
+		wasChanged = true
+	end
+
 	if not isFiniteNumber(lastUpdatedAt) then
 		lastUpdatedAt = os.time()
 		wasChanged = true
@@ -397,6 +406,7 @@ local function normalizeCurrentData(rawData)
 		Rebirths = normalizedRebirths,
 		Amber = normalizedAmber,
 		AmberUpgrades = normalizedAmberUpgrades,
+		LastLogoutAt = normalizedLastLogoutAt,
 		LastUpdatedAt = lastUpdatedAt,
 		IsLoaded = true,
 		IsDirty = wasChanged,
@@ -428,6 +438,7 @@ function PlayerDataSerializer.serializeState(state)
 		Rebirths = PlayerDataSerializer.normalizeRebirths(state.Rebirths),
 		Amber = PlayerDataSerializer.normalizeAmber(state.Amber),
 		AmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades),
+		LastLogoutAt = normalizeTimestamp(state.LastLogoutAt),
 		LastUpdatedAt = state.LastUpdatedAt,
 	}
 end
