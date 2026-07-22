@@ -1,18 +1,16 @@
-local Players = game:GetService("Players")
-
-local player = Players.LocalPlayer
+local GuiLocator = require(script.Parent:WaitForChild("GuiLocator") :: ModuleScript)
 
 local AmberShopUI = {}
 
-local GUI_NAME = "AmberShopGui"
+local POPUPS_HUD_NAME = "PopupsHUD"
+local AMBER_MODAL_PATH = { POPUPS_HUD_NAME, "AmberModal" }
 
 local GREEN_BUTTON_COLOR = Color3.fromRGB(69, 164, 90)
 local RED_BUTTON_COLOR = Color3.fromRGB(133, 83, 78)
 local LOCKED_BUTTON_COLOR = Color3.fromRGB(84, 84, 84)
 
 local started = false
-local screenGui = nil
-local modalOverlay = nil
+local modalFrame = nil
 local rootFrame = nil
 local balanceLabel = nil
 local statusLabel = nil
@@ -120,21 +118,26 @@ local function handleCloseActivated()
 end
 
 local function ensureGui()
-	if started and screenGui and screenGui.Parent then
+	if started and modalFrame and modalFrame.Parent then
 		return
 	end
 
-	local playerGui = player:WaitForChild("PlayerGui")
-	local existingGui = playerGui:FindFirstChild(GUI_NAME)
+	local playerGui = GuiLocator.getPlayerGui()
+	local existingGui = playerGui:FindFirstChild(POPUPS_HUD_NAME)
 
 	if not existingGui or not existingGui:IsA("ScreenGui") then
 		return
 	end
 
+	local nextModalFrame = GuiLocator.findPath(AMBER_MODAL_PATH)
+
+	if not nextModalFrame then
+		return
+	end
+
 	started = true
-	screenGui = existingGui
-	modalOverlay = findDirectChild(screenGui, "Overlay")
-	rootFrame = (modalOverlay and findDirectChild(modalOverlay, "Root")) or findDirectChild(screenGui, "Root")
+	modalFrame = nextModalFrame
+	rootFrame = findDirectChild(modalFrame, "Root")
 	balanceLabel = rootFrame and findDirectChild(rootFrame, "Balance") or nil
 	statusLabel = rootFrame and findDirectChild(rootFrame, "Status") or nil
 	scrollingFrame = rootFrame and findDirectChild(rootFrame, "ScrollingFrame") or nil
@@ -150,7 +153,7 @@ local function ensureGui()
 	end
 
 	bindCardTemplate()
-	screenGui.Enabled = false
+	modalFrame.Visible = false
 end
 
 local function renderUpgradeCard(layoutOrder, upgradeState)
@@ -264,18 +267,22 @@ end
 
 function AmberShopUI.open()
 	ensureGui()
-	screenGui.Enabled = true
+	if modalFrame then
+		modalFrame.Visible = true
+	end
 end
 
 function AmberShopUI.close()
 	ensureGui()
 	busyUpgradeKey = nil
-	screenGui.Enabled = false
+	if modalFrame then
+		modalFrame.Visible = false
+	end
 end
 
 function AmberShopUI.toggle()
 	ensureGui()
-	if screenGui.Enabled then
+	if modalFrame and modalFrame.Visible then
 		AmberShopUI.close()
 	else
 		AmberShopUI.open()
@@ -284,7 +291,7 @@ end
 
 function AmberShopUI.isOpen()
 	ensureGui()
-	return screenGui ~= nil and screenGui.Enabled == true
+	return modalFrame ~= nil and modalFrame.Visible == true
 end
 
 return AmberShopUI

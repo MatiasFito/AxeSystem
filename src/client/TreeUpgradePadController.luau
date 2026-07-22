@@ -12,9 +12,11 @@ local networkFolder = sharedFolder:WaitForChild("Network")
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
 local remoteResolver = require(networkFolder:WaitForChild("RemoteResolver") :: ModuleScript)
+local GuiLocator = require(script.Parent:WaitForChild("GuiLocator") :: ModuleScript)
 
 local PLOT_SIGN_PART_NAME = "PlotSign"
-local PLOT_UPGRADE_GUI_NAME = "PlotUpgradeGui"
+local POPUPS_HUD_NAME = "PopupsHUD"
+local PLOT_UPGRADE_MODAL_PATH = { POPUPS_HUD_NAME, "PlotUpgradeModal" }
 local REMOTE_WAIT_TIMEOUT = 10
 local REFRESH_RATE = 0.05
 local GREEN_COLOR = Color3.fromRGB(101, 197, 95)
@@ -369,17 +371,23 @@ local function ensureModalBinding()
 		return modalBinding
 	end
 
-	local playerGui = player:WaitForChild("PlayerGui")
-	local plotUpgradeGui = playerGui:FindFirstChild(PLOT_UPGRADE_GUI_NAME)
+	local playerGui = GuiLocator.getPlayerGui()
+	local popupsHud = playerGui:FindFirstChild(POPUPS_HUD_NAME)
 
-	if not plotUpgradeGui or not plotUpgradeGui:IsA("ScreenGui") then
+	if not popupsHud or not popupsHud:IsA("ScreenGui") then
+		return nil
+	end
+
+	local plotUpgradeModal = GuiLocator.findPath(PLOT_UPGRADE_MODAL_PATH)
+
+	if not plotUpgradeModal then
 		return nil
 	end
 
 	destroyModalBinding()
 
-	local mainFrame = findDirectChild(plotUpgradeGui, "MainFrame")
-	local dimmer = findDirectChild(plotUpgradeGui, "Dimmer")
+	local mainFrame = findDirectChild(plotUpgradeModal, "MainFrame")
+	local dimmer = findDirectChild(plotUpgradeModal, "Dimmer")
 	local contentFrame = findDescendantByPath(mainFrame, { "ContentFrame" })
 	local treeStatsColumn = findDescendantByPath(contentFrame, { "TreeStatsColumn" })
 	local workerColumn = findDescendantByPath(contentFrame, { "WorkerColumn" })
@@ -400,7 +408,7 @@ local function ensureModalBinding()
 
 	local connections = {}
 	local binding = {
-		Gui = plotUpgradeGui,
+		Gui = plotUpgradeModal,
 		Dimmer = dimmer,
 		MainFrame = mainFrame,
 		TreeHeader = findDescendantByPath(treeStatsColumn, { "Header" }),

@@ -17,6 +17,9 @@ local AXE_OVERRIDES_FOLDER_NAME = "AxeOverrides"
 local BUTTON_TEMPLATE_NAME = "ButtonTemplate"
 local TOOL_CHILDREN_FOLDER_NAME = "ToolChildren"
 local HANDLE_CHILDREN_FOLDER_NAME = "HandleChildren"
+local DYNAMIC_HUD_NAME = "DynamicHUD"
+local POPUPS_HUD_NAME = "PopupsHUD"
+local STATIC_HUD_NAME = "StaticHUD"
 
 local function pushError(errors, message)
 	table.insert(errors, message)
@@ -88,6 +91,44 @@ local function requireDescendant(parent, name, expectedClassName, errors, contex
 	end
 
 	return child
+end
+
+local function requireChildPath(parent, path, expectedClassName, errors, context)
+	local current = parent
+	local currentContext = context
+
+	for index, name in ipairs(path) do
+		local child = current:FindFirstChild(name)
+
+		if not child then
+			pushError(errors, string.format("Missing %s '%s' under %s", expectedClassName, name, currentContext))
+			return nil
+		end
+
+		if index == #path then
+			if not child:IsA(expectedClassName) then
+				pushError(
+					errors,
+					string.format(
+						"Expected %s '%s' under %s to be a %s, got %s",
+						expectedClassName,
+						name,
+						currentContext,
+						expectedClassName,
+						child.ClassName
+					)
+				)
+				return nil
+			end
+
+			return child
+		end
+
+		current = child
+		currentContext = string.format("%s/%s", currentContext, name)
+	end
+
+	return nil
 end
 
 local function hasPrefix(value, prefix)
@@ -382,23 +423,25 @@ local function validateTreePlotTemplate(errors)
 end
 
 local function validatePlotUpgradeGui(errors)
-	local plotUpgradeGui = requireChild(StarterGui, "PlotUpgradeGui", "ScreenGui", errors, "StarterGui")
+	local plotUpgradeGui =
+		requireChildPath(StarterGui, { POPUPS_HUD_NAME, "PlotUpgradeModal" }, "GuiObject", errors, "StarterGui")
 
 	if not plotUpgradeGui then
 		return
 	end
 
-	local mainFrame = requireChild(plotUpgradeGui, "MainFrame", "GuiObject", errors, "StarterGui/PlotUpgradeGui")
-	requireChild(plotUpgradeGui, "Dimmer", "GuiObject", errors, "StarterGui/PlotUpgradeGui")
+	local mainFrame =
+		requireChild(plotUpgradeGui, "MainFrame", "GuiObject", errors, "StarterGui/PopupsHUD/PlotUpgradeModal")
+	requireChild(plotUpgradeGui, "Dimmer", "GuiObject", errors, "StarterGui/PopupsHUD/PlotUpgradeModal")
 
 	if not mainFrame then
 		return
 	end
 
 	local contentFrame =
-		requireChild(mainFrame, "ContentFrame", "GuiObject", errors, "StarterGui/PlotUpgradeGui/MainFrame")
+		requireChild(mainFrame, "ContentFrame", "GuiObject", errors, "StarterGui/PopupsHUD/PlotUpgradeModal/MainFrame")
 	local bottomButtons =
-		requireChild(mainFrame, "BottomButtons", "GuiObject", errors, "StarterGui/PlotUpgradeGui/MainFrame")
+		requireChild(mainFrame, "BottomButtons", "GuiObject", errors, "StarterGui/PopupsHUD/PlotUpgradeModal/MainFrame")
 
 	if bottomButtons then
 		requireChild(
@@ -406,14 +449,14 @@ local function validatePlotUpgradeGui(errors)
 			"UpgradeTreeButton",
 			"GuiButton",
 			errors,
-			"StarterGui/PlotUpgradeGui/MainFrame/BottomButtons"
+			"StarterGui/PopupsHUD/PlotUpgradeModal/MainFrame/BottomButtons"
 		)
 		requireChild(
 			bottomButtons,
 			"UpgradeWorkerButton",
 			"GuiButton",
 			errors,
-			"StarterGui/PlotUpgradeGui/MainFrame/BottomButtons"
+			"StarterGui/PopupsHUD/PlotUpgradeModal/MainFrame/BottomButtons"
 		)
 	end
 
@@ -426,36 +469,88 @@ local function validatePlotUpgradeGui(errors)
 		"TreeStatsColumn",
 		"GuiObject",
 		errors,
-		"StarterGui/PlotUpgradeGui/MainFrame/ContentFrame"
+		"StarterGui/PopupsHUD/PlotUpgradeModal/MainFrame/ContentFrame"
 	)
 	local workerColumn = requireChild(
 		contentFrame,
 		"WorkerColumn",
 		"GuiObject",
 		errors,
-		"StarterGui/PlotUpgradeGui/MainFrame/ContentFrame"
+		"StarterGui/PopupsHUD/PlotUpgradeModal/MainFrame/ContentFrame"
 	)
 
 	if treeStatsColumn then
-		requireChild(treeStatsColumn, "Header", "TextLabel", errors, "StarterGui/PlotUpgradeGui/TreeStatsColumn")
-		requireChild(treeStatsColumn, "HP", "TextLabel", errors, "StarterGui/PlotUpgradeGui/TreeStatsColumn")
-		requireChild(treeStatsColumn, "GrowTime", "TextLabel", errors, "StarterGui/PlotUpgradeGui/TreeStatsColumn")
-		requireChild(treeStatsColumn, "Reward", "TextLabel", errors, "StarterGui/PlotUpgradeGui/TreeStatsColumn")
+		requireChild(
+			treeStatsColumn,
+			"Header",
+			"TextLabel",
+			errors,
+			"StarterGui/PopupsHUD/PlotUpgradeModal/TreeStatsColumn"
+		)
+		requireChild(
+			treeStatsColumn,
+			"HP",
+			"TextLabel",
+			errors,
+			"StarterGui/PopupsHUD/PlotUpgradeModal/TreeStatsColumn"
+		)
+		requireChild(
+			treeStatsColumn,
+			"GrowTime",
+			"TextLabel",
+			errors,
+			"StarterGui/PopupsHUD/PlotUpgradeModal/TreeStatsColumn"
+		)
+		requireChild(
+			treeStatsColumn,
+			"Reward",
+			"TextLabel",
+			errors,
+			"StarterGui/PopupsHUD/PlotUpgradeModal/TreeStatsColumn"
+		)
 	end
 
 	if not workerColumn then
 		return
 	end
 
-	local hiredWorkerView =
-		requireChild(workerColumn, "HiredWorkerView", "GuiObject", errors, "StarterGui/PlotUpgradeGui/WorkerColumn")
-	local hireWorkerView =
-		requireChild(workerColumn, "HireWorkerView", "GuiObject", errors, "StarterGui/PlotUpgradeGui/WorkerColumn")
+	local hiredWorkerView = requireChild(
+		workerColumn,
+		"HiredWorkerView",
+		"GuiObject",
+		errors,
+		"StarterGui/PopupsHUD/PlotUpgradeModal/WorkerColumn"
+	)
+	local hireWorkerView = requireChild(
+		workerColumn,
+		"HireWorkerView",
+		"GuiObject",
+		errors,
+		"StarterGui/PopupsHUD/PlotUpgradeModal/WorkerColumn"
+	)
 
 	if hiredWorkerView then
-		requireChild(hiredWorkerView, "Header", "TextLabel", errors, "StarterGui/PlotUpgradeGui/HiredWorkerView")
-		requireChild(hiredWorkerView, "Bonus", "TextLabel", errors, "StarterGui/PlotUpgradeGui/HiredWorkerView")
-		requireChild(hiredWorkerView, "Axe", "TextLabel", errors, "StarterGui/PlotUpgradeGui/HiredWorkerView")
+		requireChild(
+			hiredWorkerView,
+			"Header",
+			"TextLabel",
+			errors,
+			"StarterGui/PopupsHUD/PlotUpgradeModal/HiredWorkerView"
+		)
+		requireChild(
+			hiredWorkerView,
+			"Bonus",
+			"TextLabel",
+			errors,
+			"StarterGui/PopupsHUD/PlotUpgradeModal/HiredWorkerView"
+		)
+		requireChild(
+			hiredWorkerView,
+			"Axe",
+			"TextLabel",
+			errors,
+			"StarterGui/PopupsHUD/PlotUpgradeModal/HiredWorkerView"
+		)
 	end
 
 	if hireWorkerView then
@@ -464,49 +559,44 @@ local function validatePlotUpgradeGui(errors)
 			"HireWorkerButton",
 			"GuiButton",
 			errors,
-			"StarterGui/PlotUpgradeGui/HireWorkerView"
+			"StarterGui/PopupsHUD/PlotUpgradeModal/HireWorkerView"
 		)
 	end
 end
 
 local function validateAmberShopGui(errors)
-	local amberShopGui = requireChild(StarterGui, "AmberShopGui", "ScreenGui", errors, "StarterGui")
+	local amberShopGui =
+		requireChildPath(StarterGui, { POPUPS_HUD_NAME, "AmberModal" }, "GuiObject", errors, "StarterGui")
 
 	if not amberShopGui then
 		return
 	end
 
-	local overlay = requireChild(amberShopGui, "Overlay", "GuiObject", errors, "StarterGui/AmberShopGui")
-
-	if not overlay then
-		return
-	end
-
-	local root = requireChild(overlay, "Root", "GuiObject", errors, "StarterGui/AmberShopGui/Overlay")
+	local root = requireChild(amberShopGui, "Root", "GuiObject", errors, "StarterGui/PopupsHUD/AmberModal")
 
 	if not root then
 		return
 	end
 
-	requireChild(root, "Balance", "TextLabel", errors, "StarterGui/AmberShopGui/Overlay/Root")
-	requireChild(root, "Status", "TextLabel", errors, "StarterGui/AmberShopGui/Overlay/Root")
-	requireChild(root, "CloseButton", "GuiButton", errors, "StarterGui/AmberShopGui/Overlay/Root")
+	requireChild(root, "Balance", "TextLabel", errors, "StarterGui/PopupsHUD/AmberModal/Root")
+	requireChild(root, "Status", "TextLabel", errors, "StarterGui/PopupsHUD/AmberModal/Root")
+	requireChild(root, "CloseButton", "GuiButton", errors, "StarterGui/PopupsHUD/AmberModal/Root")
 
 	local scrollingFrame =
-		requireChild(root, "ScrollingFrame", "ScrollingFrame", errors, "StarterGui/AmberShopGui/Overlay/Root")
+		requireChild(root, "ScrollingFrame", "ScrollingFrame", errors, "StarterGui/PopupsHUD/AmberModal/Root")
 
 	if not scrollingFrame then
 		return
 	end
 
 	if not scrollingFrame:FindFirstChildOfClass("UIListLayout") then
-		pushError(errors, "Missing UIListLayout under StarterGui/AmberShopGui/Overlay/Root/ScrollingFrame")
+		pushError(errors, "Missing UIListLayout under StarterGui/PopupsHUD/AmberModal/Root/ScrollingFrame")
 	end
 
-	local cardTemplate = scrollingFrame:FindFirstChild("CardTemplate")
+	local cardTemplate = scrollingFrame:FindFirstChild("CardTemplate") or root:FindFirstChild("CardTemplate")
 
 	if cardTemplate and not cardTemplate:IsA("Frame") then
-		pushError(errors, "Expected StarterGui/AmberShopGui card template to be a Frame")
+		pushError(errors, "Expected StarterGui/PopupsHUD/AmberModal card template to be a Frame")
 		cardTemplate = nil
 	end
 
@@ -522,77 +612,86 @@ local function validateAmberShopGui(errors)
 	if not cardTemplate then
 		pushError(
 			errors,
-			"StarterGui/AmberShopGui/Overlay/Root/ScrollingFrame must contain CardTemplate or at least one Card_<upgradeKey> frame"
+			"StarterGui/PopupsHUD/AmberModal/Root/ScrollingFrame must contain CardTemplate or at least one Card_<upgradeKey> frame"
 		)
 		return
 	end
 
-	requireChild(cardTemplate, "Title", "TextLabel", errors, "StarterGui/AmberShopGui/CardTemplate")
-	requireChild(cardTemplate, "Level", "TextLabel", errors, "StarterGui/AmberShopGui/CardTemplate")
-	requireChild(cardTemplate, "Description", "TextLabel", errors, "StarterGui/AmberShopGui/CardTemplate")
-	requireChild(cardTemplate, "Comparison", "TextLabel", errors, "StarterGui/AmberShopGui/CardTemplate")
-	requireChild(cardTemplate, "UpgradeButton", "GuiButton", errors, "StarterGui/AmberShopGui/CardTemplate")
+	requireChild(cardTemplate, "Title", "TextLabel", errors, "StarterGui/PopupsHUD/AmberModal/CardTemplate")
+	requireChild(cardTemplate, "Level", "TextLabel", errors, "StarterGui/PopupsHUD/AmberModal/CardTemplate")
+	requireChild(cardTemplate, "Description", "TextLabel", errors, "StarterGui/PopupsHUD/AmberModal/CardTemplate")
+	requireChild(cardTemplate, "Comparison", "TextLabel", errors, "StarterGui/PopupsHUD/AmberModal/CardTemplate")
+	requireChild(cardTemplate, "UpgradeButton", "GuiButton", errors, "StarterGui/PopupsHUD/AmberModal/CardTemplate")
 end
 
 local function validateAutoSwingGui(errors)
-	local autoSwingGui = requireChild(StarterGui, "AutoSwingGui", "ScreenGui", errors, "StarterGui")
+	local autoSwingGui = requireChildPath(
+		StarterGui,
+		{ STATIC_HUD_NAME, "LeftContainer", "AutoSwingButton" },
+		"GuiButton",
+		errors,
+		"StarterGui"
+	)
 
 	if not autoSwingGui then
 		return
 	end
 
-	local toggleButton = requireDescendant(autoSwingGui, "ToggleButton", "GuiButton", errors, "StarterGui/AutoSwingGui")
-
-	if toggleButton then
-		requireDescendant(toggleButton, "State", "TextLabel", errors, "StarterGui/AutoSwingGui/ToggleButton")
-	end
+	requireChild(autoSwingGui, "State", "TextLabel", errors, "StarterGui/StaticHUD/LeftContainer/AutoSwingButton")
 end
 
 local function validateRebirthGui(errors)
-	local rebirthGui = requireChild(StarterGui, "RebirthGui", "ScreenGui", errors, "StarterGui")
+	local root = requireChildPath(
+		StarterGui,
+		{ STATIC_HUD_NAME, "RightContainer", "RebirthRoot" },
+		"GuiObject",
+		errors,
+		"StarterGui"
+	)
+	local rebirthGui =
+		requireChildPath(StarterGui, { POPUPS_HUD_NAME, "RebirthModal" }, "GuiObject", errors, "StarterGui")
+
+	if root then
+		requireChild(root, "RebirthButton", "GuiButton", errors, "StarterGui/StaticHUD/RightContainer/RebirthRoot")
+		requireChild(root, "StatusLabel", "TextLabel", errors, "StarterGui/StaticHUD/RightContainer/RebirthRoot")
+	end
 
 	if not rebirthGui then
 		return
 	end
 
-	local root = requireChild(rebirthGui, "Root", "GuiObject", errors, "StarterGui/RebirthGui")
-	local modalOverlay = requireChild(rebirthGui, "ModalOverlay", "GuiObject", errors, "StarterGui/RebirthGui")
-
-	if root then
-		requireChild(root, "RebirthButton", "GuiButton", errors, "StarterGui/RebirthGui/Root")
-		requireChild(root, "StatusLabel", "TextLabel", errors, "StarterGui/RebirthGui/Root")
-	end
-
-	if not modalOverlay then
-		return
-	end
-
-	local modal = requireChild(modalOverlay, "Modal", "GuiObject", errors, "StarterGui/RebirthGui/ModalOverlay")
+	local modal = requireChild(rebirthGui, "Modal", "GuiObject", errors, "StarterGui/PopupsHUD/RebirthModal")
 
 	if modal then
-		requireChild(modal, "MessageLabel", "TextLabel", errors, "StarterGui/RebirthGui/ModalOverlay/Modal")
-		requireChild(modal, "ConfirmButton", "GuiButton", errors, "StarterGui/RebirthGui/ModalOverlay/Modal")
-		requireChild(modal, "CancelButton", "GuiButton", errors, "StarterGui/RebirthGui/ModalOverlay/Modal")
+		requireChild(modal, "MessageLabel", "TextLabel", errors, "StarterGui/PopupsHUD/RebirthModal/Modal")
+		requireChild(modal, "ConfirmButton", "GuiButton", errors, "StarterGui/PopupsHUD/RebirthModal/Modal")
+		requireChild(modal, "CancelButton", "GuiButton", errors, "StarterGui/PopupsHUD/RebirthModal/Modal")
 	end
 end
 
 local function validateTopGoldLabelGui(errors)
-	local topGoldGui = requireChild(StarterGui, "TopGoldLabelGui", "ScreenGui", errors, "StarterGui")
-
-	if not topGoldGui then
-		return
-	end
-
-	local goldRoot = requireDescendant(topGoldGui, "GoldRoot", "GuiObject", errors, "StarterGui/TopGoldLabelGui")
-	local amberRoot = requireDescendant(topGoldGui, "AmberRoot", "GuiObject", errors, "StarterGui/TopGoldLabelGui")
+	local goldRoot = requireChildPath(
+		StarterGui,
+		{ DYNAMIC_HUD_NAME, "TopContainer", "GoldRoot" },
+		"GuiObject",
+		errors,
+		"StarterGui"
+	)
+	local amberRoot = requireChildPath(
+		StarterGui,
+		{ DYNAMIC_HUD_NAME, "TopContainer", "AmberRoot" },
+		"GuiObject",
+		errors,
+		"StarterGui"
+	)
 
 	if goldRoot then
-		requireDescendant(goldRoot, "Amount", "TextLabel", errors, "StarterGui/TopGoldLabelGui/GoldRoot")
+		requireChild(goldRoot, "Amount", "TextLabel", errors, "StarterGui/DynamicHUD/TopContainer/GoldRoot")
 	end
 
 	if amberRoot then
-		requireDescendant(amberRoot, "Amount", "TextLabel", errors, "StarterGui/TopGoldLabelGui/AmberRoot")
-		requireDescendant(amberRoot, "Button", "GuiButton", errors, "StarterGui/TopGoldLabelGui/AmberRoot")
+		requireChild(amberRoot, "Amount", "TextLabel", errors, "StarterGui/DynamicHUD/TopContainer/AmberRoot")
+		requireChild(amberRoot, "Button", "GuiButton", errors, "StarterGui/DynamicHUD/TopContainer/AmberRoot")
 	end
 end
 
@@ -684,24 +783,25 @@ local function validateBlacksmithSection(errors)
 end
 
 local function validateBlacksmithGui(errors)
-	local blacksmithGui = requireChild(StarterGui, "BlacksmithGui", "ScreenGui", errors, "StarterGui")
+	local blacksmithGui =
+		requireChildPath(StarterGui, { POPUPS_HUD_NAME, "BlacksmithModal" }, "GuiObject", errors, "StarterGui")
 
 	if not blacksmithGui then
 		return
 	end
 
-	local root = requireChild(blacksmithGui, "Root", "GuiObject", errors, "StarterGui/BlacksmithGui")
+	local root = requireChild(blacksmithGui, "Root", "GuiObject", errors, "StarterGui/PopupsHUD/BlacksmithModal")
 
 	if not root then
 		return
 	end
 
-	requireChild(root, "CloseButton", "GuiButton", errors, "StarterGui/BlacksmithGui/Root")
-	requireChild(root, "UpgradeButton", "GuiButton", errors, "StarterGui/BlacksmithGui/Root")
-	requireChild(root, "UpgradeArrow", "GuiObject", errors, "StarterGui/BlacksmithGui/Root")
+	requireChild(root, "CloseButton", "GuiButton", errors, "StarterGui/PopupsHUD/BlacksmithModal/Root")
+	requireChild(root, "UpgradeButton", "GuiButton", errors, "StarterGui/PopupsHUD/BlacksmithModal/Root")
+	requireChild(root, "UpgradeArrow", "GuiObject", errors, "StarterGui/PopupsHUD/BlacksmithModal/Root")
 
 	for _, cardName in ipairs({ "CurrentAxe", "NextAxe" }) do
-		local card = requireChild(root, cardName, "GuiObject", errors, "StarterGui/BlacksmithGui/Root")
+		local card = requireChild(root, cardName, "GuiObject", errors, "StarterGui/PopupsHUD/BlacksmithModal/Root")
 
 		if card then
 			requireChild(
@@ -709,35 +809,35 @@ local function validateBlacksmithGui(errors)
 				"AxeImage",
 				"ImageLabel",
 				errors,
-				string.format("StarterGui/BlacksmithGui/Root/%s", cardName)
+				string.format("StarterGui/PopupsHUD/BlacksmithModal/Root/%s", cardName)
 			)
 			requireChild(
 				card,
 				"AxeName",
 				"TextLabel",
 				errors,
-				string.format("StarterGui/BlacksmithGui/Root/%s", cardName)
+				string.format("StarterGui/PopupsHUD/BlacksmithModal/Root/%s", cardName)
 			)
 			requireChild(
 				card,
 				"BaseDamage",
 				"TextLabel",
 				errors,
-				string.format("StarterGui/BlacksmithGui/Root/%s", cardName)
+				string.format("StarterGui/PopupsHUD/BlacksmithModal/Root/%s", cardName)
 			)
 			requireChild(
 				card,
 				"YourDamage",
 				"TextLabel",
 				errors,
-				string.format("StarterGui/BlacksmithGui/Root/%s", cardName)
+				string.format("StarterGui/PopupsHUD/BlacksmithModal/Root/%s", cardName)
 			)
 			requireChild(
 				card,
 				"GoldBonus",
 				"TextLabel",
 				errors,
-				string.format("StarterGui/BlacksmithGui/Root/%s", cardName)
+				string.format("StarterGui/PopupsHUD/BlacksmithModal/Root/%s", cardName)
 			)
 		end
 	end

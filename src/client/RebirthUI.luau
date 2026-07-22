@@ -1,19 +1,19 @@
-local Players = game:GetService("Players")
+local GuiLocator = require(script.Parent:WaitForChild("GuiLocator") :: ModuleScript)
 
-local player = Players.LocalPlayer
-
-local GUI_NAME = "RebirthGui"
+local STATIC_HUD_NAME = "StaticHUD"
+local POPUPS_HUD_NAME = "PopupsHUD"
+local REBIRTH_ROOT_PATH = { STATIC_HUD_NAME, "RightContainer", "RebirthRoot" }
+local REBIRTH_MODAL_PATH = { POPUPS_HUD_NAME, "RebirthModal" }
 local BUTTON_READY_COLOR = Color3.fromRGB(184, 120, 46)
 local BUTTON_DISABLED_COLOR = Color3.fromRGB(92, 92, 92)
 
 local RebirthUI = {}
 
 local started = false
-local screenGui = nil
 local rootFrame = nil
+local modalFrame = nil
 local actionButton = nil
 local statusLabel = nil
-local modalOverlay = nil
 local modalMessageLabel = nil
 local confirmButton = nil
 local cancelButton = nil
@@ -79,8 +79,8 @@ local function updateButtonState()
 end
 
 local function closeModal()
-	if modalOverlay then
-		modalOverlay.Visible = false
+	if modalFrame then
+		modalFrame.Visible = false
 	end
 end
 
@@ -114,7 +114,7 @@ local function handleConfirmActivated()
 	confirmHandler(previewState)
 end
 local function ensureGui()
-	if started and screenGui and screenGui.Parent then
+	if started and rootFrame and rootFrame.Parent and modalFrame and modalFrame.Parent then
 		return
 	end
 	previewState = {
@@ -124,23 +124,30 @@ local function ensureGui()
 		estimatedAmber = 0,
 	}
 
-	local playerGui = player:WaitForChild("PlayerGui")
-	local existingGui = playerGui:FindFirstChild(GUI_NAME)
+	local playerGui = GuiLocator.getPlayerGui()
+	local staticHud = playerGui:FindFirstChild(STATIC_HUD_NAME)
+	local popupsHud = playerGui:FindFirstChild(POPUPS_HUD_NAME)
 
-	if not existingGui or not existingGui:IsA("ScreenGui") then
+	if not staticHud or not staticHud:IsA("ScreenGui") or not popupsHud or not popupsHud:IsA("ScreenGui") then
+		return
+	end
+
+	local nextRootFrame = GuiLocator.findPath(REBIRTH_ROOT_PATH)
+	local nextModalFrame = GuiLocator.findPath(REBIRTH_MODAL_PATH)
+	local modalContentFrame = nextModalFrame and findDirectChild(nextModalFrame, "Modal") or nil
+
+	if not nextRootFrame or not nextModalFrame or not modalContentFrame then
 		return
 	end
 
 	started = true
-	screenGui = existingGui
-	rootFrame = findDirectChild(screenGui, "Root")
+	rootFrame = nextRootFrame
+	modalFrame = nextModalFrame
 	actionButton = rootFrame and findDirectChild(rootFrame, "RebirthButton") or nil
 	statusLabel = rootFrame and findDirectChild(rootFrame, "StatusLabel") or nil
-	modalOverlay = findDirectChild(screenGui, "ModalOverlay")
-	local modalFrame = modalOverlay and findDirectChild(modalOverlay, "Modal") or nil
-	modalMessageLabel = modalFrame and findDirectChild(modalFrame, "MessageLabel") or nil
-	confirmButton = modalFrame and findDirectChild(modalFrame, "ConfirmButton") or nil
-	cancelButton = modalFrame and findDirectChild(modalFrame, "CancelButton") or nil
+	modalMessageLabel = findDirectChild(modalContentFrame, "MessageLabel")
+	confirmButton = findDirectChild(modalContentFrame, "ConfirmButton")
+	cancelButton = findDirectChild(modalContentFrame, "CancelButton")
 
 	if actionButton and actionButton:IsA("GuiButton") then
 		actionButton.Activated:Connect(handleButtonActivated)
@@ -154,8 +161,8 @@ local function ensureGui()
 		cancelButton.Activated:Connect(closeModal)
 	end
 
-	if modalOverlay then
-		modalOverlay.Visible = false
+	if modalFrame then
+		modalFrame.Visible = false
 	end
 
 	updateModalMessage(previewState)
@@ -209,7 +216,9 @@ function RebirthUI.openConfirm(state)
 	end
 
 	updateModalMessage(previewState)
-	modalOverlay.Visible = true
+	if modalFrame then
+		modalFrame.Visible = true
+	end
 end
 
 function RebirthUI.closeConfirm()

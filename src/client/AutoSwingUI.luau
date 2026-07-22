@@ -4,9 +4,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
+local GuiLocator = require(script.Parent:WaitForChild("GuiLocator") :: ModuleScript)
 
-local GUI_NAME = "AutoSwingGui"
-local BUTTON_NAME = "ToggleButton"
+local STATIC_HUD_NAME = "StaticHUD"
+local AUTO_SWING_BUTTON_PATH = { STATIC_HUD_NAME, "LeftContainer", "AutoSwingButton" }
 local AUTO_SWING_ATTRIBUTE_NAME = "AutoSwingHeld"
 
 local AUTO_ON_COLOR = Color3.fromRGB(78, 168, 106)
@@ -17,7 +18,6 @@ local AutoSwingUI = {}
 local started = false
 local autoSwingEnabled = false
 
-local screenGui = nil
 local toggleButton = nil
 local stateLabel = nil
 local trackedTool = nil
@@ -25,14 +25,6 @@ local childAddedConnection = nil
 local childRemovedConnection = nil
 local playerGuiChildAddedConnection = nil
 local toggleButtonConnection = nil
-
-local function findDescendant(parent, name)
-	if not parent then
-		return nil
-	end
-
-	return parent:FindFirstChild(name, true)
-end
 
 local function disconnectGuiConnections()
 	if toggleButtonConnection then
@@ -43,7 +35,6 @@ end
 
 local function clearGuiRefs()
 	disconnectGuiConnections()
-	screenGui = nil
 	toggleButton = nil
 	stateLabel = nil
 end
@@ -119,15 +110,16 @@ local function toggleAutoSwing()
 end
 
 local function buildGui()
-	local playerGui = player:WaitForChild("PlayerGui")
-	local existingGui = playerGui:FindFirstChild(GUI_NAME)
+	local playerGui = GuiLocator.getPlayerGui()
+	local toggleButtonInstance = GuiLocator.findPath(AUTO_SWING_BUTTON_PATH)
+	local existingGui = toggleButtonInstance and toggleButtonInstance:FindFirstAncestorWhichIsA("ScreenGui") or nil
 
-	if not existingGui or not existingGui:IsA("ScreenGui") then
+	if not toggleButtonInstance or not existingGui or existingGui.Name ~= STATIC_HUD_NAME then
 		clearGuiRefs()
 
 		if not playerGuiChildAddedConnection then
 			playerGuiChildAddedConnection = playerGui.ChildAdded:Connect(function(child)
-				if child.Name == GUI_NAME and child:IsA("ScreenGui") then
+				if child.Name == STATIC_HUD_NAME and child:IsA("ScreenGui") then
 					buildGui()
 				end
 			end)
@@ -136,9 +128,8 @@ local function buildGui()
 		return
 	end
 
-	screenGui = existingGui
-	toggleButton = findDescendant(screenGui, BUTTON_NAME)
-	stateLabel = toggleButton and findDescendant(toggleButton, "State") or nil
+	toggleButton = toggleButtonInstance
+	stateLabel = toggleButton and toggleButton:FindFirstChild("State") or nil
 
 	if playerGuiChildAddedConnection then
 		playerGuiChildAddedConnection:Disconnect()

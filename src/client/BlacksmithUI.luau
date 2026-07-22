@@ -1,19 +1,19 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local player = Players.LocalPlayer
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local blacksmithConstants = require(sharedFolder:WaitForChild("BlacksmithConstants") :: ModuleScript)
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
+local GuiLocator = require(script.Parent:WaitForChild("GuiLocator") :: ModuleScript)
 
-local GUI_NAME = "BlacksmithGui"
+local POPUPS_HUD_NAME = "PopupsHUD"
+local BLACKSMITH_MODAL_PATH = { POPUPS_HUD_NAME, "BlacksmithModal" }
 local BUTTON_DISABLED_COLOR = Color3.fromRGB(157, 62, 62)
 
 local BlacksmithUI = {}
 
 local started = false
-local screenGui = nil
+local modalFrame = nil
 local rootFrame = nil
 local currentAxeCard = nil
 local nextAxeCard = nil
@@ -166,20 +166,26 @@ local function renderAxeCard(card, axe)
 end
 
 local function ensureGui()
-	if started and screenGui and screenGui.Parent then
+	if started and modalFrame and modalFrame.Parent then
 		return
 	end
 
-	local playerGui = player:WaitForChild("PlayerGui")
-	local existingGui = playerGui:FindFirstChild(GUI_NAME)
+	local playerGui = GuiLocator.getPlayerGui()
+	local existingGui = playerGui:FindFirstChild(POPUPS_HUD_NAME)
 
 	if not existingGui or not existingGui:IsA("ScreenGui") then
 		return
 	end
 
+	local nextModalFrame = GuiLocator.findPath(BLACKSMITH_MODAL_PATH)
+
+	if not nextModalFrame or not nextModalFrame:IsA("GuiObject") then
+		return
+	end
+
 	started = true
-	screenGui = existingGui
-	rootFrame = findDirectChild(screenGui, "Root")
+	modalFrame = nextModalFrame
+	rootFrame = findDirectChild(modalFrame, "Root")
 	currentAxeCard = bindAxeCard(rootFrame and findDescendantByPath(rootFrame, { "CurrentAxe" }) or nil)
 	nextAxeCard = bindAxeCard(rootFrame and findDescendantByPath(rootFrame, { "NextAxe" }) or nil)
 	upgradeArrow = rootFrame and findDescendantByPath(rootFrame, { "UpgradeArrow" }) or nil
@@ -206,7 +212,7 @@ local function ensureGui()
 		closeButton.Activated:Connect(handleCloseActivated)
 	end
 
-	setVisible(screenGui, false)
+	setVisible(modalFrame, false)
 	updateButtonVisualState(false)
 end
 
@@ -228,12 +234,12 @@ end
 
 function BlacksmithUI.open()
 	ensureGui()
-	screenGui.Enabled = true
+	setVisible(modalFrame, true)
 end
 
 function BlacksmithUI.close()
 	ensureGui()
-	screenGui.Enabled = false
+	setVisible(modalFrame, false)
 	BlacksmithUI.setBusy(false)
 end
 

@@ -3,8 +3,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local utilsFolder = sharedFolder:WaitForChild("Utils")
 local currencyFormatter = require(utilsFolder:WaitForChild("CurrencyFormatter") :: ModuleScript)
+local GuiLocator = require(script.Parent:WaitForChild("GuiLocator") :: ModuleScript)
 
-local GUI_NAME = "TopGoldLabelGui"
+local DYNAMIC_HUD_NAME = "DynamicHUD"
+local TOP_CONTAINER_PATH = { DYNAMIC_HUD_NAME, "TopContainer" }
 local MIN_ANIMATION_DURATION = 0.08
 local MAX_ANIMATION_DURATION = 0.5
 local SECONDS_PER_STEP = 0.013
@@ -51,14 +53,6 @@ local function renderAmber(amount)
 	end
 end
 
-local function findDescendant(parent, name)
-	if not parent then
-		return nil
-	end
-
-	return parent:FindFirstChild(name, true)
-end
-
 local function disconnectGuiConnections()
 	if amberButtonConnection then
 		amberButtonConnection:Disconnect()
@@ -95,15 +89,16 @@ local function ensureGui(player)
 		return
 	end
 
-	playerGui = playerGui or player:WaitForChild("PlayerGui")
-	local existingGui = playerGui:FindFirstChild(GUI_NAME)
+	playerGui = playerGui or GuiLocator.getPlayerGui()
+	local topContainer = GuiLocator.findPath(TOP_CONTAINER_PATH)
+	local existingGui = topContainer and topContainer:FindFirstAncestorWhichIsA("ScreenGui") or nil
 
-	if not existingGui or not existingGui:IsA("ScreenGui") then
+	if not topContainer or not existingGui or existingGui.Name ~= DYNAMIC_HUD_NAME then
 		clearGuiRefs()
 
 		if not playerGuiChildAddedConnection then
 			playerGuiChildAddedConnection = playerGui.ChildAdded:Connect(function(child)
-				if child.Name == GUI_NAME and child:IsA("ScreenGui") then
+				if child.Name == DYNAMIC_HUD_NAME and child:IsA("ScreenGui") then
 					ensureGui(player)
 				end
 			end)
@@ -113,11 +108,11 @@ local function ensureGui(player)
 	end
 
 	screenGui = existingGui
-	local goldRootFrame = findDescendant(screenGui, "GoldRoot")
-	amberRootFrame = findDescendant(screenGui, "AmberRoot")
-	amountLabel = goldRootFrame and findDescendant(goldRootFrame, "Amount") or nil
-	amberAmountLabel = amberRootFrame and findDescendant(amberRootFrame, "Amount") or nil
-	amberButton = amberRootFrame and findDescendant(amberRootFrame, "Button") or nil
+	local goldRootFrame = GuiLocator.findPath({ DYNAMIC_HUD_NAME, "TopContainer", "GoldRoot" })
+	amberRootFrame = GuiLocator.findPath({ DYNAMIC_HUD_NAME, "TopContainer", "AmberRoot" })
+	amountLabel = goldRootFrame and goldRootFrame:FindFirstChild("Amount") or nil
+	amberAmountLabel = amberRootFrame and amberRootFrame:FindFirstChild("Amount") or nil
+	amberButton = amberRootFrame and amberRootFrame:FindFirstChild("Button") or nil
 
 	if playerGuiChildAddedConnection then
 		playerGuiChildAddedConnection:Disconnect()
