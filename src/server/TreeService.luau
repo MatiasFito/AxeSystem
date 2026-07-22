@@ -308,8 +308,10 @@ function TreeService.start(
 		getLevelData = treeConfig.getLevelData,
 		getToolStatValue = treeInteractionUtils.getToolStatValue,
 		getAmberUpgradeLevel = getAmberUpgradeLevel,
+		getRebirths = playerData.getRebirths,
 		resolveFinalDamageFromBasePower = axeDamageResolver.resolveFinalDamageFromBasePower,
 		getGoldMultiplier = rebirthConfig.getGoldMultiplier,
+		getRebirthGoldMultiplier = rebirthConfig.getRebirthGoldMultiplier,
 		getGamePassGoldMultiplier = function(player)
 			if gamePassService and gamePassService.getGoldMultiplier then
 				return gamePassService.getGoldMultiplier(player)

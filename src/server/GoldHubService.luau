@@ -50,6 +50,7 @@ function GoldHubService.start(playerDataModule, sessionTimeServiceModule, gamePa
 		isPlayerLoaded = playerData.isLoaded,
 		getAxeTierId = playerData.getAxeTierId,
 		getAmberUpgradeLevel = playerData.getAmberUpgradeLevel,
+		getRebirths = playerData.getRebirths,
 		getSessionSeconds = function(player)
 			if sessionTimeService and sessionTimeService.getSessionSeconds then
 				return sessionTimeService.getSessionSeconds(player)

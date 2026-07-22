@@ -739,6 +739,7 @@ local function validateGoldHubGui(errors)
 	requireChild(list, "ListLayout", "UIListLayout", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
 	requireChild(list, "AxeBonusRow", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
 	requireChild(list, "AmberBonusRow", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
+	requireChild(list, "RebirthBonusRow", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
 	requireChild(list, "PlayTimeContainer", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
 	requireChild(list, "VipGamePass", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
 	requireChild(list, "x2GoldGamePass", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
@@ -768,6 +769,7 @@ local function validateGoldHubGui(errors)
 
 	validateBonusRow("AxeBonusRow")
 	validateBonusRow("AmberBonusRow")
+	validateBonusRow("RebirthBonusRow")
 
 	local playTimeContainer =
 		requireChild(list, "PlayTimeContainer", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")

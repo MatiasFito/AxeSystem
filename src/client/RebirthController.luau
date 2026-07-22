@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+local GoldHubController = require(script.Parent:WaitForChild("GoldHubController") :: ModuleScript)
 local rebirthUI = require(script.Parent:WaitForChild("RebirthUI") :: ModuleScript)
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
@@ -211,6 +212,7 @@ local function handleConfirmRequested()
 	amberAmount = tonumber(payload.state and payload.state.amber) or amberAmount
 	rebirthUI.closeConfirm()
 	applyPreviewState()
+	GoldHubController.refreshState(false)
 	plotStatesById = {}
 	requestInitialTreeState()
 end

@@ -137,12 +137,14 @@ function TreeHitController.create(deps)
 		end
 
 		local goldUpgradeLevel = deps.getAmberUpgradeLevel(player, "GoldMultiplier") or 0
+		local rebirths = deps.getRebirths and deps.getRebirths(player) or 0
 		local sessionGoldMultiplier = 1
 		local resolvedSessionGoldMultiplier = deps.getSessionGoldMultiplier and deps.getSessionGoldMultiplier(player)
 			or nil
 		local gamePassGoldMultiplier = 1
 		local resolvedGamePassGoldMultiplier = deps.getGamePassGoldMultiplier and deps.getGamePassGoldMultiplier(player)
 			or nil
+		local rebirthGoldMultiplier = deps.getRebirthGoldMultiplier and deps.getRebirthGoldMultiplier(rebirths) or 1
 
 		if typeof(resolvedSessionGoldMultiplier) == "number" and resolvedSessionGoldMultiplier > 0 then
 			sessionGoldMultiplier = resolvedSessionGoldMultiplier
@@ -190,6 +192,7 @@ function TreeHitController.create(deps)
 					* deps.getGoldMultiplier(goldUpgradeLevel)
 					* sessionGoldMultiplier
 					* gamePassGoldMultiplier
+					* rebirthGoldMultiplier
 				) + 0.5
 			)
 		)

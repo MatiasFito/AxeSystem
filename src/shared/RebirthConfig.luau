@@ -231,6 +231,14 @@ local function normalizeUpgradeLevel(level)
 	return math.clamp(math.floor(level), 0, progressionProfile.MaxUpgradeLevel)
 end
 
+local function normalizeRebirthCount(rebirths)
+	if typeof(rebirths) ~= "number" then
+		return 0
+	end
+
+	return math.max(0, math.floor(rebirths))
+end
+
 local function roundPercent(value)
 	return math.max(0, math.floor(value + 0.5))
 end
@@ -345,6 +353,10 @@ end
 
 function RebirthConfig.getGoldMultiplier(level)
 	return RebirthConfig.getUpgradeEffect("GoldMultiplier", level) or 1
+end
+
+function RebirthConfig.getRebirthGoldMultiplier(rebirths)
+	return 1 + (normalizeRebirthCount(rebirths) * 0.1)
 end
 
 function RebirthConfig.getUpgradeEffect(upgradeKey, level)

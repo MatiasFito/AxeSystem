@@ -66,6 +66,19 @@ local function buildAmberState(player, deps)
 	}
 end
 
+local function buildRebirthState(player, deps)
+	local rebirths = deps.getRebirths(player) or 0
+	local multiplier = sanitizeMultiplier(rebirthConfig.getRebirthGoldMultiplier(rebirths))
+	local suffix = rebirths == 1 and "Rebirth" or "Rebirths"
+
+	return {
+		rebirths = rebirths,
+		multiplier = multiplier,
+		bonusPercent = toBonusPercent(multiplier),
+		bonusText = string.format("%s (%d %s)", formatPercentBonus(multiplier), rebirths, suffix),
+	}
+end
+
 local function buildSessionTimeState(player, deps)
 	local tiers = sessionTimeConfig.getTiers()
 	local sessionSeconds = deps.getSessionSeconds(player)
@@ -127,17 +140,20 @@ function GoldHubStateBuilder.create(deps)
 		local ownership = deps.getOwnership(player)
 		local axeState = buildAxeState(player, deps)
 		local amberState = buildAmberState(player, deps)
+		local rebirthState = buildRebirthState(player, deps)
 		local sessionTimeState = buildSessionTimeState(player, deps)
 		local vipState = buildPassState(gamePassConfig.Pass.VIP, ownership)
 		local doubleGoldState = buildPassState(gamePassConfig.Pass.DoubleGold, ownership)
 		local totalMultiplier = sanitizeMultiplier(axeState.multiplier)
 			* sanitizeMultiplier(amberState.multiplier)
+			* sanitizeMultiplier(rebirthState.multiplier)
 			* sanitizeMultiplier(sessionTimeState.multiplier)
 			* sanitizeMultiplier(gamePassConfig.getBenefitMultiplier(ownership, gamePassConfig.Benefit.Gold))
 
 		return deps.buildSuccess({
 			axe = axeState,
 			amber = amberState,
+			rebirth = rebirthState,
 			sessionTime = sessionTimeState,
 			passes = {
 				vip = vipState,

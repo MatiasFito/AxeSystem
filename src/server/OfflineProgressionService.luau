@@ -38,6 +38,11 @@ local function getGoldGamePassMultiplier(player)
 	return sanitizePositiveNumber(gamePassService.getGoldMultiplier(player), 1)
 end
 
+local function getRebirthGoldMultiplier(player)
+	local rebirths = playerData and playerData.getRebirths and playerData.getRebirths(player) or 0
+	return sanitizePositiveNumber(rebirthConfig.getRebirthGoldMultiplier(rebirths), 1)
+end
+
 local function getOfflineCapSeconds(player)
 	if gamePassService and gamePassService.hasPass then
 		if gamePassService.hasPass(player, gamePassConfig.Pass.VIP) then
@@ -81,7 +86,12 @@ local function resolvePerCycleReward(player, levelData, tier, lumberjackLevel)
 	return math.max(
 		0,
 		math.floor(
-			(baseReward * rebirthConfig.getGoldMultiplier(goldUpgradeLevel) * getGoldGamePassMultiplier(player)) + 0.5
+			(
+				baseReward
+				* rebirthConfig.getGoldMultiplier(goldUpgradeLevel)
+				* getRebirthGoldMultiplier(player)
+				* getGoldGamePassMultiplier(player)
+			) + 0.5
 		)
 	)
 end
