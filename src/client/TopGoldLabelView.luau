@@ -19,15 +19,44 @@ local amountLabel = nil
 local amberRootFrame = nil
 local amberAmountLabel = nil
 local amberButton = nil
+local goldHubRootFrame = nil
+local goldHubAmountLabel = nil
 local playerGui = nil
 local mountedPlayer = nil
 local displayedGold = 0
 local displayedAmber = 0
+local displayedGoldHubBonusText = "x1.00 Total Gold"
 local animationToken = 0
 local amberAnimationToken = 0
 local amberActivatedHandler = nil
+local goldHubActivatedHandler = nil
 local playerGuiChildAddedConnection = nil
 local amberButtonConnection = nil
+local goldHubConnection = nil
+
+local function connectGuiActivated(instance, callback)
+	if not instance or not callback then
+		return nil
+	end
+
+	if instance:IsA("GuiButton") then
+		return instance.Activated:Connect(callback)
+	end
+
+	if instance:IsA("GuiObject") then
+		instance.Active = true
+		return instance.InputEnded:Connect(function(inputObject)
+			if
+				inputObject.UserInputType == Enum.UserInputType.MouseButton1
+				or inputObject.UserInputType == Enum.UserInputType.Touch
+			then
+				callback()
+			end
+		end)
+	end
+
+	return nil
+end
 
 local function formatGold(amount)
 	return string.format("$ %s", currencyFormatter.formatGold(amount))
@@ -53,10 +82,24 @@ local function renderAmber(amount)
 	end
 end
 
+local function renderGoldHubBonusText(text)
+	local resolvedText = typeof(text) == "string" and text ~= "" and text or "x1.00 Total Gold"
+	displayedGoldHubBonusText = resolvedText
+
+	if goldHubAmountLabel and goldHubAmountLabel:IsA("TextLabel") then
+		goldHubAmountLabel.Text = resolvedText
+	end
+end
+
 local function disconnectGuiConnections()
 	if amberButtonConnection then
 		amberButtonConnection:Disconnect()
 		amberButtonConnection = nil
+	end
+
+	if goldHubConnection then
+		goldHubConnection:Disconnect()
+		goldHubConnection = nil
 	end
 end
 
@@ -67,12 +110,19 @@ local function clearGuiRefs()
 	amberRootFrame = nil
 	amberAmountLabel = nil
 	amberButton = nil
+	goldHubRootFrame = nil
+	goldHubAmountLabel = nil
 end
 
-local function bindButton()
+local function bindButtons()
 	if amberButtonConnection then
 		amberButtonConnection:Disconnect()
 		amberButtonConnection = nil
+	end
+
+	if goldHubConnection then
+		goldHubConnection:Disconnect()
+		goldHubConnection = nil
 	end
 
 	if amberButton and amberButton:IsA("GuiButton") then
@@ -82,6 +132,13 @@ local function bindButton()
 			end
 		end)
 	end
+
+	local goldHubActivationTarget = goldHubRootFrame and goldHubRootFrame:FindFirstChild("Button") or goldHubRootFrame
+	goldHubConnection = connectGuiActivated(goldHubActivationTarget, function()
+		if goldHubActivatedHandler then
+			goldHubActivatedHandler()
+		end
+	end)
 end
 
 local function ensureGui(player)
@@ -110,19 +167,22 @@ local function ensureGui(player)
 	screenGui = existingGui
 	local goldRootFrame = GuiLocator.findPath({ DYNAMIC_HUD_NAME, "TopContainer", "GoldRoot" })
 	amberRootFrame = GuiLocator.findPath({ DYNAMIC_HUD_NAME, "TopContainer", "AmberRoot" })
+	goldHubRootFrame = GuiLocator.findPath({ DYNAMIC_HUD_NAME, "TopContainer", "GoldHubRoot" })
 	amountLabel = goldRootFrame and goldRootFrame:FindFirstChild("Amount") or nil
 	amberAmountLabel = amberRootFrame and amberRootFrame:FindFirstChild("Amount") or nil
 	amberButton = amberRootFrame and amberRootFrame:FindFirstChild("Button") or nil
+	goldHubAmountLabel = goldHubRootFrame and goldHubRootFrame:FindFirstChild("Amount") or nil
 
 	if playerGuiChildAddedConnection then
 		playerGuiChildAddedConnection:Disconnect()
 		playerGuiChildAddedConnection = nil
 	end
 
-	bindButton()
+	bindButtons()
 
 	renderGold(displayedGold)
 	renderAmber(displayedAmber)
+	renderGoldHubBonusText(displayedGoldHubBonusText)
 end
 
 function TopGoldLabelView.mount(player)
@@ -135,6 +195,15 @@ function TopGoldLabelView.setAmberActivatedHandler(callback)
 		ensureGui(mountedPlayer)
 	end
 	amberActivatedHandler = callback
+	bindButtons()
+end
+
+function TopGoldLabelView.setGoldHubActivatedHandler(callback)
+	if mountedPlayer then
+		ensureGui(mountedPlayer)
+	end
+	goldHubActivatedHandler = callback
+	bindButtons()
 end
 
 function TopGoldLabelView.setGold(nextAmount)
@@ -253,6 +322,14 @@ function TopGoldLabelView.setAmber(nextAmount)
 			renderAmber(nextAmount)
 		end
 	end)
+end
+
+function TopGoldLabelView.setGoldHubBonusText(text)
+	if mountedPlayer then
+		ensureGui(mountedPlayer)
+	end
+
+	renderGoldHubBonusText(text)
 end
 
 return TopGoldLabelView

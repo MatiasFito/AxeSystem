@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local amberShopUI = require(script.Parent:WaitForChild("AmberShopUI") :: ModuleScript)
+local GoldHubController = require(script.Parent:WaitForChild("GoldHubController") :: ModuleScript)
 local TopGoldLabelView = require(script.Parent:WaitForChild("TopGoldLabelView") :: ModuleScript)
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
@@ -111,6 +112,7 @@ local function handleUpgradeRequested(upgradeKey)
 	end
 
 	applyAmberAttribute()
+	GoldHubController.refreshState(false)
 	amberShopUI.open()
 end
 

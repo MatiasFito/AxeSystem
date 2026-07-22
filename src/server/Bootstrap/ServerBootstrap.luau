@@ -23,6 +23,10 @@ local serviceDefinitions = {
 		moduleName = "GamePassService",
 	},
 	{
+		name = "GoldHubService",
+		moduleName = "GoldHubService",
+	},
+	{
 		name = "OfflineProgressionService",
 		moduleName = "OfflineProgressionService",
 	},
@@ -89,6 +93,12 @@ local serviceStartOrder = {
 		name = "SessionTimeService",
 		start = function(services)
 			services.SessionTimeService.start()
+		end,
+	},
+	{
+		name = "GoldHubService",
+		start = function(services)
+			services.GoldHubService.start(services.PlayerData, services.SessionTimeService, services.GamePassService)
 		end,
 	},
 	{

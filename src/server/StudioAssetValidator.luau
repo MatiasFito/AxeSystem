@@ -684,6 +684,13 @@ local function validateTopGoldLabelGui(errors)
 		errors,
 		"StarterGui"
 	)
+	local goldHubRoot = requireChildPath(
+		StarterGui,
+		{ DYNAMIC_HUD_NAME, "TopContainer", "GoldHubRoot" },
+		"GuiObject",
+		errors,
+		"StarterGui"
+	)
 
 	if goldRoot then
 		requireChild(goldRoot, "Amount", "TextLabel", errors, "StarterGui/DynamicHUD/TopContainer/GoldRoot")
@@ -693,6 +700,171 @@ local function validateTopGoldLabelGui(errors)
 		requireChild(amberRoot, "Amount", "TextLabel", errors, "StarterGui/DynamicHUD/TopContainer/AmberRoot")
 		requireChild(amberRoot, "Button", "GuiButton", errors, "StarterGui/DynamicHUD/TopContainer/AmberRoot")
 	end
+
+	if goldHubRoot then
+		requireChild(goldHubRoot, "Amount", "TextLabel", errors, "StarterGui/DynamicHUD/TopContainer/GoldHubRoot")
+	end
+end
+
+local function validateGoldHubGui(errors)
+	local goldHubModal =
+		requireChildPath(StarterGui, { POPUPS_HUD_NAME, "GoldHubModal" }, "GuiObject", errors, "StarterGui")
+	local darkOverlay =
+		requireChildPath(StarterGui, { POPUPS_HUD_NAME, "DarkOverlay" }, "GuiObject", errors, "StarterGui")
+
+	if darkOverlay then
+		local _ = darkOverlay
+	end
+
+	if not goldHubModal then
+		return
+	end
+
+	local root = requireChild(goldHubModal, "Root", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal")
+
+	if not root then
+		return
+	end
+
+	requireChild(root, "Title", "TextLabel", errors, "StarterGui/PopupsHUD/GoldHubModal/Root")
+	requireChild(root, "List", "ScrollingFrame", errors, "StarterGui/PopupsHUD/GoldHubModal/Root")
+	requireChild(root, "TotalPowerLabel", "TextLabel", errors, "StarterGui/PopupsHUD/GoldHubModal/Root")
+
+	local list = root:FindFirstChild("List")
+
+	if not list or not list:IsA("ScrollingFrame") then
+		return
+	end
+
+	requireChild(list, "ListLayout", "UIListLayout", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
+	requireChild(list, "AxeBonusRow", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
+	requireChild(list, "AmberBonusRow", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
+	requireChild(list, "PlayTimeContainer", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
+	requireChild(list, "VipGamePass", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
+	requireChild(list, "x2GoldGamePass", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
+
+	local function validateBonusRow(rowName)
+		local row = requireChild(list, rowName, "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
+
+		if not row then
+			return
+		end
+
+		requireChild(
+			row,
+			"NameLabel",
+			"TextLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/GoldHubModal/Root/List/%s", rowName)
+		)
+		requireChild(
+			row,
+			"BonusLabel",
+			"TextLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/GoldHubModal/Root/List/%s", rowName)
+		)
+	end
+
+	validateBonusRow("AxeBonusRow")
+	validateBonusRow("AmberBonusRow")
+
+	local playTimeContainer =
+		requireChild(list, "PlayTimeContainer", "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
+
+	if playTimeContainer then
+		local mainRow = requireChild(
+			playTimeContainer,
+			"MainRow",
+			"GuiObject",
+			errors,
+			"StarterGui/PopupsHUD/GoldHubModal/Root/List/PlayTimeContainer"
+		)
+		local subRow = requireChild(
+			playTimeContainer,
+			"SubRow",
+			"GuiObject",
+			errors,
+			"StarterGui/PopupsHUD/GoldHubModal/Root/List/PlayTimeContainer"
+		)
+
+		if mainRow then
+			requireChild(
+				mainRow,
+				"TimerLabel",
+				"TextLabel",
+				errors,
+				"StarterGui/PopupsHUD/GoldHubModal/Root/List/PlayTimeContainer/MainRow"
+			)
+			requireChild(
+				mainRow,
+				"BonusLabel",
+				"TextLabel",
+				errors,
+				"StarterGui/PopupsHUD/GoldHubModal/Root/List/PlayTimeContainer/MainRow"
+			)
+		end
+
+		if subRow then
+			local progressBarBackground = requireChild(
+				subRow,
+				"ProgressBarBg",
+				"GuiObject",
+				errors,
+				"StarterGui/PopupsHUD/GoldHubModal/Root/List/PlayTimeContainer/SubRow"
+			)
+			requireChild(
+				subRow,
+				"CountdownLabel",
+				"TextLabel",
+				errors,
+				"StarterGui/PopupsHUD/GoldHubModal/Root/List/PlayTimeContainer/SubRow"
+			)
+
+			if progressBarBackground then
+				requireChild(
+					progressBarBackground,
+					"ProgressBarFill",
+					"GuiObject",
+					errors,
+					"StarterGui/PopupsHUD/GoldHubModal/Root/List/PlayTimeContainer/SubRow/ProgressBarBg"
+				)
+			end
+		end
+	end
+
+	local function validatePassRow(rowName)
+		local row = requireChild(list, rowName, "GuiObject", errors, "StarterGui/PopupsHUD/GoldHubModal/Root/List")
+
+		if not row then
+			return
+		end
+
+		requireChild(
+			row,
+			"NameLabel",
+			"TextLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/GoldHubModal/Root/List/%s", rowName)
+		)
+		requireChild(
+			row,
+			"BonusLabel",
+			"TextLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/GoldHubModal/Root/List/%s", rowName)
+		)
+		requireChild(
+			row,
+			"BuyButton",
+			"GuiButton",
+			errors,
+			string.format("StarterGui/PopupsHUD/GoldHubModal/Root/List/%s", rowName)
+		)
+	end
+
+	validatePassRow("VipGamePass")
+	validatePassRow("x2GoldGamePass")
 end
 
 local function isAllowedPlotSetName(name)
@@ -941,6 +1113,7 @@ function StudioAssetValidator.validateOrThrow()
 	validateAutoSwingGui(errors)
 	validateBlacksmithGui(errors)
 	validateBlacksmithSection(errors)
+	validateGoldHubGui(errors)
 	validateRebirthGui(errors)
 	validateTopGoldLabelGui(errors)
 	validateTrees(errors)

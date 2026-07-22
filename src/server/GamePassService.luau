@@ -81,9 +81,7 @@ function GamePassService.start()
 end
 
 function GamePassService.onPlayerAdded(player)
-	local ownership = resolveOwnership(player)
-	ownershipByPlayer[player] = ownership
-	return cloneOwnership(ownership)
+	return GamePassService.refreshOwnership(player)
 end
 
 function GamePassService.onPlayerRemoving(player)
@@ -92,6 +90,12 @@ end
 
 function GamePassService.getOwnership(player)
 	return cloneOwnership(ownershipByPlayer[player])
+end
+
+function GamePassService.refreshOwnership(player)
+	local ownership = resolveOwnership(player)
+	ownershipByPlayer[player] = ownership
+	return cloneOwnership(ownership)
 end
 
 function GamePassService.hasPass(player, passKey)

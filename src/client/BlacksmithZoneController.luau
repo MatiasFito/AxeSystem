@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local blacksmithUI = require(script.Parent:WaitForChild("BlacksmithUI"))
+local GoldHubController = require(script.Parent:WaitForChild("GoldHubController") :: ModuleScript)
 
 local player = Players.LocalPlayer
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
@@ -82,6 +83,10 @@ local function requestState()
 	end
 
 	applyPayload(payload)
+
+	if payload.success then
+		GoldHubController.refreshState(false)
+	end
 end
 
 function BlacksmithZoneController.refreshState()
