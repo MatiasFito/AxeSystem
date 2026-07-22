@@ -4,6 +4,7 @@ local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript)
 local gamePassConfig = require(sharedFolder:WaitForChild("GamePassConfig") :: ModuleScript)
 local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
+local robloxSubscriptionConfig = require(sharedFolder:WaitForChild("RobloxSubscriptionConfig") :: ModuleScript)
 local sessionTimeConfig = require(sharedFolder:WaitForChild("SessionTimeConfig") :: ModuleScript)
 
 local GoldHubStateBuilder = {}
@@ -79,6 +80,17 @@ local function buildRebirthState(player, deps)
 	}
 end
 
+local function buildPremiumState(player)
+	local multiplier = sanitizeMultiplier(robloxSubscriptionConfig.getGoldMultiplier(player))
+
+	return {
+		multiplier = multiplier,
+		bonusPercent = toBonusPercent(multiplier),
+		bonusText = formatPercentBonus(multiplier),
+		owned = multiplier > 1,
+	}
+end
+
 local function buildSessionTimeState(player, deps)
 	local tiers = sessionTimeConfig.getTiers()
 	local sessionSeconds = deps.getSessionSeconds(player)
@@ -141,12 +153,14 @@ function GoldHubStateBuilder.create(deps)
 		local axeState = buildAxeState(player, deps)
 		local amberState = buildAmberState(player, deps)
 		local rebirthState = buildRebirthState(player, deps)
+		local premiumState = buildPremiumState(player)
 		local sessionTimeState = buildSessionTimeState(player, deps)
 		local vipState = buildPassState(gamePassConfig.Pass.VIP, ownership)
 		local doubleGoldState = buildPassState(gamePassConfig.Pass.DoubleGold, ownership)
 		local totalMultiplier = sanitizeMultiplier(axeState.multiplier)
 			* sanitizeMultiplier(amberState.multiplier)
 			* sanitizeMultiplier(rebirthState.multiplier)
+			* sanitizeMultiplier(premiumState.multiplier)
 			* sanitizeMultiplier(sessionTimeState.multiplier)
 			* sanitizeMultiplier(gamePassConfig.getBenefitMultiplier(ownership, gamePassConfig.Benefit.Gold))
 
@@ -154,6 +168,7 @@ function GoldHubStateBuilder.create(deps)
 			axe = axeState,
 			amber = amberState,
 			rebirth = rebirthState,
+			premium = premiumState,
 			sessionTime = sessionTimeState,
 			passes = {
 				vip = vipState,

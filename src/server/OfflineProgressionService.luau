@@ -5,6 +5,7 @@ local axeConfig = require(sharedFolder:WaitForChild("AxeConfig") :: ModuleScript
 local gamePassConfig = require(sharedFolder:WaitForChild("GamePassConfig") :: ModuleScript)
 local lumberjackConfig = require(sharedFolder:WaitForChild("LumberjackConfig") :: ModuleScript)
 local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
+local robloxSubscriptionConfig = require(sharedFolder:WaitForChild("RobloxSubscriptionConfig") :: ModuleScript)
 local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local axeDamageResolverModule = require(script.Parent:WaitForChild("AxeDamageResolver") :: ModuleScript)
@@ -90,6 +91,7 @@ local function resolvePerCycleReward(player, levelData, tier, lumberjackLevel)
 				baseReward
 				* rebirthConfig.getGoldMultiplier(goldUpgradeLevel)
 				* getRebirthGoldMultiplier(player)
+				* robloxSubscriptionConfig.getGoldMultiplier(player)
 				* getGoldGamePassMultiplier(player)
 			) + 0.5
 		)

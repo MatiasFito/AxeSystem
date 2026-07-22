@@ -35,19 +35,6 @@ local function startPrintLoop(player, runtimeState)
 			if runtimeState.LoopToken ~= loopToken or player.Parent == nil then
 				break
 			end
-
-			local sessionSeconds = getSessionSecondsFromState(runtimeState)
-
-			while runtimeState.LastPrintedSecond < sessionSeconds do
-				runtimeState.LastPrintedSecond += 1
-				print(
-					string.format(
-						"[SessionTimeService] %s session seconds = %d",
-						player.Name,
-						runtimeState.LastPrintedSecond
-					)
-				)
-			end
 		end
 	end)
 end
@@ -63,7 +50,6 @@ end
 function SessionTimeService.onPlayerAdded(player)
 	local runtimeState = {
 		ConnectedAt = os.clock(),
-		LastPrintedSecond = 0,
 		LoopToken = 0,
 	}
 

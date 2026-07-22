@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local robloxSubscriptionConfig = require(sharedFolder:WaitForChild("RobloxSubscriptionConfig") :: ModuleScript)
 local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 
 local TreeHitController = {}
@@ -154,6 +155,7 @@ function TreeHitController.create(deps)
 			gamePassGoldMultiplier = resolvedGamePassGoldMultiplier
 		end
 
+		local premiumGoldMultiplier = robloxSubscriptionConfig.getGoldMultiplier(player)
 		local power = deps.resolveFinalDamageFromBasePower(player, hitContext.power)
 		local effectOrigin = hitContext.effectOrigin or plotRecord.DirtPatch.Position
 
@@ -190,6 +192,7 @@ function TreeHitController.create(deps)
 				(
 					resolveReward(levelData, hitContext.goldMultiplier or 1)
 					* deps.getGoldMultiplier(goldUpgradeLevel)
+					* premiumGoldMultiplier
 					* sessionGoldMultiplier
 					* gamePassGoldMultiplier
 					* rebirthGoldMultiplier

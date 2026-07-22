@@ -177,11 +177,7 @@ local function bindPlayTimeContainer(container)
 	}
 end
 
-local function hideIgnoredRows()
-	if premiumBonusRow and premiumBonusRow.frame then
-		premiumBonusRow.frame.Visible = false
-	end
-end
+local function hideIgnoredRows() end
 
 local function stopSessionTicker()
 	sessionTickerToken += 1
@@ -402,6 +398,7 @@ function GoldHubUI.renderState(state)
 	renderBonusRow(axeBonusRow, "Axe Bonus", state and state.axe or nil)
 	renderBonusRow(amberBonusRow, "Amber Bonus", state and state.amber or nil)
 	renderBonusRow(rebirthBonusRow, "Rebirth Bonus", state and state.rebirth or nil)
+	renderBonusRow(premiumBonusRow, "Premium Bonus", state and state.premium or nil)
 	renderPassRow(vipGamePassRow, "VIP", state and state.passes and state.passes.vip or nil)
 	renderPassRow(doubleGoldGamePassRow, "x2 Gold", state and state.passes and state.passes.doubleGold or nil)
 	setText(totalPowerLabel, state and state.totalBonusText or "x1.00 Total Gold")

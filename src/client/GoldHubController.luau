@@ -49,12 +49,19 @@ local function computeCurrentTotalBonusText(state)
 	local axeMultiplier = sanitizeMultiplier(state.axe and state.axe.multiplier or 1)
 	local amberMultiplier = sanitizeMultiplier(state.amber and state.amber.multiplier or 1)
 	local rebirthMultiplier = sanitizeMultiplier(state.rebirth and state.rebirth.multiplier or 1)
+	local premiumMultiplier = sanitizeMultiplier(state.premium and state.premium.multiplier or 1)
 	local vipMultiplier = sanitizeMultiplier(state.passes and state.passes.vip and state.passes.vip.multiplier or 1)
 	local doubleGoldMultiplier =
 		sanitizeMultiplier(state.passes and state.passes.doubleGold and state.passes.doubleGold.multiplier or 1)
 
 	return formatTotalBonusText(
-		axeMultiplier * amberMultiplier * rebirthMultiplier * sessionMultiplier * vipMultiplier * doubleGoldMultiplier
+		axeMultiplier
+			* amberMultiplier
+			* rebirthMultiplier
+			* premiumMultiplier
+			* sessionMultiplier
+			* vipMultiplier
+			* doubleGoldMultiplier
 	)
 end
 
