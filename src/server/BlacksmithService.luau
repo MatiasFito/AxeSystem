@@ -16,7 +16,7 @@ local BlacksmithService = {}
 
 local started = false
 
-function BlacksmithService.start(playerDataModule, axeServiceModule, gamePassServiceModule)
+function BlacksmithService.start(playerDataModule, axeServiceModule, gamePassServiceModule, wishingTreeServiceModule)
 	if started then
 		return
 	end
@@ -32,6 +32,13 @@ function BlacksmithService.start(playerDataModule, axeServiceModule, gamePassSer
 		getGamePassDamageMultiplier = function(player)
 			if gamePassServiceModule and gamePassServiceModule.getDamageMultiplier then
 				return gamePassServiceModule.getDamageMultiplier(player)
+			end
+
+			return 1
+		end,
+		getBlessingDamageMultiplier = function(player)
+			if wishingTreeServiceModule and wishingTreeServiceModule.getAxePowerMultiplier then
+				return wishingTreeServiceModule.getAxePowerMultiplier(player)
 			end
 
 			return 1

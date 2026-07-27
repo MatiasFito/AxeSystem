@@ -61,6 +61,7 @@ local treeHitController = nil
 local treeRules = nil
 local sessionTimeService = nil
 local gamePassService = nil
+local wishingTreeService = nil
 
 local function getServerNow()
 	return Workspace:GetServerTimeNow()
@@ -96,7 +97,8 @@ function TreeService.start(
 	treePlotRuntimeServiceModule,
 	axeServiceModule,
 	sessionTimeServiceModule,
-	gamePassServiceModule
+	gamePassServiceModule,
+	wishingTreeServiceModule
 )
 	if started then
 		return
@@ -107,6 +109,7 @@ function TreeService.start(
 	treePlotService = treePlotServiceModule
 	sessionTimeService = sessionTimeServiceModule
 	gamePassService = gamePassServiceModule
+	wishingTreeService = wishingTreeServiceModule
 	treeRules = treeRulesModule.create({
 		getAmberUpgradeLevel = function(player, upgradeKey)
 			if not playerData or not playerData.getAmberUpgradeLevel then
@@ -121,6 +124,13 @@ function TreeService.start(
 		getGamePassDamageMultiplier = function(player)
 			if gamePassService and gamePassService.getDamageMultiplier then
 				return gamePassService.getDamageMultiplier(player)
+			end
+
+			return 1
+		end,
+		getBlessingDamageMultiplier = function(player)
+			if wishingTreeService and wishingTreeService.getAxePowerMultiplier then
+				return wishingTreeService.getAxePowerMultiplier(player)
 			end
 
 			return 1
@@ -315,6 +325,13 @@ function TreeService.start(
 		getGamePassGoldMultiplier = function(player)
 			if gamePassService and gamePassService.getGoldMultiplier then
 				return gamePassService.getGoldMultiplier(player)
+			end
+
+			return 1
+		end,
+		getBlessingGoldMultiplier = function(player)
+			if wishingTreeService and wishingTreeService.getGoldMultiplier then
+				return wishingTreeService.getGoldMultiplier(player)
 			end
 
 			return 1

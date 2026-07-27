@@ -88,7 +88,7 @@ local serviceStartOrder = {
 	{
 		name = "AxeService",
 		start = function(services)
-			services.AxeService.start(services.PlayerData, services.GamePassService)
+			services.AxeService.start(services.PlayerData, services.GamePassService, services.WishingTreeService)
 		end,
 	},
 	{
@@ -100,7 +100,19 @@ local serviceStartOrder = {
 	{
 		name = "WishingTreeService",
 		start = function(services)
-			services.WishingTreeService.start(services.PlayerData)
+			services.WishingTreeService.start(services.PlayerData, {
+				applyWalkSpeed = function(player)
+					services.WalkSpeedController.applyToCurrentCharacter(
+						services.PlayerData,
+						services.GamePassService,
+						services.WishingTreeService,
+						player
+					)
+				end,
+				applySwingSpeed = function(player)
+					services.AxeService.applyToPlayer(player)
+				end,
+			})
 		end,
 	},
 	{
@@ -118,7 +130,7 @@ local serviceStartOrder = {
 	{
 		name = "DamageHubService",
 		start = function(services)
-			services.DamageHubService.start(services.PlayerData, services.GamePassService)
+			services.DamageHubService.start(services.PlayerData, services.GamePassService, services.WishingTreeService)
 		end,
 	},
 	{
@@ -136,13 +148,23 @@ local serviceStartOrder = {
 	{
 		name = "AmberShopService",
 		start = function(services)
-			services.AmberShopService.start(services.PlayerData, services.AxeService, services.GamePassService)
+			services.AmberShopService.start(
+				services.PlayerData,
+				services.AxeService,
+				services.GamePassService,
+				services.WishingTreeService
+			)
 		end,
 	},
 	{
 		name = "BlacksmithService",
 		start = function(services)
-			services.BlacksmithService.start(services.PlayerData, services.AxeService, services.GamePassService)
+			services.BlacksmithService.start(
+				services.PlayerData,
+				services.AxeService,
+				services.GamePassService,
+				services.WishingTreeService
+			)
 		end,
 	},
 	{
@@ -154,7 +176,8 @@ local serviceStartOrder = {
 				services.TreePlotRuntimeService,
 				services.AxeService,
 				services.SessionTimeService,
-				services.GamePassService
+				services.GamePassService,
+				services.WishingTreeService
 			)
 		end,
 	},
@@ -224,7 +247,13 @@ local function syncPlayerSwingSpeed(services, player)
 end
 
 local function syncPlayerWalkSpeed(services, player, character)
-	services.WalkSpeedController.applyToCharacter(services.PlayerData, services.GamePassService, player, character)
+	services.WalkSpeedController.applyToCharacter(
+		services.PlayerData,
+		services.GamePassService,
+		services.WishingTreeService,
+		player,
+		character
+	)
 end
 
 local function syncPlayerPlotSpawn(services, player, character)
@@ -241,7 +270,12 @@ local function onPlayerAdded(services, player)
 
 	services.PlayerData.loadPlayer(player)
 	services.GamePassService.onPlayerAdded(player)
-	services.WalkSpeedController.applyToCurrentCharacter(services.PlayerData, services.GamePassService, player)
+	services.WalkSpeedController.applyToCurrentCharacter(
+		services.PlayerData,
+		services.GamePassService,
+		services.WishingTreeService,
+		player
+	)
 	syncPlayerAxe(services, player)
 	syncPlayerSwingSpeed(services, player)
 	services.OfflineProgressionService.onPlayerAdded(player)

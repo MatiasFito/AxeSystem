@@ -145,6 +145,9 @@ function TreeHitController.create(deps)
 		local gamePassGoldMultiplier = 1
 		local resolvedGamePassGoldMultiplier = deps.getGamePassGoldMultiplier and deps.getGamePassGoldMultiplier(player)
 			or nil
+		local blessingGoldMultiplier = 1
+		local resolvedBlessingGoldMultiplier = deps.getBlessingGoldMultiplier and deps.getBlessingGoldMultiplier(player)
+			or nil
 		local rebirthGoldMultiplier = deps.getRebirthGoldMultiplier and deps.getRebirthGoldMultiplier(rebirths) or 1
 
 		if typeof(resolvedSessionGoldMultiplier) == "number" and resolvedSessionGoldMultiplier > 0 then
@@ -153,6 +156,10 @@ function TreeHitController.create(deps)
 
 		if typeof(resolvedGamePassGoldMultiplier) == "number" and resolvedGamePassGoldMultiplier > 0 then
 			gamePassGoldMultiplier = resolvedGamePassGoldMultiplier
+		end
+
+		if typeof(resolvedBlessingGoldMultiplier) == "number" and resolvedBlessingGoldMultiplier > 0 then
+			blessingGoldMultiplier = resolvedBlessingGoldMultiplier
 		end
 
 		local premiumGoldMultiplier = robloxSubscriptionConfig.getGoldMultiplier(player)
@@ -195,6 +202,7 @@ function TreeHitController.create(deps)
 					* premiumGoldMultiplier
 					* sessionGoldMultiplier
 					* gamePassGoldMultiplier
+					* blessingGoldMultiplier
 					* rebirthGoldMultiplier
 				) + 0.5
 			)

@@ -24,7 +24,7 @@ local function closeModal()
 	whisperingStumpUI.close()
 end
 
-local function dismissModalWhileInside()
+local function _dismissModalWhileInside()
 	whisperingStumpUI.close()
 end
 

@@ -15,6 +15,7 @@ local DamageHubService = {}
 local started = false
 local playerData = nil
 local gamePassService = nil
+local wishingTreeService = nil
 local stateBuilder = nil
 
 local function buildFailure(reason)
@@ -37,7 +38,7 @@ function DamageHubService.getState(player)
 	return stateBuilder.buildStatePayload(player)
 end
 
-function DamageHubService.start(playerDataModule, gamePassServiceModule)
+function DamageHubService.start(playerDataModule, gamePassServiceModule, wishingTreeServiceModule)
 	if started then
 		return
 	end
@@ -45,12 +46,20 @@ function DamageHubService.start(playerDataModule, gamePassServiceModule)
 	started = true
 	playerData = playerDataModule
 	gamePassService = gamePassServiceModule
+	wishingTreeService = wishingTreeServiceModule
 
 	local axeDamageResolver = axeDamageResolverModule.create({
 		getAmberUpgradeLevel = playerData.getAmberUpgradeLevel,
 		getGamePassDamageMultiplier = function(player)
 			if gamePassService and gamePassService.getDamageMultiplier then
 				return gamePassService.getDamageMultiplier(player)
+			end
+
+			return 1
+		end,
+		getBlessingDamageMultiplier = function(player)
+			if wishingTreeService and wishingTreeService.getAxePowerMultiplier then
+				return wishingTreeService.getAxePowerMultiplier(player)
 			end
 
 			return 1

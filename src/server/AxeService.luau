@@ -13,6 +13,7 @@ local axeInventoryPolicy = axeInventoryPolicyModule.create({
 })
 local playerData = nil
 local gamePassService = nil
+local wishingTreeService = nil
 local SWING_SPEED_UPGRADE_KEY = "SwingSpeed"
 
 local function ensureStatsFolder(tool)
@@ -84,6 +85,20 @@ local function getGamePassSwingSpeedMultiplier(player)
 	return multiplier
 end
 
+local function getBlessingSwingSpeedMultiplier(player)
+	if not wishingTreeService or not wishingTreeService.getAttackSpeedMultiplier or not player then
+		return 1
+	end
+
+	local multiplier = wishingTreeService.getAttackSpeedMultiplier(player)
+
+	if typeof(multiplier) ~= "number" or multiplier <= 0 then
+		return 1
+	end
+
+	return multiplier
+end
+
 local function getEffectivePlayerSwingSpeed(player, selectedMultiplier)
 	local resolvedSelectedMultiplier = selectedMultiplier
 
@@ -91,7 +106,10 @@ local function getEffectivePlayerSwingSpeed(player, selectedMultiplier)
 		resolvedSelectedMultiplier = getSelectedPlayerSwingSpeed(player)
 	end
 
-	return resolvedSelectedMultiplier * getAmberSwingSpeedMultiplier(player) * getGamePassSwingSpeedMultiplier(player)
+	return resolvedSelectedMultiplier
+		* getAmberSwingSpeedMultiplier(player)
+		* getGamePassSwingSpeedMultiplier(player)
+		* getBlessingSwingSpeedMultiplier(player)
 end
 
 local function setToolSwingSpeed(tool, multiplier)
@@ -138,9 +156,10 @@ local function applyPlayerSwingSpeed(player, multiplier)
 	return effectiveMultiplier
 end
 
-function AxeService.start(playerDataModule, gamePassServiceModule)
+function AxeService.start(playerDataModule, gamePassServiceModule, wishingTreeServiceModule)
 	playerData = playerDataModule
 	gamePassService = gamePassServiceModule
+	wishingTreeService = wishingTreeServiceModule
 end
 
 function AxeService.isAxeTool(tool)

@@ -8,6 +8,20 @@ local WalkSpeedController = {}
 local BASE_WALK_SPEED = 16
 local WALK_SPEED_UPGRADE_KEY = "WalkSpeed"
 
+local function getBlessingMovementSpeedMultiplier(wishingTreeService, player)
+	if not wishingTreeService or not wishingTreeService.getMovementSpeedMultiplier or not player then
+		return 1
+	end
+
+	local multiplier = wishingTreeService.getMovementSpeedMultiplier(player)
+
+	if typeof(multiplier) ~= "number" or multiplier <= 0 then
+		return 1
+	end
+
+	return multiplier
+end
+
 local function getGamePassMovementSpeedMultiplier(gamePassService, player)
 	if not gamePassService or not gamePassService.getMovementSpeedMultiplier or not player then
 		return 1
@@ -22,14 +36,17 @@ local function getGamePassMovementSpeedMultiplier(gamePassService, player)
 	return multiplier
 end
 
-local function resolveWalkSpeed(playerData, gamePassService, player)
+local function resolveWalkSpeed(playerData, gamePassService, wishingTreeService, player)
 	local walkSpeedLevel = playerData.getAmberUpgradeLevel(player, WALK_SPEED_UPGRADE_KEY) or 0
 	local walkSpeedMultiplier = rebirthConfig.getWalkSpeedMultiplier(walkSpeedLevel)
 
-	return BASE_WALK_SPEED * walkSpeedMultiplier * getGamePassMovementSpeedMultiplier(gamePassService, player)
+	return BASE_WALK_SPEED
+		* walkSpeedMultiplier
+		* getGamePassMovementSpeedMultiplier(gamePassService, player)
+		* getBlessingMovementSpeedMultiplier(wishingTreeService, player)
 end
 
-function WalkSpeedController.applyToCharacter(playerData, gamePassService, player, character)
+function WalkSpeedController.applyToCharacter(playerData, gamePassService, wishingTreeService, player, character)
 	if not playerData or not player or not character then
 		return false
 	end
@@ -40,11 +57,11 @@ function WalkSpeedController.applyToCharacter(playerData, gamePassService, playe
 		return false
 	end
 
-	humanoid.WalkSpeed = resolveWalkSpeed(playerData, gamePassService, player)
+	humanoid.WalkSpeed = resolveWalkSpeed(playerData, gamePassService, wishingTreeService, player)
 	return true
 end
 
-function WalkSpeedController.applyToCurrentCharacter(playerData, gamePassService, player)
+function WalkSpeedController.applyToCurrentCharacter(playerData, gamePassService, wishingTreeService, player)
 	if not playerData or not player then
 		return false
 	end
@@ -55,7 +72,7 @@ function WalkSpeedController.applyToCurrentCharacter(playerData, gamePassService
 		return false
 	end
 
-	return WalkSpeedController.applyToCharacter(playerData, gamePassService, player, character)
+	return WalkSpeedController.applyToCharacter(playerData, gamePassService, wishingTreeService, player, character)
 end
 
 return WalkSpeedController

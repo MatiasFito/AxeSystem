@@ -37,7 +37,17 @@ function AxeDamageResolver.create(deps)
 		end
 
 		local level = deps.getAmberUpgradeLevel(player, AXE_DAMAGE_UPGRADE_KEY) or 0
-		return rebirthConfig.getAxeDamageMultiplier(level) * getGamePassDamageMultiplier(player)
+		local blessingMultiplier = 1
+
+		if deps.getBlessingDamageMultiplier then
+			local resolvedBlessingMultiplier = deps.getBlessingDamageMultiplier(player)
+
+			if typeof(resolvedBlessingMultiplier) == "number" and resolvedBlessingMultiplier > 0 then
+				blessingMultiplier = resolvedBlessingMultiplier
+			end
+		end
+
+		return rebirthConfig.getAxeDamageMultiplier(level) * getGamePassDamageMultiplier(player) * blessingMultiplier
 	end
 
 	local function resolveFinalDamageFromBasePower(player, basePower)

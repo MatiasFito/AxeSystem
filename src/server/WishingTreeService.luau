@@ -13,6 +13,13 @@ local WishingTreeService = {}
 local playerData = nil
 local started = false
 local activeBlessingsByPlayer = {}
+local applyWalkSpeed = nil
+local applySwingSpeed = nil
+
+local MOVEMENT_SPEED_EFFECT_TYPE = "MovementSpeedMultiplier"
+local GOLD_EFFECT_TYPE = "GoldMultiplier"
+local ATTACK_SPEED_EFFECT_TYPE = "AttackSpeedMultiplier"
+local AXE_POWER_EFFECT_TYPE = "AxePowerMultiplier"
 
 local function getRemainingDurationValue(entry, now)
 	local resolvedNow = typeof(now) == "number" and now or os.clock()
@@ -83,6 +90,42 @@ local function buildPublicBlessingState(player)
 	return blessingStates
 end
 
+local function getEffectMultiplier(player, effectType)
+	local runtimeState = activeBlessingsByPlayer[player]
+	local now = os.clock()
+	local multiplier = 1
+
+	if not runtimeState then
+		return multiplier
+	end
+
+	for blessingId, entry in runtimeState do
+		local blessingDefinition = wishingTreeBlessingConfig.getBlessingById(blessingId)
+
+		if
+			blessingDefinition
+			and blessingDefinition.EffectType == effectType
+			and getRemainingDurationValue(entry, now) > 0
+		then
+			multiplier *= blessingDefinition.EffectValue
+		end
+	end
+
+	return multiplier
+end
+
+local function reapplyAffectedStats(player, blessingDefinition)
+	if not blessingDefinition then
+		return
+	end
+
+	if blessingDefinition.EffectType == MOVEMENT_SPEED_EFFECT_TYPE and applyWalkSpeed then
+		applyWalkSpeed(player)
+	elseif blessingDefinition.EffectType == ATTACK_SPEED_EFFECT_TYPE and applySwingSpeed then
+		applySwingSpeed(player)
+	end
+end
+
 local function persistPlayerBlessings(player)
 	if not playerData then
 		return false
@@ -120,6 +163,7 @@ local function expireBlessing(player, blessingId, serial)
 	end
 
 	local entry = runtimeState[blessingId]
+	local blessingDefinition = wishingTreeBlessingConfig.getBlessingById(blessingId)
 
 	if not entry or entry.Serial ~= serial or getRemainingDurationSeconds(entry) > 0 then
 		return
@@ -133,6 +177,7 @@ local function expireBlessing(player, blessingId, serial)
 	end
 
 	persistPlayerBlessings(player)
+	reapplyAffectedStats(player, blessingDefinition)
 end
 
 local function scheduleEntryExpiry(player, blessingId, entry)
@@ -183,6 +228,22 @@ function WishingTreeService.getActiveBlessings(player)
 	return buildPublicBlessingState(player)
 end
 
+function WishingTreeService.getMovementSpeedMultiplier(player)
+	return getEffectMultiplier(player, MOVEMENT_SPEED_EFFECT_TYPE)
+end
+
+function WishingTreeService.getGoldMultiplier(player)
+	return getEffectMultiplier(player, GOLD_EFFECT_TYPE)
+end
+
+function WishingTreeService.getAttackSpeedMultiplier(player)
+	return getEffectMultiplier(player, ATTACK_SPEED_EFFECT_TYPE)
+end
+
+function WishingTreeService.getAxePowerMultiplier(player)
+	return getEffectMultiplier(player, AXE_POWER_EFFECT_TYPE)
+end
+
 function WishingTreeService.onPlayerAdded(player)
 	if not playerData or not playerData.isLoaded(player) then
 		clearPlayerRuntimeState(player)
@@ -190,13 +251,29 @@ function WishingTreeService.onPlayerAdded(player)
 	end
 
 	clearPlayerRuntimeState(player)
+	local shouldReapplyWalkSpeed = false
+	local shouldReapplySwingSpeed = false
 
 	for _, blessingState in ipairs(playerData.getActiveBlessings(player) or {}) do
 		local blessingDefinition = wishingTreeBlessingConfig.getBlessingById(blessingState.BlessingId)
 
 		if blessingDefinition then
 			upsertBlessing(player, blessingDefinition, blessingState.RemainingDurationSeconds, false)
+
+			if blessingDefinition.EffectType == MOVEMENT_SPEED_EFFECT_TYPE then
+				shouldReapplyWalkSpeed = true
+			elseif blessingDefinition.EffectType == ATTACK_SPEED_EFFECT_TYPE then
+				shouldReapplySwingSpeed = true
+			end
 		end
+	end
+
+	if shouldReapplyWalkSpeed and applyWalkSpeed then
+		applyWalkSpeed(player)
+	end
+
+	if shouldReapplySwingSpeed and applySwingSpeed then
+		applySwingSpeed(player)
 	end
 end
 
@@ -207,6 +284,15 @@ end
 
 function WishingTreeService.onPlayerDataReset(player)
 	clearPlayerRuntimeState(player)
+
+	if applyWalkSpeed then
+		applyWalkSpeed(player)
+	end
+
+	if applySwingSpeed then
+		applySwingSpeed(player)
+	end
+
 	return true
 end
 
@@ -236,6 +322,7 @@ function WishingTreeService.rollBlessing(player)
 
 	local activeBlessings, remainingDurationSeconds =
 		upsertBlessing(player, blessingDefinition, blessingDefinition.DurationSeconds)
+	reapplyAffectedStats(player, blessingDefinition)
 
 	return serviceResult.success(activeBlessings, {
 		blessing = {
@@ -249,13 +336,15 @@ function WishingTreeService.rollBlessing(player)
 	})
 end
 
-function WishingTreeService.start(playerDataModule)
+function WishingTreeService.start(playerDataModule, deps)
 	if started then
 		return
 	end
 
 	started = true
 	playerData = playerDataModule
+	applyWalkSpeed = deps and deps.applyWalkSpeed or nil
+	applySwingSpeed = deps and deps.applySwingSpeed or nil
 
 	local remotes = wishingTreeRemoteRegistry.getOrCreateRemotes()
 	local handlers = wishingTreeRemoteHandlers.create({
