@@ -19,6 +19,10 @@ local serviceDefinitions = {
 		moduleName = "BlacksmithService",
 	},
 	{
+		name = "DamageHubService",
+		moduleName = "DamageHubService",
+	},
+	{
 		name = "GamePassService",
 		moduleName = "GamePassService",
 	},
@@ -99,6 +103,12 @@ local serviceStartOrder = {
 		name = "GoldHubService",
 		start = function(services)
 			services.GoldHubService.start(services.PlayerData, services.SessionTimeService, services.GamePassService)
+		end,
+	},
+	{
+		name = "DamageHubService",
+		start = function(services)
+			services.DamageHubService.start(services.PlayerData, services.GamePassService)
 		end,
 	},
 	{

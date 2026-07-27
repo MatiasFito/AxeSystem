@@ -4,6 +4,7 @@ local controllerDefinitions = {
 	"AmberShopController",
 	"AutoSwingUI",
 	"BlacksmithZoneController",
+	"DamageHubController",
 	"GoldHubController",
 	"OwnedPromptVisibilityController",
 	"RebirthController",

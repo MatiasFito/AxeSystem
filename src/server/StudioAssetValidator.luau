@@ -706,6 +706,168 @@ local function validateTopGoldLabelGui(errors)
 	end
 end
 
+local function validateDamageHubGui(errors)
+	local damageHubRoot = requireChildPath(
+		StarterGui,
+		{ STATIC_HUD_NAME, "LeftContainer", "DamageHubRoot" },
+		"GuiButton",
+		errors,
+		"StarterGui"
+	)
+	local damageHubModal =
+		requireChildPath(StarterGui, { POPUPS_HUD_NAME, "DamageHubModal" }, "GuiObject", errors, "StarterGui")
+	local darkOverlay =
+		requireChildPath(StarterGui, { POPUPS_HUD_NAME, "DarkOverlay" }, "GuiObject", errors, "StarterGui")
+
+	if darkOverlay then
+		local _ = darkOverlay
+	end
+
+	if damageHubRoot then
+		local _ = damageHubRoot
+	end
+
+	if not damageHubModal then
+		return
+	end
+
+	requireChild(damageHubModal, "Title", "TextLabel", errors, "StarterGui/PopupsHUD/DamageHubModal")
+	requireChild(damageHubModal, "CurrentAxeCard", "GuiObject", errors, "StarterGui/PopupsHUD/DamageHubModal")
+	requireChild(damageHubModal, "List", "ScrollingFrame", errors, "StarterGui/PopupsHUD/DamageHubModal")
+	requireChild(damageHubModal, "TotalDamageLabel", "TextLabel", errors, "StarterGui/PopupsHUD/DamageHubModal")
+
+	local currentAxeCard = damageHubModal:FindFirstChild("CurrentAxeCard")
+
+	if currentAxeCard and currentAxeCard:IsA("GuiObject") then
+		requireChild(
+			currentAxeCard,
+			"AxeIcon",
+			"ImageLabel",
+			errors,
+			"StarterGui/PopupsHUD/DamageHubModal/CurrentAxeCard"
+		)
+		local infoContainer = requireChild(
+			currentAxeCard,
+			"InfoContainer",
+			"GuiObject",
+			errors,
+			"StarterGui/PopupsHUD/DamageHubModal/CurrentAxeCard"
+		)
+
+		if infoContainer then
+			requireChild(
+				infoContainer,
+				"AxeNameLabel",
+				"TextLabel",
+				errors,
+				"StarterGui/PopupsHUD/DamageHubModal/CurrentAxeCard/InfoContainer"
+			)
+			requireChild(
+				infoContainer,
+				"BasePowerLabel",
+				"TextLabel",
+				errors,
+				"StarterGui/PopupsHUD/DamageHubModal/CurrentAxeCard/InfoContainer"
+			)
+		end
+	end
+
+	local list = damageHubModal:FindFirstChild("List")
+
+	if not list or not list:IsA("ScrollingFrame") then
+		return
+	end
+
+	requireChild(list, "ListLayout", "UIListLayout", errors, "StarterGui/PopupsHUD/DamageHubModal/List")
+
+	local function validateMultiplierRow(rowName)
+		local row = requireChild(list, rowName, "GuiObject", errors, "StarterGui/PopupsHUD/DamageHubModal/List")
+
+		if not row then
+			return
+		end
+
+		requireChild(
+			row,
+			"Icon",
+			"ImageLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/DamageHubModal/List/%s", rowName)
+		)
+		requireChild(
+			row,
+			"NameLabel",
+			"TextLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/DamageHubModal/List/%s", rowName)
+		)
+		requireChild(
+			row,
+			"ArrowLabel",
+			"TextLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/DamageHubModal/List/%s", rowName)
+		)
+		requireChild(
+			row,
+			"BonusLabel",
+			"TextLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/DamageHubModal/List/%s", rowName)
+		)
+	end
+
+	local function validatePassRow(rowName)
+		local row = requireChild(list, rowName, "GuiObject", errors, "StarterGui/PopupsHUD/DamageHubModal/List")
+
+		if not row then
+			return
+		end
+
+		requireChild(
+			row,
+			"Icon",
+			"ImageLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/DamageHubModal/List/%s", rowName)
+		)
+		requireChild(
+			row,
+			"NameLabel",
+			"TextLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/DamageHubModal/List/%s", rowName)
+		)
+		requireChild(
+			row,
+			"ArrowLabel",
+			"TextLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/DamageHubModal/List/%s", rowName)
+		)
+		requireChild(
+			row,
+			"BonusLabel",
+			"TextLabel",
+			errors,
+			string.format("StarterGui/PopupsHUD/DamageHubModal/List/%s", rowName)
+		)
+		requireChild(
+			row,
+			"BuyButton",
+			"GuiButton",
+			errors,
+			string.format("StarterGui/PopupsHUD/DamageHubModal/List/%s", rowName)
+		)
+	end
+
+	validateMultiplierRow("AmberMultiplierRow")
+	validateMultiplierRow("StrengthWishRow")
+	validateMultiplierRow("BerserkerWishRow")
+	validatePassRow("SharpAxePassRow")
+	validatePassRow("VIPStatusRow")
+end
+
 local function validateGoldHubGui(errors)
 	local goldHubModal =
 		requireChildPath(StarterGui, { POPUPS_HUD_NAME, "GoldHubModal" }, "GuiObject", errors, "StarterGui")
@@ -1117,6 +1279,7 @@ function StudioAssetValidator.validateOrThrow()
 	validateAutoSwingGui(errors)
 	validateBlacksmithGui(errors)
 	validateBlacksmithSection(errors)
+	validateDamageHubGui(errors)
 	validateGoldHubGui(errors)
 	validateRebirthGui(errors)
 	validateTopGoldLabelGui(errors)
