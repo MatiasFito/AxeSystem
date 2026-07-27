@@ -7,6 +7,7 @@ local lumberjackConstants = require(sharedFolder:WaitForChild("LumberjackConstan
 local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
 local treeConstants = require(sharedFolder:WaitForChild("TreeConstants") :: ModuleScript)
+local wishingTreeBlessingConfig = require(sharedFolder:WaitForChild("WishingTreeBlessingConfig") :: ModuleScript)
 
 local PlayerDataSerializer = {}
 
@@ -73,6 +74,19 @@ function PlayerDataSerializer.cloneAmberUpgrades(amberUpgrades)
 	return rebirthConfig.cloneAmberUpgrades(amberUpgrades)
 end
 
+function PlayerDataSerializer.cloneActiveBlessings(activeBlessings)
+	local clonedActiveBlessings = {}
+
+	for index, blessingState in ipairs(activeBlessings) do
+		clonedActiveBlessings[index] = {
+			BlessingId = blessingState.BlessingId,
+			RemainingDurationSeconds = blessingState.RemainingDurationSeconds,
+		}
+	end
+
+	return clonedActiveBlessings
+end
+
 function PlayerDataSerializer.cloneState(state)
 	return {
 		SchemaVersion = state.SchemaVersion,
@@ -82,6 +96,7 @@ function PlayerDataSerializer.cloneState(state)
 		Rebirths = state.Rebirths,
 		Amber = state.Amber,
 		AmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades),
+		ActiveBlessings = PlayerDataSerializer.cloneActiveBlessings(state.ActiveBlessings or {}),
 		LastLogoutAt = state.LastLogoutAt,
 		LastUpdatedAt = state.LastUpdatedAt,
 		IsLoaded = state.IsLoaded,
@@ -265,6 +280,36 @@ function PlayerDataSerializer.normalizeTreePlots(rawTreePlots)
 	return normalizedTreePlots, wasChanged
 end
 
+function PlayerDataSerializer.normalizeActiveBlessings(activeBlessings)
+	if typeof(activeBlessings) ~= "table" then
+		return {}
+	end
+
+	local normalizedBlessings = {}
+
+	for _, blessingState in ipairs(activeBlessings) do
+		if
+			typeof(blessingState) == "table" and wishingTreeBlessingConfig.isValidBlessingId(blessingState.BlessingId)
+		then
+			local remainingDurationSeconds =
+				math.max(0, math.floor(tonumber(blessingState.RemainingDurationSeconds) or 0))
+
+			if remainingDurationSeconds > 0 then
+				table.insert(normalizedBlessings, {
+					BlessingId = blessingState.BlessingId,
+					RemainingDurationSeconds = remainingDurationSeconds,
+				})
+			end
+		end
+	end
+
+	table.sort(normalizedBlessings, function(left, right)
+		return left.BlessingId < right.BlessingId
+	end)
+
+	return normalizedBlessings
+end
+
 function PlayerDataSerializer.buildDefaultState()
 	return {
 		SchemaVersion = treeConstants.CURRENT_SCHEMA_VERSION,
@@ -274,6 +319,7 @@ function PlayerDataSerializer.buildDefaultState()
 		Rebirths = 0,
 		Amber = 0,
 		AmberUpgrades = rebirthConfig.createDefaultAmberUpgrades(),
+		ActiveBlessings = {},
 		LastLogoutAt = nil,
 		LastUpdatedAt = os.time(),
 		IsLoaded = true,
@@ -294,6 +340,7 @@ function PlayerDataSerializer.buildRebirthResetState(previousState, awardedAmber
 		Amber = PlayerDataSerializer.normalizeAmber(normalizedPreviousState.Amber)
 			+ PlayerDataSerializer.normalizeAmber(awardedAmber),
 		AmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(normalizedPreviousState.AmberUpgrades),
+		ActiveBlessings = PlayerDataSerializer.cloneActiveBlessings(normalizedPreviousState.ActiveBlessings or {}),
 		LastLogoutAt = nil,
 		LastUpdatedAt = os.time(),
 		IsLoaded = true,
@@ -336,6 +383,7 @@ local function migrateLegacyData(rawData)
 		Rebirths = 0,
 		Amber = 0,
 		AmberUpgrades = rebirthConfig.createDefaultAmberUpgrades(),
+		ActiveBlessings = {},
 		LastLogoutAt = nil,
 		LastUpdatedAt = os.time(),
 		IsLoaded = true,
@@ -350,6 +398,7 @@ local function normalizeCurrentData(rawData)
 	local normalizedRebirths = PlayerDataSerializer.normalizeRebirths(rawData.Rebirths)
 	local normalizedAmber = PlayerDataSerializer.normalizeAmber(rawData.Amber)
 	local normalizedAmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(rawData.AmberUpgrades)
+	local normalizedActiveBlessings = PlayerDataSerializer.normalizeActiveBlessings(rawData.ActiveBlessings)
 	local normalizedLastLogoutAt = normalizeTimestamp(rawData.LastLogoutAt)
 	local lastUpdatedAt = rawData.LastUpdatedAt
 	local wasChanged = false
@@ -385,6 +434,27 @@ local function normalizeCurrentData(rawData)
 		end
 	end
 
+	if typeof(rawData.ActiveBlessings) ~= "table" then
+		wasChanged = true
+	else
+		if #normalizedActiveBlessings ~= #rawData.ActiveBlessings then
+			wasChanged = true
+		else
+			for index, blessingState in ipairs(normalizedActiveBlessings) do
+				local rawBlessingState = rawData.ActiveBlessings[index]
+
+				if
+					typeof(rawBlessingState) ~= "table"
+					or blessingState.BlessingId ~= rawBlessingState.BlessingId
+					or blessingState.RemainingDurationSeconds ~= rawBlessingState.RemainingDurationSeconds
+				then
+					wasChanged = true
+					break
+				end
+			end
+		end
+	end
+
 	if normalizedLastLogoutAt ~= rawData.LastLogoutAt then
 		wasChanged = true
 	end
@@ -406,6 +476,7 @@ local function normalizeCurrentData(rawData)
 		Rebirths = normalizedRebirths,
 		Amber = normalizedAmber,
 		AmberUpgrades = normalizedAmberUpgrades,
+		ActiveBlessings = normalizedActiveBlessings,
 		LastLogoutAt = normalizedLastLogoutAt,
 		LastUpdatedAt = lastUpdatedAt,
 		IsLoaded = true,
@@ -438,6 +509,7 @@ function PlayerDataSerializer.serializeState(state)
 		Rebirths = PlayerDataSerializer.normalizeRebirths(state.Rebirths),
 		Amber = PlayerDataSerializer.normalizeAmber(state.Amber),
 		AmberUpgrades = PlayerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades),
+		ActiveBlessings = PlayerDataSerializer.cloneActiveBlessings(state.ActiveBlessings or {}),
 		LastLogoutAt = normalizeTimestamp(state.LastLogoutAt),
 		LastUpdatedAt = state.LastUpdatedAt,
 	}

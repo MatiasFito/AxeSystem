@@ -125,6 +125,16 @@ function PlayerData.getAmberUpgrades(player)
 	return playerDataSerializer.cloneAmberUpgrades(state.AmberUpgrades)
 end
 
+function PlayerData.getActiveBlessings(player)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return nil
+	end
+
+	return playerDataSerializer.cloneActiveBlessings(state.ActiveBlessings or {})
+end
+
 function PlayerData.getAmberUpgradeLevel(player, upgradeKey)
 	local state = playerStates[player]
 
@@ -221,6 +231,18 @@ function PlayerData.setAmberUpgrades(player, amberUpgrades)
 	end
 
 	state.AmberUpgrades = playerDataSerializer.cloneAmberUpgrades(amberUpgrades)
+	state.IsDirty = true
+	return true
+end
+
+function PlayerData.setActiveBlessings(player, activeBlessings)
+	local state = playerStates[player]
+
+	if not state or not state.IsLoaded then
+		return false
+	end
+
+	state.ActiveBlessings = playerDataSerializer.normalizeActiveBlessings(activeBlessings)
 	state.IsDirty = true
 	return true
 end

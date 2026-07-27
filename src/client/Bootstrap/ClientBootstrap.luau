@@ -14,6 +14,7 @@ local controllerDefinitions = {
 	"TreeParticlesController",
 	"TreePromptAudioController",
 	"TreeUpgradePadController",
+	"WishingTreeController",
 	"WhisperingStumpZoneController",
 }
 

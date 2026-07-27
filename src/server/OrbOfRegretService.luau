@@ -12,6 +12,7 @@ local playerData = nil
 local axeService = nil
 local treePlotRuntimeService = nil
 local lumberjackService = nil
+local wishingTreeService = nil
 
 local ORB_NAME = "OrbOfRegret"
 local ORB_POSITION = Vector3.new(-30, 3.5, 0)
@@ -91,13 +92,18 @@ local function handleTriggered(player)
 	if lumberjackService and not lumberjackService.onPlayerDataReset(player) then
 		warn(string.format("OrbOfRegret failed to refresh lumberjack state for %s", player.Name))
 	end
+
+	if wishingTreeService and not wishingTreeService.onPlayerDataReset(player) then
+		warn(string.format("OrbOfRegret failed to clear blessing state for %s", player.Name))
+	end
 end
 
 function OrbOfRegretService.start(
 	playerDataModule,
 	axeServiceModule,
 	treePlotRuntimeServiceModule,
-	lumberjackServiceModule
+	lumberjackServiceModule,
+	wishingTreeServiceModule
 )
 	if started then
 		return
@@ -108,6 +114,7 @@ function OrbOfRegretService.start(
 	axeService = axeServiceModule
 	treePlotRuntimeService = treePlotRuntimeServiceModule
 	lumberjackService = lumberjackServiceModule
+	wishingTreeService = wishingTreeServiceModule
 
 	local _, prompt = ensureOrb()
 	prompt.Triggered:Connect(handleTriggered)

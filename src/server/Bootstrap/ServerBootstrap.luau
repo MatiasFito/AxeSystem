@@ -51,6 +51,10 @@ local serviceDefinitions = {
 		moduleName = "PlayerData",
 	},
 	{
+		name = "WishingTreeService",
+		moduleName = "WishingTreeService",
+	},
+	{
 		name = "SessionTimeService",
 		moduleName = "SessionTimeService",
 	},
@@ -91,6 +95,12 @@ local serviceStartOrder = {
 		name = "OfflineProgressionService",
 		start = function(services)
 			services.OfflineProgressionService.start(services.PlayerData, services.GamePassService, services.AxeService)
+		end,
+	},
+	{
+		name = "WishingTreeService",
+		start = function(services)
+			services.WishingTreeService.start(services.PlayerData)
 		end,
 	},
 	{
@@ -172,7 +182,8 @@ local serviceStartOrder = {
 				services.PlayerData,
 				services.AxeService,
 				services.TreePlotRuntimeService,
-				services.LumberjackService
+				services.LumberjackService,
+				services.WishingTreeService
 			)
 		end,
 	},
@@ -235,6 +246,7 @@ local function onPlayerAdded(services, player)
 	syncPlayerSwingSpeed(services, player)
 	services.OfflineProgressionService.onPlayerAdded(player)
 	services.SessionTimeService.onPlayerAdded(player)
+	services.WishingTreeService.onPlayerAdded(player)
 	services.TreePlotRuntimeService.onPlayerAdded(player)
 	services.LumberjackService.onPlayerAdded(player)
 end
@@ -243,6 +255,7 @@ local function onPlayerRemoving(services, player)
 	services.OfflineProgressionService.onPlayerRemoving(player)
 	services.GamePassService.onPlayerRemoving(player)
 	services.SessionTimeService.onPlayerRemoving(player)
+	services.WishingTreeService.onPlayerRemoving(player)
 	services.LumberjackService.onPlayerRemoving(player)
 	services.TreePlotRuntimeService.onPlayerRemoving(player)
 	services.PlayerData.removePlayer(player)

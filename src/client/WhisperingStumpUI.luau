@@ -7,6 +7,8 @@ local WhisperingStumpUI = {}
 
 local started = false
 local modalFrame = nil
+local rollButton = nil
+local rollHandler = nil
 
 local function setVisible(instance, isVisible)
 	if not instance then
@@ -20,6 +22,12 @@ local function setVisible(instance, isVisible)
 
 	if instance:IsA("GuiObject") then
 		instance.Visible = isVisible
+	end
+end
+
+local function handleRollActivated()
+	if rollHandler then
+		rollHandler()
 	end
 end
 
@@ -43,8 +51,18 @@ local function ensureGui()
 
 	started = true
 	modalFrame = nextModalFrame
+	rollButton = modalFrame:FindFirstChild("RollButton")
+
+	if rollButton and rollButton:IsA("GuiButton") then
+		rollButton.Activated:Connect(handleRollActivated)
+	end
 
 	setVisible(modalFrame, false)
+end
+
+function WhisperingStumpUI.setRollHandler(handler)
+	ensureGui()
+	rollHandler = handler
 end
 
 function WhisperingStumpUI.open()
