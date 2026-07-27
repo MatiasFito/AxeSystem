@@ -6,6 +6,7 @@ local controllerDefinitions = {
 	"BlacksmithZoneController",
 	"DamageHubController",
 	"GoldHubController",
+	"OfflineRewardController",
 	"OwnedPromptVisibilityController",
 	"RebirthController",
 	"TopGoldLabel",

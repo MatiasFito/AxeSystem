@@ -1,3 +1,5 @@
+local MarketplaceService = game:GetService("MarketplaceService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
@@ -8,7 +10,12 @@ local rebirthConfig = require(sharedFolder:WaitForChild("RebirthConfig") :: Modu
 local robloxSubscriptionConfig = require(sharedFolder:WaitForChild("RobloxSubscriptionConfig") :: ModuleScript)
 local swingSpeed = require(sharedFolder:WaitForChild("SwingSpeed") :: ModuleScript)
 local treeConfig = require(sharedFolder:WaitForChild("TreeConfig") :: ModuleScript)
+local offlineProgressionConstants = require(sharedFolder:WaitForChild("OfflineProgressionConstants") :: ModuleScript)
 local axeDamageResolverModule = require(script.Parent:WaitForChild("AxeDamageResolver") :: ModuleScript)
+local offlineProgressionRemoteHandlers =
+	require(script.Parent:WaitForChild("OfflineProgressionRemoteHandlers") :: ModuleScript)
+local offlineProgressionRemoteRegistry =
+	require(script.Parent:WaitForChild("OfflineProgressionRemoteRegistry") :: ModuleScript)
 
 local OfflineProgressionService = {}
 
@@ -22,6 +29,7 @@ local playerData = nil
 local gamePassService = nil
 local axeService = nil
 local axeDamageResolver = nil
+local pendingRewards = {}
 
 local function sanitizePositiveNumber(value, fallback)
 	if typeof(value) ~= "number" or value <= 0 then
@@ -174,6 +182,107 @@ function OfflineProgressionService.start(playerDataModule, gamePassServiceModule
 			return sanitizePositiveNumber(gamePassService.getDamageMultiplier(player), 1)
 		end,
 	})
+
+	local remotes = offlineProgressionRemoteRegistry.getOrCreateRemotes()
+	local handlers = offlineProgressionRemoteHandlers.create({
+		getPendingReward = function(player)
+			local userId = player.UserId
+			local reward = pendingRewards[userId]
+
+			if not reward then
+				return nil
+			end
+
+			return {
+				offlineGoldEarned = reward.offlineGoldEarned,
+				offlineSeconds = reward.offlineSeconds,
+				offlineCapSeconds = reward.offlineCapSeconds,
+				totalGps = reward.totalGps,
+			}
+		end,
+		claimReward = function(player, goldAmount)
+			local userId = player.UserId
+			local reward = pendingRewards[userId]
+
+			if not reward then
+				return
+			end
+
+			if not playerData or not playerData.isLoaded or not playerData.isLoaded(player) then
+				return
+			end
+
+			local clampedAmount = math.max(0, math.floor(tonumber(goldAmount) or 0))
+
+			if clampedAmount <= 0 then
+				return
+			end
+
+			local currentGold = playerData.getGold(player) or 0
+
+			if playerData.setGold(player, currentGold + clampedAmount) then
+				print(
+					string.format(
+						"[OfflineProgressionService] %s claimed offline gold=%d (base=%d)",
+						player.Name,
+						clampedAmount,
+						reward.offlineGoldEarned
+					)
+				)
+			else
+				warn(string.format("[OfflineProgressionService] Failed to claim offline gold for %s", player.Name))
+			end
+
+			pendingRewards[userId] = nil
+		end,
+	})
+
+	offlineProgressionRemoteHandlers.bind(remotes, handlers)
+
+	MarketplaceService.ProcessReceipt = function(receiptInfo)
+		if receiptInfo.ProductId == offlineProgressionConstants.DEVELOPER_PRODUCT_ID then
+			local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
+
+			if not player then
+				return Enum.ProductPurchaseDecision.NotProcessedYet
+			end
+
+			local userId = player.UserId
+			local reward = pendingRewards[userId]
+
+			if not reward then
+				return Enum.ProductPurchaseDecision.PurchaseGranted
+			end
+
+			local doubleAmount = reward.offlineGoldEarned * 2
+			local currentGold = playerData.getGold(player) or 0
+
+			if playerData.setGold(player, currentGold + doubleAmount) then
+				print(
+					string.format(
+						"[OfflineProgressionService] %s double offline gold awarded=%d (base=%d)",
+						player.Name,
+						doubleAmount,
+						reward.offlineGoldEarned
+					)
+				)
+			else
+				warn(
+					string.format("[OfflineProgressionService] Failed to award double offline gold for %s", player.Name)
+				)
+			end
+
+			pendingRewards[userId] = nil
+
+			if remotes.DoublePurchaseProcessedRemote then
+				remotes.DoublePurchaseProcessedRemote:FireClient(player)
+			end
+
+			return Enum.ProductPurchaseDecision.PurchaseGranted
+		end
+
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
 end
 
 function OfflineProgressionService.onPlayerAdded(player)
@@ -182,33 +291,34 @@ function OfflineProgressionService.onPlayerAdded(player)
 	end
 
 	local result = calculateOfflineReward(player)
-	local awardedGold = 0
 
 	if result.offlineGoldEarned > 0 then
-		local currentGold = playerData.getGold(player) or 0
-
-		if playerData.setGold(player, currentGold + result.offlineGoldEarned) then
-			awardedGold = result.offlineGoldEarned
-		else
-			warn(string.format("[OfflineProgressionService] Failed to award offline gold to %s", player.Name))
-		end
+		pendingRewards[player.UserId] = result
+		print(
+			string.format(
+				"[OfflineProgressionService] %s has pending offline reward=%d (offlineSeconds=%d capSeconds=%d totalGPS=%.2f)",
+				player.Name,
+				result.offlineGoldEarned,
+				result.offlineSeconds,
+				result.offlineCapSeconds,
+				result.totalGps
+			)
+		)
+	else
+		print(
+			string.format(
+				"[OfflineProgressionService] %s no offline reward (offlineSeconds=%d capSeconds=%d totalGPS=%.2f)",
+				player.Name,
+				result.offlineSeconds,
+				result.offlineCapSeconds,
+				result.totalGps
+			)
+		)
 	end
 
 	if result.lastLogoutAt ~= nil then
 		playerData.setLastLogoutAt(player, nil)
 	end
-
-	print(
-		string.format(
-			"[OfflineProgressionService] %s offlineSeconds=%d capSeconds=%d totalGPS=%.2f offlineGold=%d awardedGold=%d",
-			player.Name,
-			result.offlineSeconds,
-			result.offlineCapSeconds,
-			result.totalGps,
-			result.offlineGoldEarned,
-			awardedGold
-		)
-	)
 end
 
 function OfflineProgressionService.onPlayerRemoving(player)
